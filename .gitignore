@@ -1,0 +1,36 @@
+# Environment
+.env
+llama_*.txt
+
+# Build results
+bin/
+obj/
+publish/
+
+# .NET
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+
+# Avalonia
+*.Avalonia
+*. avalonia
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test results
+TestResults/
+coverage/

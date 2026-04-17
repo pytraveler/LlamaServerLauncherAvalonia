@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+
+  <data name="WindowTitle" xml:space="preserve">
+    <value>llama-server launcher</value>
+  </data>
+  <data name="ServerControl" xml:space="preserve">
+    <value>Управление сервером</value>
+  </data>
+  <data name="StartServer" xml:space="preserve">
+    <value>Запустить сервер</value>
+  </data>
+  <data name="StopServer" xml:space="preserve">
+    <value>Остановить сервер</value>
+  </data>
+  <data name="UnloadModel" xml:space="preserve">
+    <value>Выгрузить модели</value>
+  </data>
+  <data name="AutoRestartOnCrash" xml:space="preserve">
+    <value>Автоперезапуск при сбое</value>
+  </data>
+  <data name="StatusStopped" xml:space="preserve">
+    <value>Остановлен</value>
+  </data>
+  <data name="StatusRunning" xml:space="preserve">
+    <value>Запущен (PID: {0})</value>
+  </data>
+  <data name="TabProfiles" xml:space="preserve">
+    <value>Профили</value>
+  </data>
+  <data name="TabMain" xml:space="preserve">
+    <value>Основное</value>
+  </data>
+  <data name="TabGeneration" xml:space="preserve">
+    <value>Генерация</value>
+  </data>
+  <data name="TabOptions" xml:space="preserve">
+    <value>Параметры</value>
+  </data>
+  <data name="Profile" xml:space="preserve">
+    <value>Профиль:</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Сохранить</value>
+  </data>
+  <data name="Load" xml:space="preserve">
+    <value>Загрузить</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Удалить</value>
+  </data>
+  <data name="Export" xml:space="preserve">
+    <value>Экспорт</value>
+  </data>
+  <data name="ExportDialogTitle" xml:space="preserve">
+    <value>Экспорт профиля</value>
+  </data>
+  <data name="ExportFormatJson" xml:space="preserve">
+    <value>Профиль JSON (*.json)</value>
+  </data>
+  <data name="ExportFormatBat" xml:space="preserve">
+    <value>Пакетный файл (*.bat)</value>
+  </data>
+  <data name="ExportToBat" xml:space="preserve">
+    <value>Экспорт BAT</value>
+  </data>
+  <data name="Clear" xml:space="preserve">
+    <value>Очистить</value>
+  </data>
+  <data name="Import" xml:space="preserve">
+    <value>Импорт</value>
+  </data>
+  <data name="ConfirmDelete" xml:space="preserve">
+    <value>Удалить профиль '{0}'?</value>
+  </data>
+  <data name="Paths" xml:space="preserve">
+    <value>Пути</value>
+  </data>
+  <data name="LlamaServerExe" xml:space="preserve">
+    <value>llama-server:</value>
+  </data>
+  <data name="ModelM" xml:space="preserve">
+    <value>Модель (-m):</value>
+  </data>
+  <data name="ModelsDir" xml:space="preserve">
+    <value>Папка моделей (--models-dir):</value>
+  </data>
+  <data name="Browse" xml:space="preserve">
+    <value>Обзор...</value>
+  </data>
+  <data name="NetworkSettings" xml:space="preserve">
+    <value>Сетевые настройки</value>
+  </data>
+  <data name="Host" xml:space="preserve">
+    <value>Хост:</value>
+  </data>
+  <data name="Port" xml:space="preserve">
+    <value>Порт:</value>
+  </data>
+  <data name="ModelParameters" xml:space="preserve">
+    <value>Параметры модели</value>
+  </data>
+  <data name="ContextSize" xml:space="preserve">
+    <value>Размер контекста:</value>
+  </data>
+  <data name="Threads" xml:space="preserve">
+    <value>Потоки:</value>
+  </data>
+  <data name="GpuLayers" xml:space="preserve">
+    <value>Слои GPU:</value>
+  </data>
+  <data name="GenerationParameters" xml:space="preserve">
+    <value>Параметры генерации</value>
+  </data>
+  <data name="Temperature" xml:space="preserve">
+    <value>Температура:</value>
+  </data>
+  <data name="MaxTokens" xml:space="preserve">
+    <value>Макс. токенов:</value>
+  </data>
+  <data name="BatchSize" xml:space="preserve">
+    <value>Размер батча:</value>
+  </data>
+  <data name="UBatchSize" xml:space="preserve">
+    <value>Физ. размер батча:</value>
+  </data>
+  <data name="MinP" xml:space="preserve">
+    <value>Min-P:</value>
+  </data>
+  <data name="MMProj" xml:space="preserve">
+    <value>MMProj:</value>
+  </data>
+  <data name="CacheTypeK" xml:space="preserve">
+    <value>Тип кэша K:</value>
+  </data>
+  <data name="CacheTypeV" xml:space="preserve">
+    <value>Тип кэша V:</value>
+  </data>
+  <data name="TopK" xml:space="preserve">
+    <value>Top-K:</value>
+  </data>
+  <data name="TopP" xml:space="preserve">
+    <value>Top-P:</value>
+  </data>
+  <data name="RepeatPenalty" xml:space="preserve">
+    <value>Штраф за повтор:</value>
+  </data>
+  <data name="AdditionalOptions" xml:space="preserve">
+    <value>Дополнительные параметры</value>
+  </data>
+  <data name="FlashAttention" xml:space="preserve">
+    <value>Flash Attention</value>
+  </data>
+  <data name="WebUI" xml:space="preserve">
+    <value>Веб-интерфейс</value>
+  </data>
+  <data name="Embedding" xml:space="preserve">
+    <value>Эмбеддинг</value>
+  </data>
+  <data name="Slots" xml:space="preserve">
+    <value>Слоты</value>
+  </data>
+  <data name="Metrics" xml:space="preserve">
+    <value>Метрики</value>
+  </data>
+  <data name="ApiKey" xml:space="preserve">
+    <value>API ключ:</value>
+  </data>
+  <data name="Alias" xml:space="preserve">
+    <value>Псевдоним модели:</value>
+  </data>
+  <data name="LogFile" xml:space="preserve">
+    <value>Файл лога:</value>
+  </data>
+  <data name="VerboseLogging" xml:space="preserve">
+    <value>Подробное логирование</value>
+  </data>
+  <data name="CustomArguments" xml:space="preserve">
+    <value>Пользовательские аргументы</value>
+  </data>
+  <data name="ServerLog" xml:space="preserve">
+    <value>Лог сервера</value>
+  </data>
+  <data name="ClearLog" xml:space="preserve">
+    <value>Очистить лог</value>
+  </data>
+  <data name="TooltipClearAllFields" xml:space="preserve">
+    <value>Очистить все поля</value>
+  </data>
+  <data name="AutoScrollLog" xml:space="preserve">
+    <value>Автопрокрутка лога</value>
+  </data>
+  <data name="ErrorTitle" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="WarningTitle" xml:space="preserve">
+    <value>Предупреждение</value>
+  </data>
+  <data name="ConfirmTitle" xml:space="preserve">
+    <value>Подтверждение</value>
+  </data>
+  <data name="FailedToStartServer" xml:space="preserve">
+    <value>Не удалось запустить сервер: {0}</value>
+  </data>
+  <data name="PleaseEnterProfileName" xml:space="preserve">
+    <value>Введите имя профиля</value>
+  </data>
+  <data name="UnsavedChangesTitle" xml:space="preserve">
+    <value>Несохранённые изменения</value>
+  </data>
+  <data name="UnsavedChangesMessage" xml:space="preserve">
+    <value>У вас есть несохранённые изменения. Хотите сохранить перед продолжением?</value>
+  </data>
+  <data name="UnsavedChangesWarning" xml:space="preserve">
+    <value>(не сохранено)</value>
+  </data>
+  <data name="AutoRestarting" xml:space="preserve">
+    <value>Сервер неожиданно завершился. Автоперезапуск...</value>
+  </data>
+  <data name="FailedToAutoRestart" xml:space="preserve">
+    <value>Не удалось выполнить автоперезапуск: {0}</value>
+  </data>
+  <data name="ConfirmCloseTitle" xml:space="preserve">
+    <value>Подтверждение выхода</value>
+  </data>
+  <data name="ConfirmCloseMessage" xml:space="preserve">
+    <value>Сервер все еще запущен. Вы уверены, что хотите выйти?</value>
+  </data>
+  <data name="ErrorLoadingFile" xml:space="preserve">
+    <value>Ошибка загрузки файла: {0}</value>
+  </data>
+  <data name="DropBatFile" xml:space="preserve">
+    <value>Перетащите файл сюда</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Язык:</value>
+  </data>
+  <data name="English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Russian" xml:space="preserve">
+    <value>Русский</value>
+  </data>
+  <data name="Show" xml:space="preserve">
+    <value>Показать</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Закрыть</value>
+  </data>
+  <data name="TooltipModelPath" xml:space="preserve">
+    <value>путь к файлу модели для загрузки</value>
+  </data>
+  <data name="TooltipModelsDir" xml:space="preserve">
+    <value>каталог с моделями для сервера</value>
+  </data>
+  <data name="TooltipHost" xml:space="preserve">
+    <value>IP-адрес для прослушивания</value>
+  </data>
+  <data name="TooltipPort" xml:space="preserve">
+    <value>порт для прослушивания</value>
+  </data>
+  <data name="TooltipContextSize" xml:space="preserve">
+    <value>размер контекста промпта</value>
+  </data>
+  <data name="TooltipThreads" xml:space="preserve">
+    <value>количество потоков CPU</value>
+  </data>
+  <data name="TooltipGpuLayers" xml:space="preserve">
+    <value>макс количество слоев в VRAM</value>
+  </data>
+  <data name="TooltipTemperature" xml:space="preserve">
+    <value>температура</value>
+  </data>
+  <data name="TooltipMaxTokens" xml:space="preserve">
+    <value>количество токенов для предсказания</value>
+  </data>
+  <data name="TooltipBatchSize" xml:space="preserve">
+    <value>логический максимальный размер батча</value>
+  </data>
+  <data name="TooltipUBatchSize" xml:space="preserve">
+    <value>физический максимальный размер батча</value>
+  </data>
+  <data name="TooltipMinP" xml:space="preserve">
+    <value>min-p семплирование</value>
+  </data>
+  <data name="TooltipMMProj" xml:space="preserve">
+    <value>путь к файлу мультимодального проектора</value>
+  </data>
+  <data name="TooltipCacheTypeK" xml:space="preserve">
+    <value>тип данных KV-кэша для K</value>
+  </data>
+  <data name="TooltipCacheTypeV" xml:space="preserve">
+    <value>тип данных KV-кэша для V</value>
+  </data>
+  <data name="TooltipTopK" xml:space="preserve">
+    <value>top-k семплирование</value>
+  </data>
+  <data name="TooltipTopP" xml:space="preserve">
+    <value>top-p семплирование</value>
+  </data>
+  <data name="TooltipRepeatPenalty" xml:space="preserve">
+    <value>штраф за повторяющуюся последовательность токенов</value>
+  </data>
+  <data name="TooltipFlashAttention" xml:space="preserve">
+    <value>использование Flash Attention</value>
+  </data>
+  <data name="TooltipWebUI" xml:space="preserve">
+    <value>включить веб-интерфейс</value>
+  </data>
+  <data name="TooltipEmbedding" xml:space="preserve">
+    <value>ограничить только режимом эмбеддинга</value>
+  </data>
+  <data name="TooltipSlots" xml:space="preserve">
+    <value>предоставить endpoint мониторинга слотов</value>
+  </data>
+  <data name="TooltipMetrics" xml:space="preserve">
+    <value>включить endpoint метрик Prometheus</value>
+  </data>
+  <data name="TooltipApiKey" xml:space="preserve">
+    <value>API ключ для аутентификации</value>
+  </data>
+  <data name="TooltipAlias" xml:space="preserve">
+    <value>установить псевдонимы имени модели</value>
+  </data>
+  <data name="TooltipLogFile" xml:space="preserve">
+    <value>Вести лог в файл</value>
+  </data>
+  <data name="TooltipCustomArguments" xml:space="preserve">
+    <value>Дополнительные аргументы командной строки</value>
+  </data>
+  <data name="Rename" xml:space="preserve">
+    <value>Переименовать</value>
+  </data>
+  <data name="EnterNewProfileName" xml:space="preserve">
+    <value>Введите новое имя профиля:</value>
+  </data>
+  <data name="RenameProfileFailed" xml:space="preserve">
+    <value>Не удалось переименовать профиль: {0}</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
+  <data name="ExportAll" xml:space="preserve">
+    <value>Экспорт всех</value>
+  </data>
+  <data name="ImportAll" xml:space="preserve">
+    <value>Импорт всех</value>
+  </data>
+  <data name="ExportAllDialogTitle" xml:space="preserve">
+    <value>Экспорт всех профилей</value>
+  </data>
+  <data name="ImportAllDialogTitle" xml:space="preserve">
+    <value>Импорт всех профилей</value>
+  </data>
+  <data name="ExportAllSuccess" xml:space="preserve">
+    <value>Успешно экспортировано профилей: {0}</value>
+  </data>
+  <data name="ImportAllSuccess" xml:space="preserve">
+    <value>Успешно импортировано: {0}, пропущено конфликтов: {1}</value>
+  </data>
+  <data name="ExportAllFailed" xml:space="preserve">
+    <value>Не удалось экспортировать профили: {0}</value>
+  </data>
+  <data name="ImportAllFailed" xml:space="preserve">
+    <value>Не удалось импортировать профили: {0}</value>
+  </data>
+  <data name="ExportAllFilter" xml:space="preserve">
+    <value>Архив резервной копии (*.zip)</value>
+  </data>
+  <data name="ImportAllFilter" xml:space="preserve">
+    <value>Архив резервной копии (*.zip)</value>
+  </data>
+  <data name="NoProfilesToExport" xml:space="preserve">
+    <value>Нет профилей для экспорта</value>
+  </data>
+  <data name="TooltipExportAll" xml:space="preserve">
+    <value>Экспортировать все профили в файл резервной копии</value>
+  </data>
+  <data name="TooltipImportAll" xml:space="preserve">
+    <value>Импортировать все профили из файла резервной копии</value>
+  </data>
+</root>

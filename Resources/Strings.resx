@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+
+  <data name="WindowTitle" xml:space="preserve">
+    <value>llama-server launcher</value>
+  </data>
+  <data name="ServerControl" xml:space="preserve">
+    <value>Server Control</value>
+  </data>
+  <data name="StartServer" xml:space="preserve">
+    <value>Start Server</value>
+  </data>
+  <data name="StopServer" xml:space="preserve">
+    <value>Stop Server</value>
+  </data>
+  <data name="UnloadModel" xml:space="preserve">
+    <value>Unload Models</value>
+  </data>
+  <data name="AutoRestartOnCrash" xml:space="preserve">
+    <value>Auto-restart on crash</value>
+  </data>
+  <data name="StatusStopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="StatusRunning" xml:space="preserve">
+    <value>Running (PID: {0})</value>
+  </data>
+  <data name="TabProfiles" xml:space="preserve">
+    <value>Profiles</value>
+  </data>
+  <data name="TabMain" xml:space="preserve">
+    <value>Main</value>
+  </data>
+  <data name="TabGeneration" xml:space="preserve">
+    <value>Generation</value>
+  </data>
+  <data name="TabOptions" xml:space="preserve">
+    <value>Options</value>
+  </data>
+  <data name="Profile" xml:space="preserve">
+    <value>Profile:</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Load" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="ExportDialogTitle" xml:space="preserve">
+    <value>Export Profile</value>
+  </data>
+  <data name="ExportFormatJson" xml:space="preserve">
+    <value>JSON profile (*.json)</value>
+  </data>
+  <data name="ExportFormatBat" xml:space="preserve">
+    <value>Batch file (*.bat)</value>
+  </data>
+  <data name="ExportToBat" xml:space="preserve">
+    <value>Export BAT</value>
+  </data>
+  <data name="Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Import" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="ConfirmDelete" xml:space="preserve">
+    <value>Delete profile '{0}'?</value>
+  </data>
+  <data name="Paths" xml:space="preserve">
+    <value>Paths</value>
+  </data>
+  <data name="LlamaServerExe" xml:space="preserve">
+    <value>llama-server:</value>
+  </data>
+  <data name="ModelM" xml:space="preserve">
+    <value>Model (-m):</value>
+  </data>
+  <data name="ModelsDir" xml:space="preserve">
+    <value>Models Dir (--models-dir):</value>
+  </data>
+  <data name="Browse" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="NetworkSettings" xml:space="preserve">
+    <value>Network Settings</value>
+  </data>
+  <data name="Host" xml:space="preserve">
+    <value>Host:</value>
+  </data>
+  <data name="Port" xml:space="preserve">
+    <value>Port:</value>
+  </data>
+  <data name="ModelParameters" xml:space="preserve">
+    <value>Model Parameters</value>
+  </data>
+  <data name="ContextSize" xml:space="preserve">
+    <value>Context Size:</value>
+  </data>
+  <data name="Threads" xml:space="preserve">
+    <value>Threads:</value>
+  </data>
+  <data name="GpuLayers" xml:space="preserve">
+    <value>GPU Layers:</value>
+  </data>
+  <data name="GenerationParameters" xml:space="preserve">
+    <value>Generation Parameters</value>
+  </data>
+  <data name="Temperature" xml:space="preserve">
+    <value>Temperature:</value>
+  </data>
+  <data name="MaxTokens" xml:space="preserve">
+    <value>Max Tokens:</value>
+  </data>
+  <data name="BatchSize" xml:space="preserve">
+    <value>Batch Size:</value>
+  </data>
+  <data name="UBatchSize" xml:space="preserve">
+    <value>U-Batch Size:</value>
+  </data>
+  <data name="MinP" xml:space="preserve">
+    <value>Min-P:</value>
+  </data>
+  <data name="MMProj" xml:space="preserve">
+    <value>MMProj:</value>
+  </data>
+  <data name="CacheTypeK" xml:space="preserve">
+    <value>Cache Type K:</value>
+  </data>
+  <data name="CacheTypeV" xml:space="preserve">
+    <value>Cache Type V:</value>
+  </data>
+  <data name="TopK" xml:space="preserve">
+    <value>Top-K:</value>
+  </data>
+  <data name="TopP" xml:space="preserve">
+    <value>Top-P:</value>
+  </data>
+  <data name="RepeatPenalty" xml:space="preserve">
+    <value>Repeat Penalty:</value>
+  </data>
+  <data name="AdditionalOptions" xml:space="preserve">
+    <value>Additional Options</value>
+  </data>
+  <data name="FlashAttention" xml:space="preserve">
+    <value>Flash Attention</value>
+  </data>
+  <data name="WebUI" xml:space="preserve">
+    <value>WebUI</value>
+  </data>
+  <data name="Embedding" xml:space="preserve">
+    <value>Embedding</value>
+  </data>
+  <data name="Slots" xml:space="preserve">
+    <value>Slots</value>
+  </data>
+  <data name="Metrics" xml:space="preserve">
+    <value>Metrics</value>
+  </data>
+  <data name="ApiKey" xml:space="preserve">
+    <value>API Key:</value>
+  </data>
+  <data name="Alias" xml:space="preserve">
+    <value>Model Alias:</value>
+  </data>
+  <data name="LogFile" xml:space="preserve">
+    <value>Log File:</value>
+  </data>
+  <data name="VerboseLogging" xml:space="preserve">
+    <value>Verbose Logging</value>
+  </data>
+  <data name="CustomArguments" xml:space="preserve">
+    <value>Custom Arguments</value>
+  </data>
+  <data name="ServerLog" xml:space="preserve">
+    <value>Server Log</value>
+  </data>
+  <data name="ClearLog" xml:space="preserve">
+    <value>Clear Log</value>
+  </data>
+  <data name="TooltipClearAllFields" xml:space="preserve">
+    <value>Clear all fields</value>
+  </data>
+  <data name="AutoScrollLog" xml:space="preserve">
+    <value>Auto-scroll log</value>
+  </data>
+  <data name="ErrorTitle" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="WarningTitle" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="ConfirmTitle" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="FailedToStartServer" xml:space="preserve">
+    <value>Failed to start server: {0}</value>
+  </data>
+  <data name="PleaseEnterProfileName" xml:space="preserve">
+    <value>Please enter a profile name</value>
+  </data>
+  <data name="UnsavedChangesTitle" xml:space="preserve">
+    <value>Unsaved Changes</value>
+  </data>
+  <data name="UnsavedChangesMessage" xml:space="preserve">
+    <value>You have unsaved changes. Do you want to save before continuing?</value>
+  </data>
+  <data name="UnsavedChangesWarning" xml:space="preserve">
+    <value>(unsaved)</value>
+  </data>
+  <data name="AutoRestarting" xml:space="preserve">
+    <value>Server exited unexpectedly. Auto-restarting...</value>
+  </data>
+  <data name="FailedToAutoRestart" xml:space="preserve">
+    <value>Failed to auto-restart server: {0}</value>
+  </data>
+  <data name="ConfirmCloseTitle" xml:space="preserve">
+    <value>Confirm Exit</value>
+  </data>
+  <data name="ConfirmCloseMessage" xml:space="preserve">
+    <value>The server is still running. Are you sure you want to exit?</value>
+  </data>
+  <data name="ErrorLoadingFile" xml:space="preserve">
+    <value>Error loading file: {0}</value>
+  </data>
+<data name="DropBatFile" xml:space="preserve">
+    <value>Drop profile file here</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Language:</value>
+  </data>
+  <data name="English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Russian" xml:space="preserve">
+    <value>Русский</value>
+  </data>
+  <data name="Show" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="TooltipModelPath" xml:space="preserve">
+    <value>model path to load</value>
+  </data>
+  <data name="TooltipModelsDir" xml:space="preserve">
+    <value>directory containing models for the router server</value>
+  </data>
+  <data name="TooltipHost" xml:space="preserve">
+    <value>ip address to listen</value>
+  </data>
+  <data name="TooltipPort" xml:space="preserve">
+    <value>port to listen</value>
+  </data>
+  <data name="TooltipContextSize" xml:space="preserve">
+    <value>size of the prompt context</value>
+  </data>
+  <data name="TooltipThreads" xml:space="preserve">
+    <value>number of CPU threads</value>
+  </data>
+  <data name="TooltipGpuLayers" xml:space="preserve">
+    <value>max number of layers to store in VRAM</value>
+  </data>
+  <data name="TooltipTemperature" xml:space="preserve">
+    <value>temperature</value>
+  </data>
+  <data name="TooltipMaxTokens" xml:space="preserve">
+    <value>number of tokens to predict</value>
+  </data>
+  <data name="TooltipBatchSize" xml:space="preserve">
+    <value>logical maximum batch size</value>
+  </data>
+  <data name="TooltipUBatchSize" xml:space="preserve">
+    <value>physical maximum batch size</value>
+  </data>
+  <data name="TooltipMinP" xml:space="preserve">
+    <value>min-p sampling</value>
+  </data>
+  <data name="TooltipMMProj" xml:space="preserve">
+    <value>path to multimodal projector file</value>
+  </data>
+  <data name="TooltipCacheTypeK" xml:space="preserve">
+    <value>KV cache data type for K</value>
+  </data>
+  <data name="TooltipCacheTypeV" xml:space="preserve">
+    <value>KV cache data type for V</value>
+  </data>
+  <data name="TooltipTopK" xml:space="preserve">
+    <value>top-k sampling</value>
+  </data>
+  <data name="TooltipTopP" xml:space="preserve">
+    <value>top-p sampling</value>
+  </data>
+  <data name="TooltipRepeatPenalty" xml:space="preserve">
+    <value>penalize repeat sequence of tokens</value>
+  </data>
+  <data name="TooltipFlashAttention" xml:space="preserve">
+    <value>set Flash Attention use</value>
+  </data>
+  <data name="TooltipWebUI" xml:space="preserve">
+    <value>whether to enable the Web UI</value>
+  </data>
+  <data name="TooltipEmbedding" xml:space="preserve">
+    <value>restrict to only support embedding use case</value>
+  </data>
+  <data name="TooltipSlots" xml:space="preserve">
+    <value>expose slots monitoring endpoint</value>
+  </data>
+  <data name="TooltipMetrics" xml:space="preserve">
+    <value>enable prometheus compatible metrics endpoint</value>
+  </data>
+  <data name="TooltipApiKey" xml:space="preserve">
+    <value>API key to use for authentication</value>
+  </data>
+  <data name="TooltipAlias" xml:space="preserve">
+    <value>set model name aliases</value>
+  </data>
+  <data name="TooltipLogFile" xml:space="preserve">
+    <value>Log to file</value>
+  </data>
+  <data name="TooltipCustomArguments" xml:space="preserve">
+    <value>Additional command-line arguments</value>
+  </data>
+  <data name="Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="EnterNewProfileName" xml:space="preserve">
+    <value>Enter new profile name:</value>
+  </data>
+  <data name="RenameProfileFailed" xml:space="preserve">
+    <value>Failed to rename profile: {0}</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ExportAll" xml:space="preserve">
+    <value>Export All</value>
+  </data>
+  <data name="ImportAll" xml:space="preserve">
+    <value>Import All</value>
+  </data>
+  <data name="ExportAllDialogTitle" xml:space="preserve">
+    <value>Export All Profiles</value>
+  </data>
+  <data name="ImportAllDialogTitle" xml:space="preserve">
+    <value>Import All Profiles</value>
+  </data>
+  <data name="ExportAllSuccess" xml:space="preserve">
+    <value>Successfully exported {0} profiles</value>
+  </data>
+  <data name="ImportAllSuccess" xml:space="preserve">
+    <value>Successfully imported {0} profiles, {1} skipped due to conflicts</value>
+  </data>
+  <data name="ExportAllFailed" xml:space="preserve">
+    <value>Failed to export profiles: {0}</value>
+  </data>
+  <data name="ImportAllFailed" xml:space="preserve">
+    <value>Failed to import profiles: {0}</value>
+  </data>
+  <data name="ExportAllFilter" xml:space="preserve">
+    <value>Backup archive (*.zip)</value>
+  </data>
+  <data name="ImportAllFilter" xml:space="preserve">
+    <value>Backup archive (*.zip)</value>
+  </data>
+  <data name="NoProfilesToExport" xml:space="preserve">
+    <value>No profiles to export</value>
+  </data>
+  <data name="TooltipExportAll" xml:space="preserve">
+    <value>Export all profiles to a backup file</value>
+  </data>
+  <data name="TooltipImportAll" xml:space="preserve">
+    <value>Import all profiles from a backup file</value>
+  </data>
+</root>

@@ -1,0 +1,339 @@
+<Window x:Class="LlamaServerLauncher.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
+        xmlns:dd="using:Avalonia.Input"
+        mc:Ignorable="d"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding WindowTitleWithProfile}"
+        Height="650" Width="900"
+        MinHeight="500" MinWidth="790"
+        WindowStartupLocation="CenterScreen"
+        x:Name="MainWin"
+        dd:DragDrop.AllowDrop="True"
+        dd:DragDrop.Drop="Window_Drop"
+        dd:DragDrop.DragEnter="Window_DragEnter"
+        dd:DragDrop.DragLeave="Window_DragLeave"
+        dd:DragDrop.DragOver="Window_DragOver">
+    <Design.DataContext>
+        <vm:MainViewModel/>
+    </Design.DataContext>
+
+    <Grid>
+        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5">
+                <Button Content="{Binding Localized.ExportAll}" IsEnabled="True" Click="ExportAllClick" Margin="0,0,5,0" ToolTip.Tip="{Binding Localized.TooltipExportAll}"/>
+                <Button Content="{Binding Localized.ImportAll}" IsEnabled="True" Click="ImportAllClick" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipImportAll}"/>
+                <TextBlock Text="{Binding Localized.Language}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <ComboBox ItemsSource="{Binding AvailableLanguages}" 
+                            SelectedValue="{Binding SelectedLanguage}"
+                            SelectedValueBinding="{Binding Code}"
+                            DisplayMemberBinding="{Binding Name}"
+                            Width="100"/>
+            </StackPanel>
+
+            <Border Grid.Row="1" Margin="5,5,5,0" Padding="10" Background="#252526" CornerRadius="5">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding Localized.Profile}" VerticalAlignment="Center" FontWeight="Bold" Margin="0,0,5,0"/>
+                    <ComboBox x:Name="ProfileComboBox" 
+                                Grid.Column="1"
+                                ItemsSource="{Binding Profiles}" 
+                                SelectedItem="{Binding SelectedProfile}" 
+                                Text="{Binding ProfileNameInput, UpdateSourceTrigger=PropertyChanged}"
+                                IsEditable="True"
+                                MinWidth="150" Margin="3"
+                                KeyDown="ProfileComboBox_KeyDown"
+                                HorizontalAlignment="Stretch"/>
+                    <TextBlock Grid.Column="2" Text="{Binding Localized.UnsavedChangesWarning}" 
+                                Foreground="Orange" VerticalAlignment="Center" Margin="5,0,10,0"
+                                IsVisible="{Binding HasUnsavedChanges}"/>
+                    <Button Grid.Column="3" Content="{Binding Localized.Save}" IsEnabled="True" Click="SaveClick" Margin="3"/>
+                    <Button Grid.Column="4" Content="{Binding Localized.Load}" IsEnabled="True" Click="LoadClick" Margin="3"/>
+                    <Button Grid.Column="5" Content="{Binding Localized.Rename}" IsEnabled="True" Click="RenameClick" Margin="3"/>
+                    <Button Grid.Column="6" Content="{Binding Localized.Delete}" IsEnabled="True" Click="DeleteClick" Margin="3"/>
+                    <Button Grid.Column="7" Content="{Binding Localized.Clear}" IsEnabled="True" Click="ClearClick" Margin="3" ToolTip.Tip="{Binding Localized.TooltipClearAllFields}"/>
+                    <Button Grid.Column="8" Content="{Binding Localized.Export}" IsEnabled="True" Click="ExportClick" Margin="3"/>
+                    <Button Grid.Column="9" Content="{Binding Localized.Import}" IsEnabled="True" Click="ImportClick" Margin="3"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="2" Margin="5,5,5,0" Padding="10" Background="#252526" CornerRadius="5">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
+                        <Button Content="{Binding Localized.StartServer}" Click="StartServerClick" 
+                                IsEnabled="{Binding CanStartServer}" Height="35" Margin="5" Padding="15,5"/>
+                        <Button Content="{Binding Localized.StopServer}" Click="StopServerClick" 
+                                IsEnabled="{Binding IsServerRunning}" Height="35" Margin="5" Padding="15,5"/>
+                        <Button Content="{Binding Localized.UnloadModel}" Click="UnloadModelClick" 
+                                IsEnabled="{Binding IsServerRunning}" Height="35" Margin="5" Padding="15,5"/>
+                    </StackPanel>
+                    <CheckBox Content="{Binding Localized.AutoRestartOnCrash}" IsChecked="{Binding AutoRestart}" 
+                                HorizontalAlignment="Center" Margin="5"/>
+                    <TextBlock Text="{Binding ServerStatus}" 
+                                HorizontalAlignment="Center" Margin="5" FontWeight="Bold"/>
+                    <Border Background="#2D2D30" CornerRadius="3" Padding="8" Margin="5"
+                            Cursor="Hand"
+                            PointerPressed="ExportClick">
+                        <TextBlock Text="{Binding CurrentCommand}" 
+                                    FontFamily="Consolas" FontSize="11"
+                                    Foreground="#9CDCFE" TextWrapping="Wrap"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <TabControl Grid.Row="3" Margin="5,5,5,0">
+                <TabItem Header="{Binding Localized.TabMain}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="10">
+                            <Border Margin="0,0,0,10" Padding="10" Background="#252526" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.Paths}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <Grid ColumnDefinitions="220,3*,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.LlamaServerExe}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ExecutablePath}" Margin="0,2"/>
+                                        <Button Grid.Row="0" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseExecutableClick" Margin="5,0,0,0"/>
+                                        <Button Grid.Row="0" Grid.Column="3" Content="X" Click="ClearExecutablePathClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.ModelM}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ModelPath}" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipModelPath}"/>
+                                        <Button Grid.Row="1" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseModelClick" Margin="5,0,0,0"/>
+                                        <Button Grid.Row="1" Grid.Column="3" Content="X" Click="ClearModelPathClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding Localized.ModelsDir}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ModelsDir}" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipModelsDir}"/>
+                                        <Button Grid.Row="2" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseModelsDirClick" Margin="5,0,0,0"/>
+                                        <Button Grid.Row="2" Grid.Column="3" Content="X" Click="ClearModelsDirClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="#252526" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.NetworkSettings}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBlock Text="{Binding Localized.Host}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipHost}"/>
+                                        <TextBox Text="{Binding Host}" Width="150" Margin="0,0,20,0" ToolTip.Tip="{Binding Localized.TooltipHost}"/>
+                                        <TextBlock Text="{Binding Localized.Port}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipPort}"/>
+                                        <TextBox Text="{Binding Port}" Width="100" Margin="0,0,0,0" ToolTip.Tip="{Binding Localized.TooltipPort}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="{Binding Localized.TabGeneration}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="10">
+                            <Border Margin="0,0,0,10" Padding="10" Background="#252526" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.ModelParameters}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
+                                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.ContextSize}" ToolTip.Tip="{Binding Localized.TooltipContextSize}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding ContextSize}" Width="150" ToolTip.Tip="{Binding Localized.TooltipContextSize}"/>
+                                                <Button Content="X" Click="ClearContextSizeClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.Threads}" ToolTip.Tip="{Binding Localized.TooltipThreads}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding Threads}" Width="150" ToolTip.Tip="{Binding Localized.TooltipThreads}"/>
+                                                <Button Content="X" Click="ClearThreadsClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,5,0,0">
+                                            <TextBlock Text="{Binding Localized.GpuLayers}" ToolTip.Tip="{Binding Localized.TooltipGpuLayers}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding GpuLayers}" Width="150" ToolTip.Tip="{Binding Localized.TooltipGpuLayers}"/>
+                                                <Button Content="X" Click="ClearGpuLayersClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="#252526" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.GenerationParameters}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto">
+                                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.Temperature}" ToolTip.Tip="{Binding Localized.TooltipTemperature}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding Temperature}" Width="150" ToolTip.Tip="{Binding Localized.TooltipTemperature}"/>
+                                                <Button Content="X" Click="ClearTemperatureClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.MaxTokens}" ToolTip.Tip="{Binding Localized.TooltipMaxTokens}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding MaxTokens}" Width="150" ToolTip.Tip="{Binding Localized.TooltipMaxTokens}"/>
+                                                <Button Content="X" Click="ClearMaxTokensClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,5,0,0">
+                                            <TextBlock Text="{Binding Localized.BatchSize}" ToolTip.Tip="{Binding Localized.TooltipBatchSize}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding BatchSize}" Width="150" ToolTip.Tip="{Binding Localized.TooltipBatchSize}"/>
+                                                <Button Content="X" Click="ClearBatchSizeClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.UBatchSize}" ToolTip.Tip="{Binding Localized.TooltipUBatchSize}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding UBatchSize}" Width="150" ToolTip.Tip="{Binding Localized.TooltipUBatchSize}"/>
+                                                <Button Content="X" Click="ClearUBatchSizeClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.MinP}" ToolTip.Tip="{Binding Localized.TooltipMinP}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding MinP}" Width="150" ToolTip.Tip="{Binding Localized.TooltipMinP}"/>
+                                                <Button Content="X" Click="ClearMinPClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.TopK}" ToolTip.Tip="{Binding Localized.TooltipTopK}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding TopK}" Width="150" ToolTip.Tip="{Binding Localized.TooltipTopK}"/>
+                                                <Button Content="X" Click="ClearTopKClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.TopP}" ToolTip.Tip="{Binding Localized.TooltipTopP}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding TopP}" Width="150" ToolTip.Tip="{Binding Localized.TooltipTopP}"/>
+                                                <Button Content="X" Click="ClearTopPClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,5,0,0">
+                                            <TextBlock Text="{Binding Localized.RepeatPenalty}" ToolTip.Tip="{Binding Localized.TooltipRepeatPenalty}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBox Text="{Binding RepeatPenalty}" Width="150" ToolTip.Tip="{Binding Localized.TooltipRepeatPenalty}"/>
+                                                <Button Content="X" Click="ClearRepeatPenaltyClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="{Binding Localized.TabOptions}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="10">
+                            <Border Margin="0,0,0,10" Padding="10" Background="#252526" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.AdditionalOptions}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <WrapPanel>
+                                        <CheckBox x:Name="FlashAttentionCheckBox" Content="{Binding Localized.FlashAttention}" IsChecked="{Binding FlashAttention}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipFlashAttention}"/>
+                                        <CheckBox x:Name="WebUICheckBox" Content="{Binding Localized.WebUI}" IsChecked="{Binding EnableWebUI}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipWebUI}"/>
+                                        <CheckBox x:Name="EmbeddingCheckBox" Content="{Binding Localized.Embedding}" IsChecked="{Binding EmbeddingMode}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipEmbedding}"/>
+                                        <CheckBox x:Name="SlotsCheckBox" Content="{Binding Localized.Slots}" IsChecked="{Binding EnableSlots}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipSlots}"/>
+                                        <CheckBox x:Name="MetricsCheckBox" Content="{Binding Localized.Metrics}" IsChecked="{Binding EnableMetrics}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipMetrics}"/>
+                                    </WrapPanel>
+                                    <Grid ColumnDefinitions="150,*,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,5,0,0">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.ApiKey}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipApiKey}"/>
+                                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ApiKey}" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipApiKey}"/>
+                                        <Button Grid.Row="0" Grid.Column="2" Content="X" Click="ClearApiKeyClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                        
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.Alias}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipAlias}"/>
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Alias}" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipAlias}"/>
+                                        <Button Grid.Row="1" Grid.Column="2" Content="X" Click="ClearAliasClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding Localized.LogFile}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipLogFile}"/>
+                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LogFilePath}" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipLogFile}"/>
+                                        <Button Grid.Row="2" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseLogFileClick" Margin="3,0,0,0"/>
+                                        <Button Grid.Row="2" Grid.Column="3" Content="X" Click="ClearLogFileClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding Localized.MMProj}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipMMProj}"/>
+                                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding MmprojPath}" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipMMProj}"/>
+                                        <Button Grid.Row="3" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseMmprojClick" Margin="3,0,0,0"/>
+                                        <Button Grid.Row="3" Grid.Column="3" Content="X" Click="ClearMmprojClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,30,0">
+                                            <TextBlock Text="{Binding Localized.CacheTypeK}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipCacheTypeK}"/>
+                                            <ComboBox ItemsSource="{Binding CacheTypes}" SelectedItem="{Binding CacheTypeK}" Width="80"/>
+                                            <Button Content="X" Click="ClearCacheTypeKClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Localized.CacheTypeV}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipCacheTypeV}"/>
+                                            <ComboBox ItemsSource="{Binding CacheTypes}" SelectedItem="{Binding CacheTypeV}" Width="80"/>
+                                            <Button Content="X" Click="ClearCacheTypeVClick" Margin="3,0,0,0" ToolTip.Tip="Clear"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="#252526" CornerRadius="5">
+                                <StackPanel>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                        <TextBlock Grid.Column="0" Text="{Binding Localized.CustomArguments}" FontWeight="Bold"/>
+                                        <Button Grid.Column="1" Content="X" Click="ClearCustomArgumentsClick" ToolTip.Tip="Clear" Padding="5,0"/>
+                                    </Grid>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" Height="60">
+                                        <TextBox Text="{Binding CustomArguments}" 
+                                                AcceptsReturn="True" TextWrapping="Wrap" ToolTip.Tip="{Binding Localized.TooltipCustomArguments}"/>
+                                    </ScrollViewer>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+
+            <Border Grid.Row="4" Margin="5,0,5,5" Padding="10" Background="#252526" CornerRadius="5">
+                <Grid RowDefinitions="Auto,*">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,5">
+                        <CheckBox Content="{Binding Localized.AutoScrollLog}" IsChecked="{Binding AutoScroll}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button Content="{Binding Localized.ClearLog}" Click="ClearLogClick" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" MaxHeight="200">
+                        <TextBox x:Name="LogTextBox" Text="{Binding LogText}"
+                                IsReadOnly="True"
+                                FontFamily="Consolas"
+                                FontSize="11"
+                                Background="#1E1E1E"
+                                Foreground="#DCDCDC"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Drag and Drop Overlay -->
+        <Border x:Name="DragDropOverlay" 
+                IsVisible="False" 
+                Background="#AA000000" 
+                CornerRadius="10"
+                Margin="20">
+            <Border BorderBrush="#4FCCFF" 
+                    BorderThickness="3" 
+                    CornerRadius="8" 
+                    Background="Transparent"
+                    Margin="10">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="&#x2193;" 
+                                FontSize="48" 
+                                Foreground="#4FCCFF" 
+                                HorizontalAlignment="Center"/>
+                    <TextBlock Text="Drop profile file here" 
+                                FontSize="18" 
+                                Foreground="White" 
+                                HorizontalAlignment="Center"
+                                Margin="0,10,0,5"/>
+                    <TextBlock Text="Supported: .json, .bat, .cmd, .command, .sh" 
+                                FontSize="12" 
+                                Foreground="#888888" 
+                                HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</Window>
