@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace LlamaServerLauncher.Models;
 
 public class AppSettings
@@ -42,4 +44,11 @@ public class AppSettings
     public string CustomArguments { get; set; } = "";
     public bool AutoRestart { get; set; }
     public bool AutoScrollLog { get; set; } = true;
+    public bool LogEnabled { get; set; } = true;
+    public bool LogVisible { get; set; } = true;
+    public Dictionary<string, bool> CustomArgumentToggleStates { get; set; } = new();
+    public string FontSizeLevel { get; set; } = "Medium";
+    public bool AutoFitHeight { get; set; }
+    public double AutoFitHeightSavedHeight { get; set; } = 650;
+    public bool TabPanelVisible { get; set; } = true;
 }

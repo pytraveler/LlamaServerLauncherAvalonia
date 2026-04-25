@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using LlamaServerLauncher.Models;
@@ -23,6 +24,8 @@ public partial class MainWindow : Window
     private IntPtr _windowHandle;
     private ConfigurationService? _configService;
     private bool _isClosing = false;
+    private bool _isAutoFitActive;
+    private double _originalMinHeight;
 
     public static MainWindow? Instance { get; private set; }
     public IntPtr WindowHandle => _windowHandle;
@@ -67,6 +70,10 @@ public partial class MainWindow : Window
             vm.PropertyChanged += ViewModel_PropertyChanged;
             await vm.InitializeAsync();
             await LoadWindowPositionAsync();
+            
+            // Apply auto-fit after initial height is set
+            if (_viewModel.AutoFitHeight)
+                EnableAutoFitHeight();
         }
     }
 
@@ -80,6 +87,55 @@ public partial class MainWindow : Window
                 scrollViewer?.ScrollToEnd();
             });
         }
+        else if (e.PropertyName == nameof(MainViewModel.AutoFitHeight))
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_viewModel == null) return;
+                if (_viewModel.AutoFitHeight && !_isAutoFitActive)
+                    EnableAutoFitHeight();
+                else if (!_viewModel.AutoFitHeight && _isAutoFitActive)
+                    DisableAutoFitHeight();
+            });
+        }
+    }
+
+    private void EnableAutoFitHeight()
+    {
+        var mainGrid = this.FindControl<Grid>("MainGrid");
+        if (mainGrid == null || _viewModel == null) return;
+
+        // Save current height as LH before enabling auto-fit
+        _viewModel.AutoFitHeightSavedHeight = Height;
+
+        // Change TabControl row (row 3) from * to Auto so content drives height
+        if (mainGrid.RowDefinitions.Count > 3)
+            mainGrid.RowDefinitions[3].Height = GridLength.Auto;
+
+        _originalMinHeight = MinHeight;
+        MinHeight = 0;
+        CanResize = false;
+        SizeToContent = SizeToContent.Height;
+        _isAutoFitActive = true;
+    }
+
+    private void DisableAutoFitHeight()
+    {
+        var mainGrid = this.FindControl<Grid>("MainGrid");
+
+        // Restore manual sizing first, then row definition
+        SizeToContent = SizeToContent.Manual;
+        MinHeight = _originalMinHeight;
+        CanResize = true;
+
+        if (mainGrid != null && mainGrid.RowDefinitions.Count > 3)
+            mainGrid.RowDefinitions[3].Height = new GridLength(1, GridUnitType.Star);
+
+        // Restore height from LH
+        if (_viewModel != null)
+            Height = _viewModel.AutoFitHeightSavedHeight;
+
+        _isAutoFitActive = false;
     }
 
     private async Task LoadWindowPositionAsync()
@@ -89,7 +145,11 @@ public partial class MainWindow : Window
         var settings = await _configService.LoadAppSettingsAsync();
         
         if (settings.WindowWidth > 0) Width = settings.WindowWidth;
-        if (settings.WindowHeight > 0) Height = settings.WindowHeight;
+        
+        if (settings.AutoFitHeight && settings.AutoFitHeightSavedHeight > 0)
+            Height = settings.AutoFitHeightSavedHeight;
+        else if (settings.WindowHeight > 0)
+            Height = settings.WindowHeight;
 
         if (settings.WindowLeft.HasValue && settings.WindowTop.HasValue)
         {
@@ -110,7 +170,13 @@ public partial class MainWindow : Window
         
         var settings = _viewModel.GetAppSettings();
         settings.WindowWidth = Width;
-        settings.WindowHeight = Height;
+        
+        // When auto-fit is active, save LH instead of current auto-fitted height
+        if (_viewModel.AutoFitHeight)
+            settings.WindowHeight = _viewModel.AutoFitHeightSavedHeight;
+        else
+            settings.WindowHeight = Height;
+        
         settings.WindowLeft = Position.X;
         settings.WindowTop = Position.Y;
         await _configService.SaveAppSettingsAsync(settings);
@@ -148,6 +214,16 @@ public partial class MainWindow : Window
     private void ExportClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.ExportProfileCommand.Execute(null);
+    }
+
+    private async void CopyCurrentCommandClick(object? sender, PointerPressedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        var text = _viewModel.CurrentCommand;
+        if (string.IsNullOrEmpty(text)) return;
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard != null)
+            await clipboard.SetTextAsync(text);
     }
 
     private void ImportClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -292,8 +368,34 @@ public partial class MainWindow : Window
 
     private void ClearCustomArgumentsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (_viewModel != null)
-            _viewModel.CustomArguments = string.Empty;
+        _viewModel?.ClearCustomArguments();
+    }
+
+    private void CustomArgumentToggleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        _viewModel?.RebuildCustomArgumentsFromToggles();
+    }
+
+    private void CustomArgumentToggleRightTapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        if (sender is Avalonia.Controls.Primitives.ToggleButton tb && tb.DataContext is CustomArgumentItem item)
+        {
+            _viewModel?.RemoveCustomArgument(item);
+        }
+    }
+
+    private void CustomArgumentsTextBox_LostFocus(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.ParseAndUpdateCustomArguments();
+    }
+
+    private void CustomArgumentsTextBox_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key == Avalonia.Input.Key.Enter)
+        {
+            _viewModel?.ParseAndUpdateCustomArguments();
+            e.Handled = true;
+        }
     }
 
     private void TriStateCheckBox_PointerPressed(object? sender, PointerPressedEventArgs e)

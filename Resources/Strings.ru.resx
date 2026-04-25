@@ -428,4 +428,28 @@
   <data name="TooltipImportAll" xml:space="preserve">
     <value>Импортировать все профили из файла резервной копии</value>
   </data>
+  <data name="EnableLog" xml:space="preserve">
+    <value>Вести лог</value>
+  </data>
+  <data name="ShowLog" xml:space="preserve">
+    <value>Показать лог</value>
+  </data>
+  <data name="HideLog" xml:space="preserve">
+    <value>Скрыть лог</value>
+  </data>
+  <data name="TooltipFontSize" xml:space="preserve">
+    <value>Размер шрифта</value>
+  </data>
+  <data name="AutoFitHeight" xml:space="preserve">
+    <value>Авторегулировка высоты</value>
+  </data>
+  <data name="ShowTabPanel" xml:space="preserve">
+    <value>Показать настройки</value>
+  </data>
+  <data name="HideTabPanel" xml:space="preserve">
+    <value>Скрыть настройки</value>
+  </data>
+  <data name="TooltipCurrentCommand" xml:space="preserve">
+    <value>Нажмите, чтобы скопировать команду в буфер обмена</value>
+  </data>
 </root>

@@ -12,6 +12,7 @@
         MinHeight="500" MinWidth="790"
         WindowStartupLocation="CenterScreen"
         x:Name="MainWin"
+        FontSize="{Binding ContentFontSize}"
         dd:DragDrop.AllowDrop="True"
         dd:DragDrop.Drop="Window_Drop"
         dd:DragDrop.DragEnter="Window_DragEnter"
@@ -22,17 +23,34 @@
     </Design.DataContext>
 
     <Grid>
-        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
-            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5">
-                <Button Content="{Binding Localized.ExportAll}" IsEnabled="True" Click="ExportAllClick" Margin="0,0,5,0" ToolTip.Tip="{Binding Localized.TooltipExportAll}"/>
-                <Button Content="{Binding Localized.ImportAll}" IsEnabled="True" Click="ImportAllClick" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipImportAll}"/>
-                <TextBlock Text="{Binding Localized.Language}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                <ComboBox ItemsSource="{Binding AvailableLanguages}" 
-                            SelectedValue="{Binding SelectedLanguage}"
-                            SelectedValueBinding="{Binding Code}"
-                            DisplayMemberBinding="{Binding Name}"
-                            Width="100"/>
-            </StackPanel>
+        <Grid x:Name="MainGrid" RowDefinitions="Auto,Auto,Auto,*,Auto">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="5,5,10,5">
+                    <ComboBox ItemsSource="{Binding FontSizeOptions}"
+                              SelectedItem="{Binding SelectedFontSizeOption}"
+                              Width="80"
+                              VerticalAlignment="Center"
+                              ToolTip.Tip="{Binding Localized.TooltipFontSize}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Label}" HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <CheckBox Content="{Binding Localized.AutoFitHeight}" IsChecked="{Binding AutoFitHeight}"
+                              VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5">
+                    <Button Content="{Binding Localized.ExportAll}" IsEnabled="True" Click="ExportAllClick" Margin="0,0,5,0" ToolTip.Tip="{Binding Localized.TooltipExportAll}"/>
+                    <Button Content="{Binding Localized.ImportAll}" IsEnabled="True" Click="ImportAllClick" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipImportAll}"/>
+                    <TextBlock Text="{Binding Localized.Language}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <ComboBox ItemsSource="{Binding AvailableLanguages}" 
+                                SelectedValue="{Binding SelectedLanguage}"
+                                SelectedValueBinding="{Binding Code}"
+                                DisplayMemberBinding="{Binding Name}"
+                                Width="100"/>
+                </StackPanel>
+            </Grid>
 
             <Border Grid.Row="1" Margin="5,5,5,0" Padding="10" Background="#252526" CornerRadius="5">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
@@ -71,11 +89,22 @@
                     </StackPanel>
                     <CheckBox Content="{Binding Localized.AutoRestartOnCrash}" IsChecked="{Binding AutoRestart}" 
                                 HorizontalAlignment="Center" Margin="5"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
+                        <CheckBox Content="{Binding Localized.EnableLog}" IsChecked="{Binding LogEnabled}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <ToggleButton Content="{Binding ToggleLogButtonText}" IsChecked="{Binding LogVisible}" VerticalAlignment="Center"/>
+                        <ToggleButton Content="{Binding ToggleTabPanelButtonText}" IsChecked="{Binding TabPanelVisible}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
                     <TextBlock Text="{Binding ServerStatus}" 
-                                HorizontalAlignment="Center" Margin="5" FontWeight="Bold"/>
+                                HorizontalAlignment="Center" Margin="5" FontWeight="Bold"
+                                IsVisible="{Binding !IsServerRunning}"/>
+                    <TextBlock Text="{Binding ServerStatus}" 
+                                HorizontalAlignment="Center" Margin="5" FontWeight="Bold"
+                                Foreground="#4EC9B0"
+                                IsVisible="{Binding IsServerRunning}"/>
                     <Border Background="#2D2D30" CornerRadius="3" Padding="8" Margin="5"
                             Cursor="Hand"
-                            PointerPressed="ExportClick">
+                            ToolTip.Tip="{Binding Localized.TooltipCurrentCommand}"
+                            PointerPressed="CopyCurrentCommandClick">
                         <TextBlock Text="{Binding CurrentCommand}" 
                                     FontFamily="Consolas" FontSize="11"
                                     Foreground="#9CDCFE" TextWrapping="Wrap"/>
@@ -83,7 +112,7 @@
                 </StackPanel>
             </Border>
 
-            <TabControl Grid.Row="3" Margin="5,5,5,0">
+            <TabControl Grid.Row="3" Margin="5,5,5,0" IsVisible="{Binding TabPanelVisible}">
                 <TabItem Header="{Binding Localized.TabMain}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="10">
@@ -279,9 +308,27 @@
                                         <Button Grid.Column="1" Content="X" Click="ClearCustomArgumentsClick" ToolTip.Tip="Clear" Padding="5,0"/>
                                     </Grid>
                                     <ScrollViewer VerticalScrollBarVisibility="Auto" Height="60">
-                                        <TextBox Text="{Binding CustomArguments}" 
-                                                AcceptsReturn="True" TextWrapping="Wrap" ToolTip.Tip="{Binding Localized.TooltipCustomArguments}"/>
+                                        <TextBox x:Name="CustomArgumentsTextBox" Text="{Binding CustomArguments, UpdateSourceTrigger=PropertyChanged}" 
+                                                AcceptsReturn="True" TextWrapping="Wrap" ToolTip.Tip="{Binding Localized.TooltipCustomArguments}"
+                                                LostFocus="CustomArgumentsTextBox_LostFocus" KeyDown="CustomArgumentsTextBox_KeyDown"/>
                                     </ScrollViewer>
+                                    <ItemsControl ItemsSource="{Binding CustomArgumentItems}" Margin="0,10,0,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <ToggleButton Content="{Binding Name}" 
+                                                             IsChecked="{Binding IsEnabled}"
+                                                             Margin="0,0,5,5"
+                                                             Padding="8,4"
+                                                             Tapped="CustomArgumentToggleTapped"
+                                                             RightTapped="CustomArgumentToggleRightTapped"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -289,7 +336,8 @@
                 </TabItem>
             </TabControl>
 
-            <Border Grid.Row="4" Margin="5,0,5,5" Padding="10" Background="#252526" CornerRadius="5">
+            <Border Grid.Row="4" Margin="5,0,5,5" Padding="10" Background="#252526" CornerRadius="5"
+                    IsVisible="{Binding LogVisible}">
                 <Grid RowDefinitions="Auto,*">
                     <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,5">
                         <CheckBox Content="{Binding Localized.AutoScrollLog}" IsChecked="{Binding AutoScroll}" VerticalAlignment="Center" Margin="0,0,10,0"/>

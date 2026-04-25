@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -50,12 +52,51 @@ public class MainViewModel : INotifyPropertyChanged
 
     public List<string> CacheTypes { get; } = new() { "", "f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1" };
 
+    public record FontSizeOption(string Label, string Value, double Size);
+    public List<FontSizeOption> FontSizeOptions { get; } = new()
+    {
+        new("S", "Small", 12),
+        new("M", "Medium", 14),
+        new("L", "Large", 16),
+        new("XL", "ExtraLarge", 18)
+    };
+
+    private string _fontSizeLevel = "Medium";
+    public string FontSizeLevel
+    {
+        get => _fontSizeLevel;
+        set
+        {
+            if (_fontSizeLevel != value && value != null)
+            {
+                _fontSizeLevel = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SelectedFontSizeOption));
+                OnPropertyChanged(nameof(ContentFontSize));
+            }
+        }
+    }
+
+    public FontSizeOption? SelectedFontSizeOption
+    {
+        get => FontSizeOptions.FirstOrDefault(o => o.Value == _fontSizeLevel);
+        set
+        {
+            if (value != null)
+                FontSizeLevel = value.Value;
+        }
+    }
+
+    public double ContentFontSize => FontSizeOptions.FirstOrDefault(o => o.Value == _fontSizeLevel)?.Size ?? 14;
+
     private void ChangeLanguage(string? languageCode)
     {
         if (string.IsNullOrEmpty(languageCode)) return;
         var culture = new CultureInfo(languageCode);
         LocalizedStrings.SetCulture(culture);
         OnPropertyChanged(nameof(Localized));
+        OnPropertyChanged(nameof(ToggleLogButtonText));
+        OnPropertyChanged(nameof(ToggleTabPanelButtonText));
     }
 
     private string _executablePath = string.Empty;
@@ -89,6 +130,11 @@ public class MainViewModel : INotifyPropertyChanged
     private string _customArguments = string.Empty;
     private bool _autoRestart;
     private bool _autoScroll = true;
+    private bool _logEnabled = true;
+    private bool _logVisible = true;
+    private bool _tabPanelVisible = true;
+    private bool _autoFitHeight;
+    private double _autoFitHeightSavedHeight = 650;
     private string _selectedProfile = string.Empty;
     private string _profileNameInput = string.Empty;
     private bool _isServerRunning;
@@ -187,6 +233,22 @@ public class MainViewModel : INotifyPropertyChanged
         CustomArguments = settings.CustomArguments;
         AutoRestart = settings.AutoRestart;
         AutoScroll = settings.AutoScrollLog;
+        LogEnabled = settings.LogEnabled;
+        LogVisible = settings.LogVisible;
+        TabPanelVisible = settings.TabPanelVisible;
+        AutoFitHeight = settings.AutoFitHeight;
+        AutoFitHeightSavedHeight = settings.AutoFitHeightSavedHeight > 0 ? settings.AutoFitHeightSavedHeight : 650;
+        FontSizeLevel = string.IsNullOrEmpty(settings.FontSizeLevel) ? "Medium" : settings.FontSizeLevel;
+        ParseCustomArguments();
+        if (settings.CustomArgumentToggleStates != null && settings.CustomArgumentToggleStates.Count > 0)
+        {
+            foreach (var item in CustomArgumentItems)
+            {
+                if (settings.CustomArgumentToggleStates.TryGetValue(item.Name, out var enabled))
+                    item.IsEnabled = enabled;
+            }
+            RebuildCustomArgumentsFromToggles();
+        }
     }
 
     public AppSettings GetAppSettings()
@@ -223,9 +285,16 @@ public class MainViewModel : INotifyPropertyChanged
             LogFilePath = LogFilePath,
             VerboseLogging = VerboseLogging,
             Alias = Alias,
-            CustomArguments = CustomArguments,
+            CustomArguments = string.Join(" ", CustomArgumentItems.Select(x => x.OriginalArg)),
             AutoRestart = AutoRestart,
-            AutoScrollLog = AutoScroll
+            AutoScrollLog = AutoScroll,
+            LogEnabled = LogEnabled,
+            LogVisible = LogVisible,
+            TabPanelVisible = TabPanelVisible,
+            AutoFitHeight = AutoFitHeight,
+            AutoFitHeightSavedHeight = AutoFitHeightSavedHeight,
+            FontSizeLevel = FontSizeLevel,
+            CustomArgumentToggleStates = GetToggleStates()
         };
     }
 
@@ -448,11 +517,66 @@ public class MainViewModel : INotifyPropertyChanged
         set { _autoScroll = value; OnPropertyChanged(); }
     }
 
+    public bool LogEnabled
+    {
+        get => _logEnabled;
+        set { _logEnabled = value; OnPropertyChanged(); OnPropertyChanged(nameof(ToggleLogButtonText)); }
+    }
+
+    public bool LogVisible
+    {
+        get => _logVisible;
+        set { _logVisible = value; OnPropertyChanged(); OnPropertyChanged(nameof(ToggleLogButtonText)); }
+    }
+
+    public bool TabPanelVisible
+    {
+        get => _tabPanelVisible;
+        set { _tabPanelVisible = value; OnPropertyChanged(); OnPropertyChanged(nameof(ToggleTabPanelButtonText)); }
+    }
+
+    public bool AutoFitHeight
+    {
+        get => _autoFitHeight;
+        set { _autoFitHeight = value; OnPropertyChanged(); }
+    }
+
+    public double AutoFitHeightSavedHeight
+    {
+        get => _autoFitHeightSavedHeight;
+        set { _autoFitHeightSavedHeight = value; OnPropertyChanged(); }
+    }
+
+    public string ToggleLogButtonText => _logVisible
+        ? LocalizedStrings.Instance.HideLog
+        : LocalizedStrings.Instance.ShowLog;
+
+    public string ToggleTabPanelButtonText => _tabPanelVisible
+        ? LocalizedStrings.Instance.HideTabPanel
+        : LocalizedStrings.Instance.ShowTabPanel;
+
     public string CustomArguments
     {
         get => _customArguments;
-        set { _customArguments = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+        set
+        {
+            if (_customArguments != value)
+            {
+                _customArguments = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                UpdateCurrentCommand();
+                if (!_isUpdatingCustomArguments)
+                    UpdateCustomArgumentTogglesFromText();
+            }
+        }
     }
+
+    public ObservableCollection<CustomArgumentItem> CustomArgumentItems { get; private set; } = new();
+
+    private string _originalCustomArguments = string.Empty;
+    private Dictionary<string, bool> _disabledArguments = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+    private bool _isUpdatingCustomArguments;
 
     private string _windowTitle = string.Empty;
     
@@ -775,7 +899,11 @@ private void LoadConfigToUI(ServerConfiguration config)
         CacheTypeV = config.CacheTypeV ?? string.Empty;
         VerboseLogging = config.VerboseLogging;
         Alias = config.Alias ?? string.Empty;
+        _disabledArguments.Clear();
+        _originalCustomArguments = string.Empty;
         CustomArguments = config.CustomArguments ?? string.Empty;
+        ParseCustomArguments();
+        RebuildCustomArgumentsFromToggles();
     }
 
     public void ClearAllFields()
@@ -808,6 +936,9 @@ private void LoadConfigToUI(ServerConfiguration config)
         CacheTypeV = string.Empty;
         VerboseLogging = false;
         Alias = string.Empty;
+        _disabledArguments.Clear();
+        _originalCustomArguments = string.Empty;
+        CustomArgumentItems.Clear();
         CustomArguments = string.Empty;
         AutoRestart = false;
         // ProfileNameInput = string.Empty;
@@ -826,6 +957,486 @@ private void LoadConfigToUI(ServerConfiguration config)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
         return double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : null;
+    }
+
+    private void ParseCustomArguments()
+    {
+        CustomArgumentItems.Clear();
+        if (string.IsNullOrWhiteSpace(_customArguments))
+        {
+            _originalCustomArguments = string.Empty;
+            return;
+        }
+
+        var normalized = System.Text.RegularExpressions.Regex.Replace(_customArguments.Trim(), @"[ \t\r\n]+", " ");
+        var tokens = TokenizeArgs(normalized);
+
+        int i = 0;
+        while (i < tokens.Count)
+        {
+            var token = tokens[i];
+            bool isFlag = token.StartsWith("-");
+
+            if (isFlag && i + 1 < tokens.Count)
+            {
+                var next = tokens[i + 1];
+                bool nextIsFlag = next.StartsWith("-");
+                bool nextIsQuotedValue = (next.StartsWith("\"") && next.EndsWith("\"")) ||
+                                         (next.StartsWith("'") && next.EndsWith("'")) ||
+                                         (next.StartsWith("{") && next.EndsWith("}")) ||
+                                         (next.StartsWith("[") && next.EndsWith("]"));
+
+                if (nextIsQuotedValue)
+                {
+                    CustomArgumentItems.Add(new CustomArgumentItem
+                    {
+                        Name = token,
+                        Value = null,
+                        OriginalArg = $"{token} {next}"
+                    });
+                    i += 2;
+                }
+                else if (!nextIsFlag)
+                {
+                    CustomArgumentItems.Add(new CustomArgumentItem
+                    {
+                        Name = token,
+                        Value = next,
+                        OriginalArg = $"{token} {next}"
+                    });
+                    i += 2;
+                }
+                else
+                {
+                    CustomArgumentItems.Add(new CustomArgumentItem
+                    {
+                        Name = token,
+                        Value = null,
+                        OriginalArg = token
+                    });
+                    i++;
+                }
+            }
+            else
+            {
+                CustomArgumentItems.Add(new CustomArgumentItem
+                {
+                    Name = token,
+                    Value = null,
+                    OriginalArg = token
+                });
+                i++;
+            }
+        }
+
+        _originalCustomArguments = _customArguments;
+    }
+
+    /// <summary>
+    /// Real-time toggle update during typing: parses the current text into
+    /// enabled items and preserves disabled items from _originalCustomArguments
+    /// without modifying _originalCustomArguments.
+    /// </summary>
+    private void UpdateCustomArgumentTogglesFromText()
+    {
+        var currTokens = string.IsNullOrWhiteSpace(_customArguments)
+            ? new List<string>()
+            : TokenizeArgs(_customArguments.Trim());
+        var currPairs = ParseTokensToArgPairs(currTokens);
+
+        // Track which names appear in current text
+        var currNames = new HashSet<string>();
+        foreach (var pair in currPairs)
+            currNames.Add(pair.Name);
+
+        CustomArgumentItems.Clear();
+
+        // Add items from current text (all enabled)
+        foreach (var pair in currPairs)
+        {
+            CustomArgumentItems.Add(new CustomArgumentItem
+            {
+                Name = pair.Name,
+                Value = pair.Value,
+                OriginalArg = pair.OriginalArg,
+                IsEnabled = true
+            });
+        }
+
+        // Preserve disabled items from _originalCustomArguments that aren't in current text
+        if (!string.IsNullOrWhiteSpace(_originalCustomArguments))
+        {
+            var origTokens = TokenizeArgs(_originalCustomArguments.Trim());
+            var origPairs = ParseTokensToArgPairs(origTokens);
+            foreach (var origPair in origPairs)
+            {
+                if (!currNames.Contains(origPair.Name))
+                {
+                    CustomArgumentItems.Add(new CustomArgumentItem
+                    {
+                        Name = origPair.Name,
+                        Value = origPair.Value,
+                        OriginalArg = origPair.OriginalArg,
+                        IsEnabled = false
+                    });
+                }
+            }
+        }
+    }
+
+    private List<string> TokenizeArgs(string input)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrWhiteSpace(input))
+            return result;
+
+        int i = 0;
+        while (i < input.Length)
+        {
+            char c = input[i];
+
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n')
+            {
+                i++;
+                continue;
+            }
+
+            if (c == '"' || c == '\'')
+            {
+                char quote = c;
+                int end = -1;
+                for (int j = i + 1; j < input.Length; j++)
+                {
+                    if (input[j] == '\\' && j + 1 < input.Length)
+                    {
+                        j++;
+                        continue;
+                    }
+                    if (input[j] == quote)
+                    {
+                        end = j;
+                        break;
+                    }
+                }
+                if (end == -1) end = input.Length - 1;
+                result.Add(input.Substring(i, end - i + 1));
+                i = end + 1;
+                continue;
+            }
+
+            if (c == '{')
+            {
+                int end = -1;
+                int depth = 0;
+                for (int j = i; j < input.Length; j++)
+                {
+                    char ch = input[j];
+                    if (ch == '{') depth++;
+                    else if (ch == '}')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            end = j;
+                            break;
+                        }
+                    }
+                    else if (ch == '"' || ch == '\'')
+                    {
+                        char quote = ch;
+                        for (int k = j + 1; k < input.Length; k++)
+                        {
+                            if (input[k] == '\\' && k + 1 < input.Length)
+                            {
+                                k++;
+                                continue;
+                            }
+                            if (input[k] == quote)
+                            {
+                                j = k;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (end == -1) end = input.Length - 1;
+                result.Add(input.Substring(i, end - i + 1));
+                i = end + 1;
+                continue;
+            }
+
+            if (c == '[')
+            {
+                int end = -1;
+                int depth = 0;
+                for (int j = i; j < input.Length; j++)
+                {
+                    char ch = input[j];
+                    if (ch == '[') depth++;
+                    else if (ch == ']')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            end = j;
+                            break;
+                        }
+                    }
+                    else if (ch == '"' || ch == '\'')
+                    {
+                        char quote = ch;
+                        for (int k = j + 1; k < input.Length; k++)
+                        {
+                            if (input[k] == '\\' && k + 1 < input.Length)
+                            {
+                                k++;
+                                continue;
+                            }
+                            if (input[k] == quote)
+                            {
+                                j = k;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (end == -1) end = input.Length - 1;
+                result.Add(input.Substring(i, end - i + 1));
+                i = end + 1;
+                continue;
+            }
+
+            int spaceIdx = input.IndexOf(' ', i);
+            int tabIdx = input.IndexOf('\t', i);
+            int nextSpecial = Math.Min(spaceIdx >= 0 ? spaceIdx : input.Length,
+                                       tabIdx >= 0 ? tabIdx : input.Length);
+            if (nextSpecial == input.Length) nextSpecial = -1;
+
+            int flagSpace = -1;
+            for (int j = i + 1; j < input.Length; j++)
+            {
+                if (input[j] == ' ' || input[j] == '\t' || input[j] == '\r' || input[j] == '\n')
+                {
+                    flagSpace = j;
+                    break;
+                }
+            }
+
+            if (flagSpace > 0 && flagSpace < input.Length)
+            {
+                result.Add(input.Substring(i, flagSpace - i));
+                i = flagSpace;
+            }
+            else
+            {
+                result.Add(input.Substring(i));
+                break;
+            }
+        }
+
+        return result;
+    }
+
+public void RebuildCustomArgumentsFromToggles()
+    {
+        _isUpdatingCustomArguments = true;
+        try
+        {
+            var disabledItems = CustomArgumentItems.Where(x => !x.IsEnabled).Select(x => x.OriginalArg).ToList();
+
+            var visibleText = string.Join(" ", CustomArgumentItems
+                .Where(x => x.IsEnabled)
+                .Select(x => x.OriginalArg));
+
+            _customArguments = visibleText;
+            _disabledArguments.Clear();
+            foreach (var item in disabledItems)
+                _disabledArguments[item] = false;
+            OnPropertyChanged(nameof(CustomArguments));
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            UpdateCurrentCommand();
+        }
+        finally
+        {
+            _isUpdatingCustomArguments = false;
+        }
+    }
+
+    public void ClearCustomArguments()
+    {
+        _disabledArguments.Clear();
+        _originalCustomArguments = string.Empty;
+        CustomArgumentItems.Clear();
+        _customArguments = string.Empty;
+        OnPropertyChanged(nameof(CustomArguments));
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        UpdateCurrentCommand();
+    }
+
+    private void ResetCustomArguments()
+    {
+        _customArguments = _originalCustomArguments;
+        OnPropertyChanged(nameof(CustomArguments));
+        ParseCustomArguments();
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        UpdateCurrentCommand();
+    }
+
+    public void RemoveCustomArgument(CustomArgumentItem item)
+    {
+        // Use arg-pair-level filtering so multi-token args (e.g. --flag "value")
+        // are removed as a unit, not compared token-by-token.
+        var tokens = TokenizeArgs(_originalCustomArguments);
+        var pairs = ParseTokensToArgPairs(tokens);
+        _originalCustomArguments = string.Join(" ", pairs
+            .Where(p => p.OriginalArg != item.OriginalArg)
+            .Select(p => p.OriginalArg));
+        _disabledArguments.Remove(item.OriginalArg);
+        CustomArgumentItems.Remove(item);
+        RebuildCustomArgumentsFromToggles();
+    }
+
+    public void ParseAndUpdateCustomArguments()
+    {
+        var currTokens = string.IsNullOrWhiteSpace(_customArguments)
+            ? new List<string>()
+            : TokenizeArgs(_customArguments.Trim());
+        var origTokens = string.IsNullOrWhiteSpace(_originalCustomArguments)
+            ? new List<string>()
+            : TokenizeArgs(_originalCustomArguments.Trim());
+
+        var currPairs = ParseTokensToArgPairs(currTokens);
+        var origPairs = ParseTokensToArgPairs(origTokens);
+
+        // Merge: match original args with current args by name (first unmatched wins)
+        var merged = new List<(string Name, string? Value, string OriginalArg)>();
+        var matchedCurrIndices = new HashSet<int>();
+
+        foreach (var origPair in origPairs)
+        {
+            int matchIdx = -1;
+            for (int j = 0; j < currPairs.Count; j++)
+            {
+                if (!matchedCurrIndices.Contains(j) && currPairs[j].Name == origPair.Name)
+                {
+                    matchIdx = j;
+                    break;
+                }
+            }
+
+            if (matchIdx >= 0)
+            {
+                // Arg exists in current text — use current version (value may have changed)
+                merged.Add(currPairs[matchIdx]);
+                matchedCurrIndices.Add(matchIdx);
+            }
+            else
+            {
+                // Arg was toggled off or removed from text — keep original version
+                merged.Add(origPair);
+            }
+        }
+
+        // Append genuinely new arguments from current text
+        for (int j = 0; j < currPairs.Count; j++)
+        {
+            if (!matchedCurrIndices.Contains(j))
+            {
+                merged.Add(currPairs[j]);
+            }
+        }
+
+        _originalCustomArguments = string.Join(" ", merged.Select(p => p.OriginalArg));
+
+        // Rebuild CustomArgumentItems and toggle state
+        CustomArgumentItems.Clear();
+        _disabledArguments.Clear();
+
+        foreach (var pair in merged)
+        {
+            bool isInCurrentText = currPairs.Any(cp => cp.Name == pair.Name);
+            var item = new CustomArgumentItem
+            {
+                Name = pair.Name,
+                Value = pair.Value,
+                OriginalArg = pair.OriginalArg,
+                IsEnabled = isInCurrentText
+            };
+
+            if (!item.IsEnabled)
+            {
+                _disabledArguments[pair.OriginalArg] = false;
+            }
+
+            CustomArgumentItems.Add(item);
+        }
+
+        RebuildCustomArgumentsFromToggles();
+    }
+
+    /// <summary>
+    /// Parses flat tokens into structured (Name, Value, OriginalArg) pairs,
+    /// grouping flags with their values when applicable.
+    /// </summary>
+    private List<(string Name, string? Value, string OriginalArg)> ParseTokensToArgPairs(List<string> tokens)
+    {
+        var pairs = new List<(string Name, string? Value, string OriginalArg)>();
+        int i = 0;
+        while (i < tokens.Count)
+        {
+            var token = tokens[i];
+            bool isFlag = token.StartsWith("-");
+
+            if (isFlag && i + 1 < tokens.Count)
+            {
+                var next = tokens[i + 1];
+                bool nextIsFlag = next.StartsWith("-");
+                bool nextIsQuotedValue = (next.StartsWith("\"") && next.EndsWith("\"")) ||
+                                         (next.StartsWith("'") && next.EndsWith("'")) ||
+                                         (next.StartsWith("{") && next.EndsWith("}")) ||
+                                         (next.StartsWith("[") && next.EndsWith("]"));
+
+                if (nextIsQuotedValue)
+                {
+                    pairs.Add((token, null, $"{token} {next}"));
+                    i += 2;
+                }
+                else if (!nextIsFlag)
+                {
+                    pairs.Add((token, next, $"{token} {next}"));
+                    i += 2;
+                }
+                else
+                {
+                    pairs.Add((token, null, token));
+                    i++;
+                }
+            }
+            else
+            {
+                pairs.Add((token, null, token));
+                i++;
+            }
+        }
+        return pairs;
+    }
+
+    public void ApplyToggleStates(Dictionary<string, bool> states)
+    {
+        foreach (var item in CustomArgumentItems)
+        {
+            if (states.TryGetValue(item.Name, out var enabled))
+                item.IsEnabled = enabled;
+        }
+        RebuildCustomArgumentsFromToggles();
+    }
+
+    public Dictionary<string, bool> GetToggleStates()
+    {
+        var states = new Dictionary<string, bool>();
+        foreach (var item in CustomArgumentItems)
+            states[item.Name] = item.IsEnabled;
+        return states;
     }
 
     private async Task StartServerAsync()
@@ -1269,6 +1880,7 @@ private void LoadConfigToUI(ServerConfiguration config)
 
     private void OnLogReceived(object? sender, string logLine)
     {
+        if (!LogEnabled) return;
         Dispatcher.UIThread.Invoke(() =>
         {
             LogLines.Add(logLine);
@@ -1282,6 +1894,7 @@ private void LoadConfigToUI(ServerConfiguration config)
 
     private void OnServerOutput(object? sender, string output)
     {
+        if (!LogEnabled) return;
         Dispatcher.UIThread.Invoke(() =>
         {
             LogLines.Add(output);
@@ -1349,6 +1962,29 @@ public class LanguageOption
 {
     public string Code { get; set; } = "";
     public string Name { get; set; } = "";
+}
+
+public class CustomArgumentItem : INotifyPropertyChanged
+{
+    private bool _isEnabled = true;
+    public string Name { get; set; } = "";
+    public string? Value { get; set; }
+    public string OriginalArg { get; set; } = "";
+
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set
+        {
+            if (_isEnabled != value)
+            {
+                _isEnabled = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEnabled)));
+            }
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 public enum MessageBoxResult

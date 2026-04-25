@@ -428,4 +428,28 @@
   <data name="TooltipImportAll" xml:space="preserve">
     <value>Import all profiles from a backup file</value>
   </data>
+  <data name="EnableLog" xml:space="preserve">
+    <value>Enable log</value>
+  </data>
+  <data name="ShowLog" xml:space="preserve">
+    <value>Show log</value>
+  </data>
+  <data name="HideLog" xml:space="preserve">
+    <value>Hide log</value>
+  </data>
+  <data name="TooltipFontSize" xml:space="preserve">
+    <value>Font size</value>
+  </data>
+  <data name="AutoFitHeight" xml:space="preserve">
+    <value>Auto-fit height</value>
+  </data>
+  <data name="ShowTabPanel" xml:space="preserve">
+    <value>Show settings</value>
+  </data>
+  <data name="HideTabPanel" xml:space="preserve">
+    <value>Hide settings</value>
+  </data>
+  <data name="TooltipCurrentCommand" xml:space="preserve">
+    <value>Click to copy command to clipboard</value>
+  </data>
 </root>

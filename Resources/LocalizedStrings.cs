@@ -141,6 +141,12 @@ public string English => GetString("English");
     public string TooltipExportAll => GetString("TooltipExportAll");
     public string TooltipImportAll => GetString("TooltipImportAll");
 
+    public string EnableLog => GetString("EnableLog");
+    public string ShowLog => GetString("ShowLog");
+    public string HideLog => GetString("HideLog");
+    public string ShowTabPanel => GetString("ShowTabPanel");
+    public string HideTabPanel => GetString("HideTabPanel");
+
     public string TooltipModelPath => GetString("TooltipModelPath");
     public string TooltipModelsDir => GetString("TooltipModelsDir");
     public string TooltipHost => GetString("TooltipHost");
@@ -168,4 +174,9 @@ public string English => GetString("English");
     public string TooltipAlias => GetString("TooltipAlias");
     public string TooltipLogFile => GetString("TooltipLogFile");
     public string TooltipCustomArguments => GetString("TooltipCustomArguments");
+
+    public string TooltipFontSize => GetString("TooltipFontSize");
+    public string TooltipCurrentCommand => GetString("TooltipCurrentCommand");
+
+    public string AutoFitHeight => GetString("AutoFitHeight");
 }
