@@ -51,4 +51,5 @@ public class AppSettings
     public bool AutoFitHeight { get; set; }
     public double AutoFitHeightSavedHeight { get; set; } = 650;
     public bool TabPanelVisible { get; set; } = true;
+    public double LogHeight { get; set; } = 200;
 }

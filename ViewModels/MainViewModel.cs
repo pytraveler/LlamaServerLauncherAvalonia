@@ -238,6 +238,7 @@ public class MainViewModel : INotifyPropertyChanged
         TabPanelVisible = settings.TabPanelVisible;
         AutoFitHeight = settings.AutoFitHeight;
         AutoFitHeightSavedHeight = settings.AutoFitHeightSavedHeight > 0 ? settings.AutoFitHeightSavedHeight : 650;
+        LogHeight = settings.LogHeight > 0 ? settings.LogHeight : 200;
         FontSizeLevel = string.IsNullOrEmpty(settings.FontSizeLevel) ? "Medium" : settings.FontSizeLevel;
         ParseCustomArguments();
         if (settings.CustomArgumentToggleStates != null && settings.CustomArgumentToggleStates.Count > 0)
@@ -293,6 +294,7 @@ public class MainViewModel : INotifyPropertyChanged
             TabPanelVisible = TabPanelVisible,
             AutoFitHeight = AutoFitHeight,
             AutoFitHeightSavedHeight = AutoFitHeightSavedHeight,
+            LogHeight = LogHeight,
             FontSizeLevel = FontSizeLevel,
             CustomArgumentToggleStates = GetToggleStates()
         };
@@ -545,6 +547,13 @@ public class MainViewModel : INotifyPropertyChanged
     {
         get => _autoFitHeightSavedHeight;
         set { _autoFitHeightSavedHeight = value; OnPropertyChanged(); }
+    }
+
+    private double _logHeight = 200;
+    public double LogHeight
+    {
+        get => _logHeight;
+        set { _logHeight = value; OnPropertyChanged(); }
     }
 
     public string ToggleLogButtonText => _logVisible

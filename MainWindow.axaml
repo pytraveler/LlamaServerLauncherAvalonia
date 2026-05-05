@@ -23,7 +23,7 @@
     </Design.DataContext>
 
     <Grid>
-        <Grid x:Name="MainGrid" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <Grid x:Name="MainGrid" RowDefinitions="Auto,Auto,Auto,*,Auto,200">
             <Grid Grid.Row="0" ColumnDefinitions="Auto,*">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="5,5,10,5">
                     <ComboBox ItemsSource="{Binding FontSizeOptions}"
@@ -336,14 +336,22 @@
                 </TabItem>
             </TabControl>
 
-            <Border Grid.Row="4" Margin="5,0,5,5" Padding="10" Background="#252526" CornerRadius="5"
+            <GridSplitter x:Name="LogGridSplitter" Grid.Row="4"
+                          Height="6"
+                          HorizontalAlignment="Stretch"
+                          ResizeDirection="Rows"
+                          ResizeBehavior="PreviousAndNext"
+                          IsVisible="{Binding LogVisible}"/>
+
+            <Border Grid.Row="5" Margin="5,0,5,5" Padding="10" Background="#252526" CornerRadius="5"
+                    MinHeight="60"
                     IsVisible="{Binding LogVisible}">
                 <Grid RowDefinitions="Auto,*">
                     <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,5">
                         <CheckBox Content="{Binding Localized.AutoScrollLog}" IsChecked="{Binding AutoScroll}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <Button Content="{Binding Localized.ClearLog}" Click="ClearLogClick" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" MaxHeight="200">
+                    <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <TextBox x:Name="LogTextBox" Text="{Binding LogText}"
                                 IsReadOnly="True"
                                 FontFamily="Consolas"

@@ -26,6 +26,9 @@ public partial class MainWindow : Window
     private bool _isClosing = false;
     private bool _isAutoFitActive;
     private double _originalMinHeight;
+    private bool _isCustomLogDrag;
+    private double _customLogDragStartY;
+    private double _customLogDragStartHeight;
 
     public static MainWindow? Instance { get; private set; }
     public IntPtr WindowHandle => _windowHandle;
@@ -56,6 +59,15 @@ public partial class MainWindow : Window
         }
         
         _windowHandle = this.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        
+        // Intercept GridSplitter pointer events for custom drag in auto-fit mode
+        var splitter = this.FindControl<GridSplitter>("LogGridSplitter");
+        if (splitter != null)
+        {
+            splitter.AddHandler(PointerPressedEvent, OnLogSplitterPointerPressed, RoutingStrategies.Tunnel);
+            splitter.AddHandler(PointerMovedEvent, OnLogSplitterPointerMoved, RoutingStrategies.Tunnel);
+            splitter.AddHandler(PointerReleasedEvent, OnLogSplitterPointerReleased, RoutingStrategies.Tunnel);
+        }
         
         // AllowDrop is set in XAML via dd:DragDrop.AllowDrop="True"
         System.Diagnostics.Debug.WriteLine("MainWindow initialized");
@@ -98,6 +110,27 @@ public partial class MainWindow : Window
                     DisableAutoFitHeight();
             });
         }
+        else if (e.PropertyName == nameof(MainViewModel.LogVisible))
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                var mainGrid = this.FindControl<Grid>("MainGrid");
+                if (mainGrid == null || _viewModel == null || mainGrid.RowDefinitions.Count <= 5) return;
+
+                if (_viewModel.LogVisible)
+                {
+                    var h = _viewModel.LogHeight > 0 ? _viewModel.LogHeight : 200;
+                    mainGrid.RowDefinitions[5].Height = new GridLength(h);
+                }
+                else
+                {
+                    var currentHeight = mainGrid.RowDefinitions[5].Height;
+                    if (currentHeight.IsAbsolute && currentHeight.Value > 0)
+                        _viewModel.LogHeight = currentHeight.Value;
+                    mainGrid.RowDefinitions[5].Height = new GridLength(0);
+                }
+            });
+        }
     }
 
     private void EnableAutoFitHeight()
@@ -138,6 +171,41 @@ public partial class MainWindow : Window
         _isAutoFitActive = false;
     }
 
+    private void OnLogSplitterPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!_isAutoFitActive) return;
+
+        var mainGrid = this.FindControl<Grid>("MainGrid");
+        if (mainGrid == null || mainGrid.RowDefinitions.Count <= 5) return;
+
+        _isCustomLogDrag = true;
+        _customLogDragStartY = e.GetPosition(this).Y;
+        _customLogDragStartHeight = mainGrid.RowDefinitions[5].Height.Value;
+        e.Handled = true;
+        e.Pointer.Capture((IInputElement)sender!);
+    }
+
+    private void OnLogSplitterPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_isCustomLogDrag) return;
+
+        var mainGrid = this.FindControl<Grid>("MainGrid");
+        if (mainGrid == null || mainGrid.RowDefinitions.Count <= 5) return;
+
+        var currentY = e.GetPosition(this).Y;
+        var delta = currentY - _customLogDragStartY;
+        var newHeight = Math.Max(50, _customLogDragStartHeight + delta);
+        mainGrid.RowDefinitions[5].Height = new GridLength(newHeight);
+        e.Handled = true;
+    }
+
+    private void OnLogSplitterPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_isCustomLogDrag) return;
+        _isCustomLogDrag = false;
+        e.Handled = true;
+    }
+
     private async Task LoadWindowPositionAsync()
     {
         if (_configService == null) return;
@@ -156,11 +224,18 @@ public partial class MainWindow : Window
             var left = settings.WindowLeft.Value;
             var top = settings.WindowTop.Value;
             
-            // Validate that window is visible on screen
             if (left >= 0 && left < 3000 && top >= 0 && top < 2000)
             {
                 Position = new PixelPoint((int)left, (int)top);
             }
+        }
+
+        var mainGrid = this.FindControl<Grid>("MainGrid");
+        if (mainGrid != null && mainGrid.RowDefinitions.Count > 5)
+        {
+            var logHeight = settings.LogHeight > 0 ? settings.LogHeight : 200;
+            mainGrid.RowDefinitions[5].Height = new GridLength(logHeight);
+            mainGrid.RowDefinitions[5].MinHeight = 50;
         }
     }
 
@@ -168,10 +243,17 @@ public partial class MainWindow : Window
     {
         if (_configService == null || _viewModel == null) return;
         
+        var mainGrid = this.FindControl<Grid>("MainGrid");
+        if (mainGrid != null && mainGrid.RowDefinitions.Count > 5 && _viewModel.LogVisible)
+        {
+            var logRow = mainGrid.RowDefinitions[5];
+            if (logRow.Height.IsAbsolute && logRow.Height.Value > 0)
+                _viewModel.LogHeight = logRow.Height.Value;
+        }
+        
         var settings = _viewModel.GetAppSettings();
         settings.WindowWidth = Width;
         
-        // When auto-fit is active, save LH instead of current auto-fitted height
         if (_viewModel.AutoFitHeight)
             settings.WindowHeight = _viewModel.AutoFitHeightSavedHeight;
         else
