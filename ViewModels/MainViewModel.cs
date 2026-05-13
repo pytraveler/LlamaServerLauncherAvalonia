@@ -9,7 +9,9 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Threading;
 using LlamaServerLauncher.Models;
 using LlamaServerLauncher.Resources;
@@ -19,13 +21,18 @@ namespace LlamaServerLauncher.ViewModels;
 
 public class MainViewModel : INotifyPropertyChanged
 {
+    private bool _isInitializing = true;
     private readonly LlamaServerService _serverService;
-    private readonly ConfigurationService _configService;
+    private ConfigurationService _configService;
     private readonly LogService _logService;
     private readonly LlamaCppDownloadService _downloadService;
+    private readonly AppUpdateService _appUpdateService = new();
+    private readonly DataPathResolver _dataPathResolver;
     private ServerConfiguration? _loadedProfileConfig;
     private string _loadedProfileName = string.Empty;
     private string _llamaCppInstalledTag = "";
+    private Dictionary<string, List<string>> _recentValues = new();
+    private const int MaxRecentValues = 10;
 
     public LogService LogService => _logService;
     public LocalizedStrings Localized { get; } = LocalizedStrings.Instance;
@@ -92,6 +99,83 @@ public class MainViewModel : INotifyPropertyChanged
     }
 
     public double ContentFontSize => FontSizeOptions.FirstOrDefault(o => o.Value == _fontSizeLevel)?.Size ?? 14;
+
+    private string _themeVariant = "Dark";
+    public string ThemeVariant
+    {
+        get => _themeVariant;
+        set
+        {
+            if (_themeVariant != value && value != null)
+            {
+                _themeVariant = value;
+                OnPropertyChanged();
+                ApplyTheme();
+            }
+        }
+    }
+
+    public List<string> ThemeOptions { get; } = new() { "Dark", "Light" };
+
+    private string _colorScheme = "Default";
+    public string ColorScheme
+    {
+        get => _colorScheme;
+        set
+        {
+            if (_colorScheme != value && value != null)
+            {
+                _colorScheme = value;
+                OnPropertyChanged();
+                ApplyTheme();
+            }
+        }
+    }
+
+    public List<string> ColorSchemeOptions { get; } = new() { "Default", "Ubuntu", "Ocean", "Forest", "Sunset" };
+
+    public List<string> AvailableFonts { get; } = GetSystemFonts();
+
+    private static List<string> GetSystemFonts()
+    {
+        try
+        {
+            var fonts = FontManager.Current.SystemFonts
+                .Select(f => f.Name)
+                .Distinct()
+                .OrderBy(n => n)
+                .ToList();
+            fonts.Insert(0, "");
+            return fonts;
+        }
+        catch
+        {
+            return new List<string> { "", "Inter" };
+        }
+    }
+    private string _selectedFontFamily = "";
+    public string SelectedFontFamily
+    {
+        get => _selectedFontFamily;
+        set
+        {
+            if (_selectedFontFamily != value)
+            {
+                _selectedFontFamily = value ?? "";
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EffectiveFontFamily));
+            }
+        }
+    }
+
+    public FontFamily EffectiveFontFamily =>
+        string.IsNullOrEmpty(_selectedFontFamily) ? FontFamily.Default : new FontFamily(_selectedFontFamily);
+
+    private void ApplyTheme()
+    {
+        if (!_isInitializing)
+            App.SwitchTheme(_themeVariant, _colorScheme);
+    }
 
     private void ChangeLanguage(string? languageCode)
     {
@@ -160,6 +244,7 @@ public class MainViewModel : INotifyPropertyChanged
     private bool _logEnabled = true;
     private bool _logVisible = true;
     private bool _tabPanelVisible = true;
+    private int _selectedTabIndex;
     private bool _autoFitHeight;
     private double _autoFitHeightSavedHeight = 650;
     private string _selectedProfile = string.Empty;
@@ -170,16 +255,24 @@ public class MainViewModel : INotifyPropertyChanged
     private string _logOutput = string.Empty;
     private string _logText = string.Empty;
     private string _currentCommand = string.Empty;
+    private bool _useDefaultDataPath = true;
+
+    public Func<string, string, Task<bool>>? ConfirmActionFunc { get; set; }
+    public Func<string, string, string, Task> ShowMessageFunc { get; set; } = (_, _, _) => Task.CompletedTask;
+    public Func<string, Task<string?>>? BrowseFolderFunc { get; set; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public MainViewModel()
     {
-        _logService = new LogService();
+        _dataPathResolver = new DataPathResolver();
+        var resolvedPath = _dataPathResolver.ResolveDataPath();
+
+        _logService = new LogService(resolvedPath);
         _logService.LogReceived += OnLogReceived;
         _serverService = new LlamaServerService(_logService);
-        _configService = new ConfigurationService(_logService);
-        _downloadService = new LlamaCppDownloadService();
+        _configService = new ConfigurationService(_logService, resolvedPath);
+        _downloadService = new LlamaCppDownloadService(resolvedPath);
 
         _serverService.OutputReceived += OnServerOutput;
         _serverService.ServerStateChanged += OnServerStateChanged;
@@ -213,6 +306,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         LoadProfiles();
         _logService.AppLog("Application started");
+        _useDefaultDataPath = !_dataPathResolver.IsCustomPathActive();
         UpdateCurrentCommand();
     }
 
@@ -221,6 +315,7 @@ public class MainViewModel : INotifyPropertyChanged
         var settings = await _configService.LoadAppSettingsAsync();
         ApplyAppSettings(settings);
         _ = CheckForLlamaUpdateAsync();
+        _ = CheckForAppUpdateAsync();
         _ = RefreshSupportedFlagsAsync();
     }
 
@@ -283,7 +378,11 @@ public class MainViewModel : INotifyPropertyChanged
         AutoFitHeightSavedHeight = settings.AutoFitHeightSavedHeight > 0 ? settings.AutoFitHeightSavedHeight : 650;
         LogHeight = settings.LogHeight > 0 ? settings.LogHeight : 200;
         FontSizeLevel = string.IsNullOrEmpty(settings.FontSizeLevel) ? "Medium" : settings.FontSizeLevel;
+        ThemeVariant = string.IsNullOrEmpty(settings.ThemeVariant) ? "Dark" : settings.ThemeVariant;
+        ColorScheme = string.IsNullOrEmpty(settings.ColorScheme) ? "Default" : settings.ColorScheme;
+        SelectedFontFamily = settings.FontFamily ?? "";
         _llamaCppInstalledTag = settings.LlamaCppInstalledTag ?? "";
+        SelectedTabIndex = settings.SelectedTabIndex;
         ParseCustomArguments();
         if (settings.CustomArgumentToggleStates != null && settings.CustomArgumentToggleStates.Count > 0)
         {
@@ -293,6 +392,239 @@ public class MainViewModel : INotifyPropertyChanged
                     item.IsEnabled = enabled;
             }
             RebuildCustomArgumentsFromToggles();
+        }
+        _isInitializing = false;
+        _recentValues = settings.RecentValuesHistory ?? new Dictionary<string, List<string>>();
+        ApplyTheme();
+    }
+
+    public bool UseDefaultDataPath
+    {
+        get => _useDefaultDataPath;
+        set
+        {
+            if (_useDefaultDataPath != value)
+            {
+                _useDefaultDataPath = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(DataPathTooltip));
+            }
+        }
+    }
+
+    public string CurrentDataPath => _dataPathResolver.ResolveDataPath();
+
+    public string DataPathTooltip
+    {
+        get
+        {
+            var path = CurrentDataPath;
+            if (_useDefaultDataPath)
+                return string.Format(Localized.DataPathTooltipDefault, path);
+            return string.Format(Localized.DataPathTooltipCustom, path);
+        }
+    }
+
+    public async Task ToggleDataPathAsync(bool useDefault)
+    {
+        if (useDefault)
+        {
+            var defaultPath = _dataPathResolver.DefaultAppDataPath;
+            var msg = string.Format(Localized.ConfirmMoveToDefault, defaultPath);
+            if (ConfirmActionFunc != null)
+            {
+                var confirmed = await ConfirmActionFunc(Localized.ConfirmTitle, msg);
+                if (!confirmed)
+                {
+                    OnPropertyChanged(nameof(UseDefaultDataPath));
+                    return;
+                }
+            }
+
+            var currentPath = _dataPathResolver.ResolveDataPath();
+            var error = await MigrateDataAsync(currentPath, defaultPath);
+            if (error != null)
+            {
+                if (ShowMessageFunc != null)
+                    await ShowMessageFunc(Localized.ErrorTitle, string.Format(Localized.MigrationError, error), "error");
+                UseDefaultDataPath = false;
+                return;
+            }
+
+            _dataPathResolver.ClearCustomPath();
+            ReinitializeServices(defaultPath);
+            UseDefaultDataPath = true;
+            OnPropertyChanged(nameof(CurrentDataPath));
+            OnPropertyChanged(nameof(DataPathTooltip));
+
+            if (ShowMessageFunc != null)
+                await ShowMessageFunc(Localized.SuccessTitle, string.Format(Localized.MigrationSuccess, defaultPath), "info");
+        }
+        else
+        {
+            if (BrowseFolderFunc == null)
+            {
+                UseDefaultDataPath = true;
+                return;
+            }
+
+            var selectedPath = await BrowseFolderFunc(Localized.SelectDataDirectory);
+            if (string.IsNullOrEmpty(selectedPath))
+            {
+                UseDefaultDataPath = true;
+                return;
+            }
+
+            var msg = string.Format(Localized.ConfirmMoveToCustom, selectedPath);
+            if (ConfirmActionFunc != null)
+            {
+                var confirmed = await ConfirmActionFunc(Localized.ConfirmTitle, msg);
+                if (!confirmed)
+                {
+                    UseDefaultDataPath = true;
+                    return;
+                }
+            }
+
+            var currentPath = _dataPathResolver.ResolveDataPath();
+            var error = await MigrateDataAsync(currentPath, selectedPath);
+            if (error != null)
+            {
+                if (ShowMessageFunc != null)
+                    await ShowMessageFunc(Localized.ErrorTitle, string.Format(Localized.MigrationError, error), "error");
+                UseDefaultDataPath = true;
+                return;
+            }
+
+            _dataPathResolver.SetCustomPath(selectedPath);
+            ReinitializeServices(selectedPath);
+            UseDefaultDataPath = false;
+            OnPropertyChanged(nameof(CurrentDataPath));
+            OnPropertyChanged(nameof(DataPathTooltip));
+
+            if (ShowMessageFunc != null)
+                await ShowMessageFunc(Localized.SuccessTitle, string.Format(Localized.MigrationSuccess, selectedPath), "info");
+        }
+    }
+
+    public async Task ChangeCustomDataPathAsync()
+    {
+        if (BrowseFolderFunc == null) return;
+
+        var selectedPath = await BrowseFolderFunc(Localized.SelectDataDirectory);
+        if (string.IsNullOrEmpty(selectedPath)) return;
+
+        var currentPath = _dataPathResolver.ResolveDataPath();
+        if (string.Equals(
+            Path.GetFullPath(selectedPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(currentPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var msg = string.Format(Localized.ConfirmMoveToCustom, selectedPath);
+        if (ConfirmActionFunc != null)
+        {
+            var confirmed = await ConfirmActionFunc(Localized.ConfirmTitle, msg);
+            if (!confirmed) return;
+        }
+
+        var error = await MigrateDataAsync(currentPath, selectedPath);
+        if (error != null)
+        {
+            if (ShowMessageFunc != null)
+                await ShowMessageFunc(Localized.ErrorTitle, string.Format(Localized.MigrationError, error), "error");
+            return;
+        }
+
+        _dataPathResolver.SetCustomPath(selectedPath);
+        ReinitializeServices(selectedPath);
+        OnPropertyChanged(nameof(CurrentDataPath));
+        OnPropertyChanged(nameof(DataPathTooltip));
+
+        if (ShowMessageFunc != null)
+            await ShowMessageFunc(Localized.SuccessTitle, string.Format(Localized.MigrationSuccess, selectedPath), "info");
+    }
+
+    private void ReinitializeServices(string appDataPath)
+    {
+        _configService = new ConfigurationService(_logService, appDataPath);
+        LoadProfiles();
+    }
+
+    private async Task<string?> MigrateDataAsync(string sourceDir, string targetDir)
+    {
+        try
+        {
+            if (!Directory.Exists(sourceDir))
+                return null;
+
+            Directory.CreateDirectory(targetDir);
+
+            var profilesSource = Path.Combine(sourceDir, "profiles");
+            if (Directory.Exists(profilesSource))
+            {
+                var profilesTarget = Path.Combine(targetDir, "profiles");
+                await CopyDirectoryAsync(profilesSource, profilesTarget);
+            }
+
+            foreach (var file in new[] { "app.json", "app.log" })
+            {
+                var src = Path.Combine(sourceDir, file);
+                if (File.Exists(src))
+                {
+                    var dst = Path.Combine(targetDir, file);
+                    File.Copy(src, dst, overwrite: true);
+                }
+            }
+
+            var llamaSource = Path.Combine(sourceDir, "llama.cpp");
+            if (Directory.Exists(llamaSource))
+            {
+                var llamaTarget = Path.Combine(targetDir, "llama.cpp");
+                await CopyDirectoryAsync(llamaSource, llamaTarget);
+            }
+
+            DeleteDirectoryContents(sourceDir);
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
+    private static async Task CopyDirectoryAsync(string sourceDir, string targetDir)
+    {
+        Directory.CreateDirectory(targetDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            var fileName = Path.GetFileName(file);
+            using var srcStream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 81920, true);
+            using var dstStream = new FileStream(Path.Combine(targetDir, fileName), FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+            await srcStream.CopyToAsync(dstStream);
+        }
+
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+        {
+            var dirName = Path.GetFileName(dir);
+            await CopyDirectoryAsync(dir, Path.Combine(targetDir, dirName));
+        }
+    }
+
+    private static void DeleteDirectoryContents(string path)
+    {
+        if (!Directory.Exists(path)) return;
+
+        foreach (var file in Directory.GetFiles(path))
+        {
+            try { File.Delete(file); } catch { }
+        }
+
+        foreach (var dir in Directory.GetDirectories(path))
+        {
+            try { Directory.Delete(dir, true); } catch { }
         }
     }
 
@@ -352,8 +684,13 @@ public class MainViewModel : INotifyPropertyChanged
             AutoFitHeightSavedHeight = AutoFitHeightSavedHeight,
             LogHeight = LogHeight,
             FontSizeLevel = FontSizeLevel,
+            ThemeVariant = ThemeVariant,
+            ColorScheme = ColorScheme,
+            FontFamily = SelectedFontFamily ?? "",
             CustomArgumentToggleStates = GetToggleStates(),
-            LlamaCppInstalledTag = _llamaCppInstalledTag
+            LlamaCppInstalledTag = _llamaCppInstalledTag,
+            SelectedTabIndex = SelectedTabIndex,
+            RecentValuesHistory = new Dictionary<string, List<string>>(_recentValues)
         };
     }
 
@@ -703,6 +1040,12 @@ public class MainViewModel : INotifyPropertyChanged
         set { _tabPanelVisible = value; OnPropertyChanged(); OnPropertyChanged(nameof(ToggleTabPanelButtonText)); }
     }
 
+    public int SelectedTabIndex
+    {
+        get => _selectedTabIndex;
+        set { _selectedTabIndex = value; OnPropertyChanged(); }
+    }
+
     public bool AutoFitHeight
     {
         get => _autoFitHeight;
@@ -753,6 +1096,18 @@ public class MainViewModel : INotifyPropertyChanged
     public string LlamaButtonText => _downloadService.IsLlamaCppInstalled()
         ? LocalizedStrings.Instance.UpdateLlama
         : LocalizedStrings.Instance.DownloadLlama;
+
+    private bool _isAppUpdateAvailable;
+    private string _appUpdateTooltip = "";
+    private AppUpdateInfo? _pendingAppUpdate;
+
+    public bool ShowAppUpdateButton => _isAppUpdateAvailable;
+    public string AppUpdateTooltip
+    {
+        get => _appUpdateTooltip;
+        set { _appUpdateTooltip = value; OnPropertyChanged(); }
+    }
+
     public string ExecutablePathPlaceholder => LocalizedStrings.Instance.ExecutablePathPlaceholder;
     public string ModelPathPlaceholder => LocalizedStrings.Instance.PlaceholderModelPath;
     public string ModelsDirPlaceholder => LocalizedStrings.Instance.PlaceholderModelsDir;
@@ -1800,6 +2155,55 @@ public void RebuildCustomArgumentsFromToggles()
         return states;
     }
 
+    public void AddRecentValue(string fieldName, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        if (!_recentValues.ContainsKey(fieldName))
+            _recentValues[fieldName] = new List<string>();
+        var list = _recentValues[fieldName];
+        list.Remove(value);
+        list.Insert(0, value);
+        while (list.Count > MaxRecentValues)
+            list.RemoveAt(list.Count - 1);
+    }
+
+    public List<string> GetRecentValues(string fieldName)
+    {
+        if (_recentValues.TryGetValue(fieldName, out var list))
+            return list;
+        return new List<string>();
+    }
+
+    private void RecordCurrentValuesToHistory()
+    {
+        AddRecentValue(nameof(ExecutablePath), ExecutablePath);
+        AddRecentValue(nameof(ModelPath), ModelPath);
+        AddRecentValue(nameof(ModelsDir), ModelsDir);
+        AddRecentValue(nameof(Host), Host);
+        AddRecentValue(nameof(Port), Port);
+        AddRecentValue(nameof(ContextSize), ContextSize);
+        AddRecentValue(nameof(Threads), Threads);
+        AddRecentValue(nameof(GpuLayers), GpuLayers);
+        AddRecentValue(nameof(Temperature), Temperature);
+        AddRecentValue(nameof(MaxTokens), MaxTokens);
+        AddRecentValue(nameof(BatchSize), BatchSize);
+        AddRecentValue(nameof(UBatchSize), UBatchSize);
+        AddRecentValue(nameof(MinP), MinP);
+        AddRecentValue(nameof(TopK), TopK);
+        AddRecentValue(nameof(TopP), TopP);
+        AddRecentValue(nameof(RepeatPenalty), RepeatPenalty);
+        AddRecentValue(nameof(Seed), Seed);
+        AddRecentValue(nameof(PresencePenalty), PresencePenalty);
+        AddRecentValue(nameof(FrequencyPenalty), FrequencyPenalty);
+        AddRecentValue(nameof(ApiKey), ApiKey);
+        AddRecentValue(nameof(Alias), Alias);
+        AddRecentValue(nameof(LogFilePath), LogFilePath);
+        AddRecentValue(nameof(MmprojPath), MmprojPath);
+        AddRecentValue(nameof(ParallelSlots), ParallelSlots);
+        AddRecentValue(nameof(Timeout), Timeout);
+        AddRecentValue(nameof(ReasoningBudget), ReasoningBudget);
+    }
+
     private async Task StartServerAsync()
     {
         try
@@ -1833,6 +2237,7 @@ public void RebuildCustomArgumentsFromToggles()
                 }
             }
 
+            RecordCurrentValuesToHistory();
             await _serverService.StartAsync(config);
         }
         catch (Exception ex)
@@ -2390,6 +2795,72 @@ public void RebuildCustomArgumentsFromToggles()
         OnPropertyChanged(nameof(ShowLlamaDownloadButton));
         OnPropertyChanged(nameof(ShowLlamaChangeVersionButton));
         OnPropertyChanged(nameof(LlamaButtonText));
+    }
+
+    private async Task CheckForAppUpdateAsync()
+    {
+        try
+        {
+            var updateInfo = await _appUpdateService.CheckForUpdateAsync();
+            if (updateInfo != null)
+            {
+                _pendingAppUpdate = updateInfo;
+                _isAppUpdateAvailable = true;
+                var desc = updateInfo.Body.Length > 200 ? updateInfo.Body[..200] + "..." : updateInfo.Body;
+                AppUpdateTooltip = $"{updateInfo.Tag}\n{updateInfo.PublishedAt:yyyy-MM-dd HH:mm}\n{desc}";
+                OnPropertyChanged(nameof(ShowAppUpdateButton));
+            }
+        }
+        catch { }
+    }
+
+    public async Task UpdateAppAsync()
+    {
+        if (_pendingAppUpdate == null) return;
+
+        try
+        {
+            var confirm = await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                var result = await MessageBox.ShowAsync(
+                    MainWindow.Instance!,
+                    LocalizedStrings.GetString("AppUpdateConfirm"),
+                    LocalizedStrings.Instance.ConfirmTitle,
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Question);
+                return result;
+            });
+
+            if (confirm != MessageBoxResult.Yes) return;
+
+            ServerStatus = LocalizedStrings.GetString("AppUpdateDownloading");
+            var cts = new System.Threading.CancellationTokenSource();
+            var progress = new Progress<double>();
+
+            var tempFile = await _appUpdateService.DownloadUpdateAsync(
+                _pendingAppUpdate.Asset, progress, cts.Token);
+
+            ServerStatus = LocalizedStrings.GetString("AppUpdateRestarting");
+
+            await SaveSettingsAsync();
+            await _serverService.StopAsync();
+
+            await Task.Delay(500);
+
+            _appUpdateService.PerformUpdateAndRestart(tempFile);
+        }
+        catch (Exception ex)
+        {
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                await MessageBox.ShowAsync(
+                    MainWindow.Instance!,
+                    string.Format(LocalizedStrings.GetString("AppUpdateFailed"), ex.Message),
+                    LocalizedStrings.Instance.ErrorTitle,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            });
+        }
     }
 
     public async Task SaveSettingsAsync()

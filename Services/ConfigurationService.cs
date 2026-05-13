@@ -20,15 +20,15 @@ public class ConfigurationService
         PropertyNameCaseInsensitive = true
     };
 
-    public ConfigurationService(LogService logService)
+    public ConfigurationService(LogService logService, string? appDataPath = null)
     {
         _logService = logService;
-        var appDataPath = Path.Combine(
+        var basePath = appDataPath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "LlamaServerLauncherAvalonia"
         );
-        _profilesPath = Path.Combine(appDataPath, "profiles");
-        _appSettingsPath = Path.Combine(appDataPath, "app.json");
+        _profilesPath = Path.Combine(basePath, "profiles");
+        _appSettingsPath = Path.Combine(basePath, "app.json");
         Directory.CreateDirectory(_profilesPath);
     }
 

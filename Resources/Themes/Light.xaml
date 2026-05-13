@@ -1,0 +1,20 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="PanelBackgroundBrush">#F3F3F3</SolidColorBrush>
+    <SolidColorBrush x:Key="CommandBackgroundBrush">#E5E5E5</SolidColorBrush>
+    <SolidColorBrush x:Key="LogBackgroundBrush">#FFFFFF</SolidColorBrush>
+    <SolidColorBrush x:Key="LogForegroundBrush">#1E1E1E</SolidColorBrush>
+    <SolidColorBrush x:Key="AccentForegroundBrush">#007ACC</SolidColorBrush>
+    <SolidColorBrush x:Key="CommandForegroundBrush">#001080</SolidColorBrush>
+    <SolidColorBrush x:Key="OverlayBackgroundBrush">#CC000000</SolidColorBrush>
+    <SolidColorBrush x:Key="OverlayBorderBrush">#0078D4</SolidColorBrush>
+    <SolidColorBrush x:Key="OverlayHintForegroundBrush">#666666</SolidColorBrush>
+    <SolidColorBrush x:Key="SeparatorBrush">#CCCCCC</SolidColorBrush>
+    <SolidColorBrush x:Key="WarningForegroundBrush">#D47600</SolidColorBrush>
+    <SolidColorBrush x:Key="SuccessBackgroundBrush">#5A9B6A</SolidColorBrush>
+    <SolidColorBrush x:Key="DataPathForegroundBrush">#0066CC</SolidColorBrush>
+    <SolidColorBrush x:Key="OverlayDropForegroundBrush">#4FC3F7</SolidColorBrush>
+    <SolidColorBrush x:Key="OverlayTextForegroundBrush">White</SolidColorBrush>
+    <SolidColorBrush x:Key="OverlaySubtextForegroundBrush">#CCCCCC</SolidColorBrush>
+    <SolidColorBrush x:Key="LinkForegroundBrush">#007ACC</SolidColorBrush>
+</ResourceDictionary>

@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- FluentTheme system accent overrides -->
+    <Color x:Key="SystemAccentColor">#4CAF50</Color>
+    <Color x:Key="SystemAccentColorDark1">#3E9243</Color>
+    <Color x:Key="SystemAccentColorDark2">#2F7735</Color>
+    <Color x:Key="SystemAccentColorLight1">#66BF6A</Color>
+    <Color x:Key="SystemAccentColorLight2">#80CF83</Color>
+
+    <!-- FluentTheme accent brushes (override for runtime switching) -->
+    <SolidColorBrush x:Key="SystemControlHighlightAccentBrush">#4CAF50</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlHighlightAltAccentBrush">#4CAF50</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlHighlightBaseHighBrush">#4CAF50</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlHighlightListLowBrush">#1B3D1C</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlHighlightListMediumBrush">#2E7D32</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlForegroundAccentBrush">#4CAF50</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlBackgroundAccentBrush">#4CAF50</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlHighlightChromeHighBrush">#81C784</SolidColorBrush>
+
+    <!-- Custom app brushes -->
+    <SolidColorBrush x:Key="AccentForegroundBrush">#4CAF50</SolidColorBrush>
+    <SolidColorBrush x:Key="CommandForegroundBrush">#81C784</SolidColorBrush>
+    <SolidColorBrush x:Key="OverlayBorderBrush">#388E3C</SolidColorBrush>
+    <SolidColorBrush x:Key="DataPathForegroundBrush">#2E7D32</SolidColorBrush>
+    <SolidColorBrush x:Key="OverlayDropForegroundBrush">#66BB6A</SolidColorBrush>
+    <SolidColorBrush x:Key="LinkForegroundBrush">#4CAF50</SolidColorBrush>
+</ResourceDictionary>

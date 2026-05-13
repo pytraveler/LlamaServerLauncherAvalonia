@@ -32,4 +32,9 @@
   <ItemGroup>
     <AvaloniaResource Include="llama-launcher.ico" />
   </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Resources\Themes\*.xaml" />
+    <AvaloniaResource Include="Resources\Themes\Schemes\*.xaml" />
+  </ItemGroup>
 </Project>

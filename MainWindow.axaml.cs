@@ -78,9 +78,25 @@ public partial class MainWindow : Window
         if (DataContext is MainViewModel vm)
         {
             _viewModel = vm;
-            _configService = new ConfigurationService(_viewModel.LogService);
+            _configService = new ConfigurationService(_viewModel.LogService, _viewModel.CurrentDataPath);
             vm.PropertyChanged += ViewModel_PropertyChanged;
             vm.OpenDownloadDialogFunc = OpenDownloadDialogAsync;
+
+            vm.ConfirmActionFunc = async (title, message) =>
+            {
+                var result = await MessageBox.ShowAsync(this, message, title, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                return result == MessageBoxResult.Yes;
+            };
+            vm.ShowMessageFunc = async (title, message, type) =>
+            {
+                var icon = type == "error" ? MessageBoxIcon.Error : MessageBoxIcon.Information;
+                await MessageBox.ShowAsync(this, message, title, MessageBoxButtons.OK, icon);
+            };
+            vm.BrowseFolderFunc = async (title) =>
+            {
+                return await WindowsFileDialogs.OpenFolderDialogAsync(title);
+            };
+
             await vm.InitializeAsync();
             await LoadWindowPositionAsync();
             
@@ -582,10 +598,35 @@ public partial class MainWindow : Window
         await OpenDownloadDialogAsync();
     }
 
+    private async void UpdateAppClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        await _viewModel.UpdateAppAsync();
+    }
+
     private async void AboutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         var dialog = new AboutDialogWindow();
         await dialog.ShowDialog(this);
+    }
+
+    private async void UseDefaultDataPathClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        await _viewModel.ToggleDataPathAsync(_viewModel.UseDefaultDataPath);
+    }
+
+    private async void DataPathCheckBox_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        if (e.GetCurrentPoint(sender as Avalonia.Visual).Properties.IsRightButtonPressed)
+        {
+            if (!_viewModel.UseDefaultDataPath)
+            {
+                e.Handled = true;
+                await _viewModel.ChangeCustomDataPathAsync();
+            }
+        }
     }
 
     private async Task OpenDownloadDialogAsync()
@@ -621,7 +662,7 @@ public partial class MainWindow : Window
 
 #region Drag and Drop
 
-    private static readonly string[] SupportedExtensions = { ".json", ".bat", ".cmd", ".command", ".sh" };
+    private static readonly string[] SupportedExtensions = { ".json", ".bat", ".cmd", ".command", ".sh", ".exe", ".gguf" };
 
 private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
     {
@@ -677,6 +718,14 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
             else if (ext == ".bat" || ext == ".cmd" || ext == ".command" || ext == ".sh")
             {
                 await LoadShellFileAsync(filePath);
+            }
+            else if (ext == ".exe")
+            {
+                await HandleDroppedExeAsync(filePath);
+            }
+            else if (ext == ".gguf")
+            {
+                HandleDroppedGguf(filePath);
             }
         }
         catch (Exception ex)
@@ -742,6 +791,54 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         catch { }
         
         return null;
+    }
+
+    private async Task HandleDroppedExeAsync(string filePath)
+    {
+        if (_viewModel == null) return;
+
+        var fileName = Path.GetFileName(filePath);
+        var isLlamaServer = fileName.Contains("llama-server", StringComparison.OrdinalIgnoreCase);
+
+        string message;
+        if (isLlamaServer)
+        {
+            message = string.Format(LocalizedStrings.Instance.DropExeSet, fileName);
+        }
+        else
+        {
+            message = string.Format(LocalizedStrings.Instance.DropExeConfirmMessage, fileName);
+        }
+
+        var result = await MessageBox.ShowAsync(
+            this,
+            message,
+            LocalizedStrings.Instance.DropExeConfirmTitle,
+            MessageBoxButtons.YesNoCancel,
+            MessageBoxIcon.Question);
+
+        if (result == MessageBoxResult.Yes)
+        {
+            _viewModel.ExecutablePath = filePath;
+            _viewModel.LogService.AppLog(string.Format(LocalizedStrings.Instance.DropExeSetLog, filePath));
+        }
+    }
+
+    private void HandleDroppedGguf(string filePath)
+    {
+        if (_viewModel == null) return;
+
+        var fileName = Path.GetFileName(filePath);
+        if (fileName.Contains("mmproj", StringComparison.OrdinalIgnoreCase))
+        {
+            _viewModel.MmprojPath = filePath;
+            _viewModel.LogService.AppLog(string.Format(LocalizedStrings.Instance.DropMmprojSet, filePath));
+        }
+        else
+        {
+            _viewModel.ModelPath = filePath;
+            _viewModel.LogService.AppLog(string.Format(LocalizedStrings.Instance.DropModelSet, filePath));
+        }
     }
 
     private async Task LoadJsonProfileAsync(string filePath)

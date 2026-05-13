@@ -86,6 +86,9 @@
   <data name="TabOptions" xml:space="preserve">
     <value>Параметры</value>
   </data>
+  <data name="TabSettings" xml:space="preserve">
+    <value>Настройки программы</value>
+  </data>
   <data name="Profile" xml:space="preserve">
     <value>Профиль:</value>
   </data>
@@ -676,5 +679,107 @@
   </data>
   <data name="TooltipAbout" xml:space="preserve">
     <value>О приложении</value>
+  </data>
+  <data name="UseDefaultDataPath" xml:space="preserve">
+    <value>Стандартный путь данных</value>
+  </data>
+  <data name="DataPathTooltipDefault" xml:space="preserve">
+    <value>Данные хранятся в: {0}</value>
+  </data>
+  <data name="DataPathTooltipCustom" xml:space="preserve">
+    <value>Данные хранятся в: {0}&#10;(кликните правой кнопкой мыши для изменения расположения)</value>
+  </data>
+  <data name="ConfirmMoveToDefault" xml:space="preserve">
+    <value>Переместить все данные (настройки, логи, llama.cpp) в стандартную директорию?&#10;&#10;Цель: {0}</value>
+  </data>
+  <data name="ConfirmMoveToCustom" xml:space="preserve">
+    <value>Переместить все данные (настройки, логи, llama.cpp) в выбранную директорию?&#10;&#10;Цель: {0}</value>
+  </data>
+  <data name="MigrationSuccess" xml:space="preserve">
+    <value>Данные успешно перемещены в: {0}</value>
+  </data>
+  <data name="MigrationError" xml:space="preserve">
+    <value>Не удалось переместить данные: {0}</value>
+  </data>
+  <data name="SelectDataDirectory" xml:space="preserve">
+    <value>Выберите директорию для данных</value>
+  </data>
+  <data name="SuccessTitle" xml:space="preserve">
+    <value>Успешно</value>
+  </data>
+  <data name="Appearance" xml:space="preserve">
+    <value>Оформление</value>
+  </data>
+  <data name="ThemeVariant" xml:space="preserve">
+    <value>Тема:</value>
+  </data>
+  <data name="TooltipThemeVariant" xml:space="preserve">
+    <value>Цветовая тема приложения (тёмная или светлая)</value>
+  </data>
+  <data name="ColorScheme" xml:space="preserve">
+    <value>Цветовая схема:</value>
+  </data>
+  <data name="TooltipColorScheme" xml:space="preserve">
+    <value>Цветовая схема оформления интерфейса</value>
+  </data>
+  <data name="FontFamily" xml:space="preserve">
+    <value>Шрифт:</value>
+  </data>
+  <data name="TooltipFontFamily" xml:space="preserve">
+    <value>Шрифт интерфейса. Оставьте пустым для значения по умолчанию (Inter).</value>
+  </data>
+  <data name="ColorSchemeDefault" xml:space="preserve">
+    <value>По умолчанию</value>
+  </data>
+  <data name="ColorSchemeOcean" xml:space="preserve">
+    <value>Океан</value>
+  </data>
+  <data name="ColorSchemeForest" xml:space="preserve">
+    <value>Лес</value>
+  </data>
+  <data name="ColorSchemeSunset" xml:space="preserve">
+    <value>Закат</value>
+  </data>
+  <data name="ColorSchemeUbuntu" xml:space="preserve">
+    <value>Ubuntu</value>
+  </data>
+  <data name="DropExeConfirmTitle" xml:space="preserve">
+    <value>Установить путь к исполняемому файлу</value>
+  </data>
+  <data name="DropExeConfirmMessage" xml:space="preserve">
+    <value>Перетащенный файл «{0}» не похож на llama-server. Всё равно установить его как путь к исполняемому файлу llama-server?</value>
+  </data>
+  <data name="DropExeSet" xml:space="preserve">
+    <value>Установить путь к llama-server: «{0}»?</value>
+  </data>
+  <data name="DropModelSet" xml:space="preserve">
+    <value>Путь к модели установлен: {0}</value>
+  </data>
+  <data name="DropMmprojSet" xml:space="preserve">
+    <value>Путь к MMProj установлен: {0}</value>
+  </data>
+  <data name="DropExeSetLog" xml:space="preserve">
+    <value>Путь к исполняемому файлу установлен перетаскиванием: {0}</value>
+  </data>
+  <data name="DropOverlaySupported" xml:space="preserve">
+    <value>Поддерживается: .json, .bat, .cmd, .sh, .exe, .gguf</value>
+  </data>
+  <data name="UpdateApp" xml:space="preserve">
+    <value>Обновить</value>
+  </data>
+  <data name="AppUpdateAvailable" xml:space="preserve">
+    <value>Доступно обновление приложения</value>
+  </data>
+  <data name="AppUpdateDownloading" xml:space="preserve">
+    <value>Загрузка обновления...</value>
+  </data>
+  <data name="AppUpdateRestarting" xml:space="preserve">
+    <value>Перезапуск приложения...</value>
+  </data>
+  <data name="AppUpdateFailed" xml:space="preserve">
+    <value>Ошибка обновления: {0}</value>
+  </data>
+  <data name="AppUpdateConfirm" xml:space="preserve">
+    <value>Доступна новая версия приложения. Скачать и перезапустить?</value>
   </data>
 </root>

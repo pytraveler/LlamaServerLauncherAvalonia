@@ -86,6 +86,9 @@
   <data name="TabOptions" xml:space="preserve">
     <value>Options</value>
   </data>
+  <data name="TabSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
   <data name="Profile" xml:space="preserve">
     <value>Profile:</value>
   </data>
@@ -676,5 +679,107 @@
   </data>
   <data name="TooltipAbout" xml:space="preserve">
     <value>About the application</value>
+  </data>
+  <data name="UseDefaultDataPath" xml:space="preserve">
+    <value>Default data path</value>
+  </data>
+  <data name="DataPathTooltipDefault" xml:space="preserve">
+    <value>Data is stored in: {0}</value>
+  </data>
+  <data name="DataPathTooltipCustom" xml:space="preserve">
+    <value>Data is stored in: {0}&#10;(right-click to change location)</value>
+  </data>
+  <data name="ConfirmMoveToDefault" xml:space="preserve">
+    <value>Move all data (settings, logs, llama.cpp) back to the default directory?&#10;&#10;Target: {0}</value>
+  </data>
+  <data name="ConfirmMoveToCustom" xml:space="preserve">
+    <value>Move all data (settings, logs, llama.cpp) to the selected directory?&#10;&#10;Target: {0}</value>
+  </data>
+  <data name="MigrationSuccess" xml:space="preserve">
+    <value>Data successfully moved to: {0}</value>
+  </data>
+  <data name="MigrationError" xml:space="preserve">
+    <value>Failed to move data: {0}</value>
+  </data>
+  <data name="SelectDataDirectory" xml:space="preserve">
+    <value>Select data directory</value>
+  </data>
+  <data name="SuccessTitle" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="ThemeVariant" xml:space="preserve">
+    <value>Theme:</value>
+  </data>
+  <data name="TooltipThemeVariant" xml:space="preserve">
+    <value>Application color theme (Dark or Light)</value>
+  </data>
+  <data name="ColorScheme" xml:space="preserve">
+    <value>Color scheme:</value>
+  </data>
+  <data name="TooltipColorScheme" xml:space="preserve">
+    <value>Color accent scheme for the interface</value>
+  </data>
+  <data name="FontFamily" xml:space="preserve">
+    <value>Font:</value>
+  </data>
+  <data name="TooltipFontFamily" xml:space="preserve">
+    <value>Interface font family. Leave empty for default (Inter).</value>
+  </data>
+  <data name="ColorSchemeDefault" xml:space="preserve">
+    <value>Default</value>
+  </data>
+  <data name="ColorSchemeOcean" xml:space="preserve">
+    <value>Ocean</value>
+  </data>
+  <data name="ColorSchemeForest" xml:space="preserve">
+    <value>Forest</value>
+  </data>
+  <data name="ColorSchemeSunset" xml:space="preserve">
+    <value>Sunset</value>
+  </data>
+  <data name="ColorSchemeUbuntu" xml:space="preserve">
+    <value>Ubuntu</value>
+  </data>
+  <data name="DropExeConfirmTitle" xml:space="preserve">
+    <value>Set Executable Path</value>
+  </data>
+  <data name="DropExeConfirmMessage" xml:space="preserve">
+    <value>The dropped file "{0}" does not look like llama-server. Set it as the llama-server executable path anyway?</value>
+  </data>
+  <data name="DropExeSet" xml:space="preserve">
+    <value>Set llama-server path to "{0}"?</value>
+  </data>
+  <data name="DropModelSet" xml:space="preserve">
+    <value>Model path set to: {0}</value>
+  </data>
+  <data name="DropMmprojSet" xml:space="preserve">
+    <value>MMProj path set to: {0}</value>
+  </data>
+  <data name="DropExeSetLog" xml:space="preserve">
+    <value>Executable path set from drag-and-drop: {0}</value>
+  </data>
+  <data name="DropOverlaySupported" xml:space="preserve">
+    <value>Supported: .json, .bat, .cmd, .sh, .exe, .gguf</value>
+  </data>
+  <data name="UpdateApp" xml:space="preserve">
+    <value>Update App</value>
+  </data>
+  <data name="AppUpdateAvailable" xml:space="preserve">
+    <value>App update available</value>
+  </data>
+  <data name="AppUpdateDownloading" xml:space="preserve">
+    <value>Downloading update...</value>
+  </data>
+  <data name="AppUpdateRestarting" xml:space="preserve">
+    <value>Restarting application...</value>
+  </data>
+  <data name="AppUpdateFailed" xml:space="preserve">
+    <value>Update failed: {0}</value>
+  </data>
+  <data name="AppUpdateConfirm" xml:space="preserve">
+    <value>A new version of the application is available. Download and restart?</value>
   </data>
 </root>

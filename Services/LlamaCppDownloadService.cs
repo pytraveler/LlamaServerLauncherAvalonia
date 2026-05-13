@@ -40,15 +40,15 @@ public class LlamaCppDownloadService
     private const string RepoApiUrl = "https://api.github.com/repos/ggml-org/llama.cpp/releases";
     private readonly string _installDir;
 
-    public LlamaCppDownloadService()
+    public LlamaCppDownloadService(string? appDataPath = null)
     {
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("LlamaServerLauncher/1.0");
 
-        var appDataPath = Path.Combine(
+        var basePath = appDataPath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "LlamaServerLauncherAvalonia"
         );
-        _installDir = Path.GetFullPath(Path.Combine(appDataPath, "llama.cpp"));
+        _installDir = Path.GetFullPath(Path.Combine(basePath, "llama.cpp"));
     }
 
     public string InstallDirectory => _installDir;
@@ -92,31 +92,45 @@ public class LlamaCppDownloadService
         }).ToList();
     }
 
-    public async Task DownloadAndExtractAsync(ReleaseAsset asset, IProgress<double>? progress, CancellationToken ct)
+    public ReleaseAsset? FindMatchingCudaDllAsset(ReleaseAsset selectedAsset, List<ReleaseAsset>? allAssets)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return null;
+
+        if (allAssets == null)
+            return null;
+
+        var selName = selectedAsset.Name.ToLowerInvariant();
+        if (!selName.Contains("-cuda-"))
+            return null;
+
+        // Extract cuda version+arch suffix, e.g. "cuda-12.4-x64" from "llama-b9129-bin-win-cuda-12.4-x64.zip"
+        var cudaStart = selName.IndexOf("-cuda-") + 1; // points to 'c' in "cuda-..."
+        var rest = selName[cudaStart..];
+        var dotIdx = rest.IndexOf('.');
+        var cudaSuffix = dotIdx > 0 ? rest[..dotIdx] : rest;
+
+        return allAssets.FirstOrDefault(a =>
+        {
+            var aName = a.Name.ToLowerInvariant();
+            return aName.StartsWith("cudart-") && aName.Contains(cudaSuffix);
+        });
+    }
+
+    public async Task DownloadAndExtractAsync(ReleaseAsset asset, IProgress<double>? progress, CancellationToken ct, ReleaseAsset? cudaDllAsset = null)
     {
         var tempFile = Path.Combine(Path.GetTempPath(), asset.Name);
+        string? tempDllFile = null;
 
         try
         {
-            using (var response = await _http.GetAsync(asset.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct))
-            {
-                response.EnsureSuccessStatusCode();
-                var totalBytes = response.Content.Headers.ContentLength ?? asset.Size;
-                var buffer = new byte[81920];
-                long bytesRead = 0;
+            var mainProgressMax = cudaDllAsset != null ? 45.0 : 100.0;
+            await DownloadFileAsync(asset.DownloadUrl, tempFile, asset.Size, 0, mainProgressMax, progress, ct);
 
-                using (var contentStream = await response.Content.ReadAsStreamAsync(ct))
-                using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length, true))
-                {
-                    int read;
-                    while ((read = await contentStream.ReadAsync(buffer, ct)) > 0)
-                    {
-                        await fileStream.WriteAsync(buffer, 0, read, ct);
-                        bytesRead += read;
-                        if (totalBytes > 0)
-                            progress?.Report((double)bytesRead / totalBytes * 100);
-                    }
-                }
+            if (cudaDllAsset != null)
+            {
+                tempDllFile = Path.Combine(Path.GetTempPath(), cudaDllAsset.Name);
+                await DownloadFileAsync(cudaDllAsset.DownloadUrl, tempDllFile, cudaDllAsset.Size, 45.0, 90.0, progress, ct);
             }
 
             progress?.Report(-1);
@@ -135,10 +149,38 @@ public class LlamaCppDownloadService
             {
                 ExtractTarGzWithFlatten(tempFile, _installDir);
             }
+
+            if (tempDllFile != null && File.Exists(tempDllFile))
+            {
+                ExtractDllsFromZip(tempDllFile, _installDir);
+            }
         }
         finally
         {
             try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { }
+            try { if (tempDllFile != null && File.Exists(tempDllFile)) File.Delete(tempDllFile); } catch { }
+        }
+    }
+
+    private async Task DownloadFileAsync(string url, string destPath, long expectedSize, double progressStart, double progressEnd, IProgress<double>? progress, CancellationToken ct)
+    {
+        using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+        response.EnsureSuccessStatusCode();
+        var totalBytes = response.Content.Headers.ContentLength ?? expectedSize;
+        var buffer = new byte[81920];
+        long bytesRead = 0;
+
+        using (var contentStream = await response.Content.ReadAsStreamAsync(ct))
+        using (var fileStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length, true))
+        {
+            int read;
+            while ((read = await contentStream.ReadAsync(buffer, ct)) > 0)
+            {
+                await fileStream.WriteAsync(buffer, 0, read, ct);
+                bytesRead += read;
+                if (totalBytes > 0)
+                    progress?.Report(progressStart + (double)bytesRead / totalBytes * (progressEnd - progressStart));
+            }
         }
     }
 
@@ -224,6 +266,17 @@ public class LlamaCppDownloadService
             NativeMethods.SMTO_ABORTIFHUNG,
             5000,
             out _);
+    }
+
+    private static void ExtractDllsFromZip(string archivePath, string destDir)
+    {
+        using var archive = ZipFile.OpenRead(archivePath);
+        foreach (var entry in archive.Entries)
+        {
+            if (string.IsNullOrEmpty(entry.Name)) continue;
+            if (!entry.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) continue;
+            entry.ExtractToFile(Path.Combine(destDir, entry.Name), overwrite: true);
+        }
     }
 
     private static void ExtractZipWithFlatten(string archivePath, string destDir)

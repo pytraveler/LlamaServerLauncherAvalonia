@@ -1,8 +1,10 @@
 using System;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
 using LlamaServerLauncher.Resources;
 using LlamaServerLauncher.ViewModels;
 
@@ -15,6 +17,38 @@ public partial class App : Application
     private NativeMenu? _trayMenu;
     private MainWindow? _mainWindow;
     private MainViewModel? _viewModel;
+
+    public static void SwitchTheme(string variant, string? colorScheme = null)
+    {
+        if (Current == null) return;
+
+        Current.RequestedThemeVariant = variant == "Light"
+            ? ThemeVariant.Light
+            : ThemeVariant.Dark;
+
+        var resources = Current.Resources;
+
+        var themeUri = new Uri($"avares://LlamaServerLauncher/Resources/Themes/{variant}.xaml");
+        var themeDict = (ResourceDictionary)AvaloniaXamlLoader.Load(themeUri);
+
+        resources.MergedDictionaries.Clear();
+
+        foreach (string key in themeDict.Keys)
+        {
+            resources[key] = themeDict[key];
+        }
+
+        if (!string.IsNullOrEmpty(colorScheme) && colorScheme != "Default")
+        {
+            var schemeUri = new Uri($"avares://LlamaServerLauncher/Resources/Themes/Schemes/{colorScheme}.xaml");
+            var schemeDict = (ResourceDictionary)AvaloniaXamlLoader.Load(schemeUri);
+
+            foreach (string key in schemeDict.Keys)
+            {
+                resources[key] = schemeDict[key];
+            }
+        }
+    }
     
     public override void Initialize()
     {

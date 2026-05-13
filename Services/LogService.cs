@@ -19,14 +19,14 @@ public class LogService
 
     public event EventHandler<string>? LogReceived;
 
-    public LogService()
+    public LogService(string? appDataPath = null)
     {
-        var appDataPath = Path.Combine(
+        var basePath = appDataPath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "LlamaServerLauncherAvalonia"
         );
-        Directory.CreateDirectory(appDataPath);
-        _logFilePath = Path.Combine(appDataPath, "app.log");
+        Directory.CreateDirectory(basePath);
+        _logFilePath = Path.Combine(basePath, "app.log");
     }
 
     public void Log(LogLevel level, string message)

@@ -51,6 +51,7 @@ public class LocalizedStrings : INotifyPropertyChanged
     public string TabMain => GetString("TabMain");
     public string TabGeneration => GetString("TabGeneration");
     public string TabOptions => GetString("TabOptions");
+    public string TabSettings => GetString("TabSettings");
     public string Profile => GetString("Profile");
     public string Save => GetString("Save");
     public string Load => GetString("Load");
@@ -178,6 +179,20 @@ public string English => GetString("English");
     public string TooltipFontSize => GetString("TooltipFontSize");
     public string TooltipCurrentCommand => GetString("TooltipCurrentCommand");
 
+    public string Appearance => GetString("Appearance");
+    public string ThemeVariant => GetString("ThemeVariant");
+    public string TooltipThemeVariant => GetString("TooltipThemeVariant");
+    public string ColorScheme => GetString("ColorScheme");
+    public string TooltipColorScheme => GetString("TooltipColorScheme");
+    public string FontFamily => GetString("FontFamily");
+    public string TooltipFontFamily => GetString("TooltipFontFamily");
+
+    public string ColorSchemeDefault => GetString("ColorSchemeDefault");
+    public string ColorSchemeOcean => GetString("ColorSchemeOcean");
+    public string ColorSchemeForest => GetString("ColorSchemeForest");
+    public string ColorSchemeSunset => GetString("ColorSchemeSunset");
+    public string ColorSchemeUbuntu => GetString("ColorSchemeUbuntu");
+
     public string AutoFitHeight => GetString("AutoFitHeight");
 
     public string DownloadLlama => GetString("DownloadLlama");
@@ -261,4 +276,29 @@ public string English => GetString("English");
     public string Developer => GetString("Developer");
     public string AppRepository => GetString("AppRepository");
     public string TooltipAbout => GetString("TooltipAbout");
+
+    public string UseDefaultDataPath => GetString("UseDefaultDataPath");
+    public string DataPathTooltipDefault => GetString("DataPathTooltipDefault");
+    public string DataPathTooltipCustom => GetString("DataPathTooltipCustom");
+    public string ConfirmMoveToDefault => GetString("ConfirmMoveToDefault");
+    public string ConfirmMoveToCustom => GetString("ConfirmMoveToCustom");
+    public string MigrationSuccess => GetString("MigrationSuccess");
+    public string MigrationError => GetString("MigrationError");
+    public string SelectDataDirectory => GetString("SelectDataDirectory");
+    public string SuccessTitle => GetString("SuccessTitle");
+
+    public string DropExeConfirmTitle => GetString("DropExeConfirmTitle");
+    public string DropExeConfirmMessage => GetString("DropExeConfirmMessage");
+    public string DropExeSet => GetString("DropExeSet");
+    public string DropModelSet => GetString("DropModelSet");
+    public string DropMmprojSet => GetString("DropMmprojSet");
+    public string DropExeSetLog => GetString("DropExeSetLog");
+    public string DropOverlaySupported => GetString("DropOverlaySupported");
+
+    public string UpdateApp => GetString("UpdateApp");
+    public string AppUpdateAvailable => GetString("AppUpdateAvailable");
+    public string AppUpdateDownloading => GetString("AppUpdateDownloading");
+    public string AppUpdateRestarting => GetString("AppUpdateRestarting");
+    public string AppUpdateFailed => GetString("AppUpdateFailed");
+    public string AppUpdateConfirm => GetString("AppUpdateConfirm");
 }

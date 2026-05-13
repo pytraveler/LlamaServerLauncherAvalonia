@@ -22,18 +22,18 @@
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,5">
             <TextBlock Text="GitHub: " VerticalAlignment="Center"/>
             <Button Content="pytraveler" Click="OpenGitHubProfile" Cursor="Hand"
-                    Foreground="#4EC9B0" Background="Transparent" BorderThickness="0"
+                    Foreground="{DynamicResource LinkForegroundBrush}" Background="Transparent" BorderThickness="0"
                     Padding="0" VerticalAlignment="Center"/>
         </StackPanel>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,15">
             <TextBlock Text="{Binding Localized.AppRepository}" VerticalAlignment="Center" Margin="0,0,5,0"/>
             <Button Content="LlamaServerLauncherAvalonia" Click="OpenAppRepository" Cursor="Hand"
-                    Foreground="#4EC9B0" Background="Transparent" BorderThickness="0"
+                    Foreground="{DynamicResource LinkForegroundBrush}" Background="Transparent" BorderThickness="0"
                     Padding="0" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <Border Grid.Row="4" Background="#333" Height="1" Margin="0,0,0,15" HorizontalAlignment="Stretch"/>
+        <Border Grid.Row="4" Background="{DynamicResource SeparatorBrush}" Height="1" Margin="0,0,0,15" HorizontalAlignment="Stretch"/>
 
         <Button Grid.Row="5" Content="{Binding Localized.OK}" Click="CloseClick"
                 HorizontalAlignment="Center" Padding="30,8" MinWidth="80"/>

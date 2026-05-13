@@ -249,7 +249,8 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
         try
         {
-            await _downloadService.DownloadAndExtractAsync(SelectedAsset, progress, _cts.Token);
+            await _downloadService.DownloadAndExtractAsync(SelectedAsset, progress, _cts.Token,
+                _downloadService.FindMatchingCudaDllAsset(SelectedAsset, _selectedRelease?.Assets));
 
             if (!_downloadService.IsInPath(_downloadService.InstallDirectory))
             {
