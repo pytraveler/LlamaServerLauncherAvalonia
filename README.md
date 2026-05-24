@@ -1,5 +1,7 @@
 # LlamaServerLauncher
 
+[Русский](README_ru.md)
+
 ![LlamaServerLauncher](docs/images/preview.png)
 
 A cross-platform desktop application for launching and managing [llama.cpp](https://github.com/ggerganov/llama.cpp) server instances with an intuitive graphical interface.
@@ -64,9 +66,16 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 - Auto-restart on crash
 
 ### llama.cpp Integration
-- **One-click download** — Download llama.cpp releases directly from GitHub
+- **One-click download** — Download official llama.cpp releases directly from GitHub
 - **Update notifications** — Automatically checks for new llama.cpp releases
 - **Version management** — Install and switch between different versions
+- **PATH integration** — Optionally add llama.cpp directory to PATH
+
+### App Updates
+- **Auto-update** — Automatically checks for new application releases and supports one-click update with restart
+
+### Docker Support
+- Docker CLI integration for container-based workflows
 
 ### Profile Management
 - Save, load, rename, and delete configuration profiles
@@ -76,11 +85,13 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 - Unsaved changes tracking
 
 ### Drag & Drop
-Drop files onto the window to import configurations:
+Drop files onto the window to import configurations or set paths:
 - `.json` — Profile import
 - `.bat` / `.cmd` — Windows batch file parsing
 - `.sh` — Linux shell script parsing
 - `.command` — macOS script parsing
+- `.exe` — Set llama-server executable path
+- `.gguf` — Set model path
 
 ### System Tray
 - Minimize to system tray on window minimize
@@ -91,11 +102,18 @@ Drop files onto the window to import configurations:
 - English
 - Russian
 
-### UI Customization
+### Appearance & Themes
+- Dark and Light theme variants
+- Multiple color schemes: Default, Ocean, Forest, Sunset, Ubuntu
 - Adjustable font size (S, M, L, XL)
+- Custom font family selection
 - Auto-fit height mode (window auto-sizes to content)
 - Collapsible log panel and tab panel
 - Window position and size persistence
+
+### Data Management
+- Configurable data directory (default or custom location)
+- Easy migration of all data (settings, logs, llama.cpp) between directories
 
 ## Requirements
 
@@ -169,10 +187,12 @@ LlamaServerLauncher/
 │   ├── CommandLineBuilder    # Constructs full llama-server command line
 │   ├── CommandLineParser     # Tokenizes and parses arguments (handles quotes, JSON, arrays)
 │   ├── AppSettings           # Persistent application settings
-│   └── ProfileInfo           # Profile metadata
+│   ├── ProfileInfo           # Profile metadata
+│   └── HelpArgumentInfo      # Help argument metadata for feature detection
 ├── ViewModels/               # MVVM view models
 │   ├── MainViewModel         # Main application logic and state
 │   ├── DownloadDialogViewModel
+│   ├── ArgumentPickerViewModel
 │   ├── RelayCommand          # Custom ICommand implementation
 │   └── AsyncRelayCommand
 ├── Services/                 # Business logic services
@@ -182,18 +202,37 @@ LlamaServerLauncher/
 │   ├── LlamaCppDownloadService # Downloads llama.cpp releases from GitHub
 │   ├── LlamaHelpParserService  # Parses --help output for feature detection
 │   ├── LogService            # Application and server log management
-│   └── WindowsFileDialogs    # File/folder picker abstractions
+│   ├── WindowsFileDialogs    # File/folder picker abstractions
+│   ├── AppUpdateService      # Application auto-update via GitHub releases
+│   ├── DockerCliService      # Docker CLI integration
+│   └── DataPathResolver      # Data directory resolution and migration
 ├── Converters/               # UI value converters
-├── Resources/                # Localization (Strings.resx, Strings.ru.resx)
+├── Controls/                 # Custom UI controls
+│   └── HistoryTextBox        # TextBox with history navigation
+├── Resources/                # Localization, themes, and assets
+│   ├── Strings.resx          # English localization
+│   ├── Strings.ru.resx       # Russian localization
+│   ├── LocalizedStrings.cs   # Strongly-typed localization accessor
+│   ├── Themes/
+│   │   ├── Dark.xaml         # Dark theme
+│   │   ├── Light.xaml        # Light theme
+│   │   └── Schemes/          # Color accent schemes
+│   │       ├── Default.xaml
+│   │       ├── Ocean.xaml
+│   │       ├── Forest.xaml
+│   │       ├── Sunset.xaml
+│   │       └── Ubuntu.xaml
+│   └── *.svg                 # Icon assets
 ├── MainWindow.axaml          # Main window with drag-and-drop support
 ├── DownloadDialogWindow.axaml
+├── ArgumentPickerWindow.axaml
 ├── AboutDialogWindow.axaml
 └── App.axaml                 # App entry point, tray icon, culture handling
 ```
 
 ## Acknowledgments
 
-Спасибо за вклад в проект и моральную поддержку — [Methelina](https://github.com/Methelina). Спасибо за предоставленные экспериментальные сборки llama.cpp-turboquant.
+Thanks for contributions and moral support — [Methelina](https://github.com/Methelina). Thanks for providing [experimental llama.cpp-turboquant builds](https://github.com/pytraveler/llama-cpp-turboquant).
 
 ## License
 
