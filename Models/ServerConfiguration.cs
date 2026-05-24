@@ -93,6 +93,9 @@ public class ServerConfiguration
     [JsonPropertyName("customArguments")]
     public string CustomArguments { get; set; } = string.Empty;
 
+    [JsonPropertyName("customArgumentToggleStates")]
+    public Dictionary<string, bool> CustomArgumentToggleStates { get; set; } = new();
+
     [JsonPropertyName("parallelSlots")]
     public int? ParallelSlots { get; set; }
 
@@ -129,6 +132,54 @@ public class ServerConfiguration
     [JsonPropertyName("contextShift")]
     public bool? ContextShift { get; set; }
 
+    [JsonPropertyName("specType")]
+    public string SpecType { get; set; } = string.Empty;
+
+    [JsonPropertyName("specDraftModel")]
+    public string SpecDraftModel { get; set; } = string.Empty;
+
+    [JsonPropertyName("specDraftGpuLayers")]
+    public string SpecDraftGpuLayers { get; set; } = string.Empty;
+
+    [JsonPropertyName("specDraftNMax")]
+    public int? SpecDraftNMax { get; set; }
+
+    [JsonPropertyName("specDraftNMin")]
+    public int? SpecDraftNMin { get; set; }
+
+    [JsonPropertyName("specDraftPSplit")]
+    public double? SpecDraftPSplit { get; set; }
+
+    [JsonPropertyName("specDraftPMin")]
+    public double? SpecDraftPMin { get; set; }
+
+    [JsonPropertyName("hfRepo")]
+    public string HfRepo { get; set; } = string.Empty;
+
+    [JsonPropertyName("hfFile")]
+    public string HfFile { get; set; } = string.Empty;
+
+    [JsonPropertyName("offline")]
+    public bool Offline { get; set; }
+
+    [JsonPropertyName("hfRepoDraft")]
+    public string HfRepoDraft { get; set; } = string.Empty;
+
+    [JsonPropertyName("runInDocker")]
+    public bool RunInDocker { get; set; }
+
+    [JsonPropertyName("dockerImage")]
+    public string DockerImage { get; set; } = "ghcr.io/ggml-org/llama.cpp:server";
+
+    [JsonPropertyName("dockerGpuAll")]
+    public bool DockerGpuAll { get; set; }
+
+    [JsonPropertyName("dockerRm")]
+    public bool DockerRm { get; set; } = true;
+
+    [JsonPropertyName("dockerContainerName")]
+    public string DockerContainerName { get; set; } = string.Empty;
+
     public ServerConfiguration Clone()
     {
         return new ServerConfiguration
@@ -162,6 +213,7 @@ public class ServerConfiguration
             VerboseLogging = VerboseLogging,
             Alias = Alias,
             CustomArguments = CustomArguments,
+            CustomArgumentToggleStates = new Dictionary<string, bool>(CustomArgumentToggleStates),
             ParallelSlots = ParallelSlots,
             ContBatching = ContBatching,
             Timeout = Timeout,
@@ -173,7 +225,23 @@ public class ServerConfiguration
             Seed = Seed,
             PresencePenalty = PresencePenalty,
             FrequencyPenalty = FrequencyPenalty,
-            ContextShift = ContextShift
+            ContextShift = ContextShift,
+            SpecType = SpecType,
+            SpecDraftModel = SpecDraftModel,
+            SpecDraftGpuLayers = SpecDraftGpuLayers,
+            SpecDraftNMax = SpecDraftNMax,
+            SpecDraftNMin = SpecDraftNMin,
+            SpecDraftPSplit = SpecDraftPSplit,
+            SpecDraftPMin = SpecDraftPMin,
+            HfRepo = HfRepo,
+            HfFile = HfFile,
+            Offline = Offline,
+            HfRepoDraft = HfRepoDraft,
+            RunInDocker = RunInDocker,
+            DockerImage = DockerImage,
+            DockerGpuAll = DockerGpuAll,
+            DockerRm = DockerRm,
+            DockerContainerName = DockerContainerName
         };
     }
 
@@ -259,6 +327,36 @@ public class ServerConfiguration
 
         ["--context-shift"] = new("ContextShift", ArgType.BoolFlag),
         ["--no-context-shift"] = new("ContextShift", ArgType.BoolFlagInverted),
+
+        ["--spec-type"] = new("SpecType", ArgType.String),
+
+        ["-md"] = new("SpecDraftModel", ArgType.String),
+        ["--spec-draft-model"] = new("SpecDraftModel", ArgType.String),
+        ["--model-draft"] = new("SpecDraftModel", ArgType.String),
+
+        ["-ngld"] = new("SpecDraftGpuLayers", ArgType.String),
+        ["--spec-draft-ngl"] = new("SpecDraftGpuLayers", ArgType.String),
+        ["--gpu-layers-draft"] = new("SpecDraftGpuLayers", ArgType.String),
+        ["--n-gpu-layers-draft"] = new("SpecDraftGpuLayers", ArgType.String),
+
+        ["--spec-draft-n-max"] = new("SpecDraftNMax", ArgType.Int),
+        ["--spec-draft-n-min"] = new("SpecDraftNMin", ArgType.Int),
+
+        ["--spec-draft-p-split"] = new("SpecDraftPSplit", ArgType.Double),
+        ["--draft-p-split"] = new("SpecDraftPSplit", ArgType.Double),
+
+        ["--spec-draft-p-min"] = new("SpecDraftPMin", ArgType.Double),
+        ["--draft-p-min"] = new("SpecDraftPMin", ArgType.Double),
+
+        ["-hf"] = new("HfRepo", ArgType.String),
+        ["-hfr"] = new("HfRepo", ArgType.String),
+        ["--hf-repo"] = new("HfRepo", ArgType.String),
+        ["-hff"] = new("HfFile", ArgType.String),
+        ["--hf-file"] = new("HfFile", ArgType.String),
+        ["--offline"] = new("Offline", ArgType.BoolSimple),
+        ["-hfd"] = new("HfRepoDraft", ArgType.String),
+        ["-hfrd"] = new("HfRepoDraft", ArgType.String),
+        ["--hf-repo-draft"] = new("HfRepoDraft", ArgType.String),
     };
 
     public static readonly Dictionary<string, string[]> MutuallyExclusiveGroups = new()
@@ -281,6 +379,21 @@ public class ServerConfiguration
         ["--no-mmap"] = new[] { "--mmap", "--no-mmap" },
         ["--context-shift"] = new[] { "--context-shift", "--no-context-shift" },
         ["--no-context-shift"] = new[] { "--context-shift", "--no-context-shift" },
+
+        ["-md"] = new[] { "-md", "--spec-draft-model", "--model-draft" },
+        ["--spec-draft-model"] = new[] { "-md", "--spec-draft-model", "--model-draft" },
+        ["--model-draft"] = new[] { "-md", "--spec-draft-model", "--model-draft" },
+
+        ["-ngld"] = new[] { "-ngld", "--spec-draft-ngl", "--gpu-layers-draft", "--n-gpu-layers-draft" },
+        ["--spec-draft-ngl"] = new[] { "-ngld", "--spec-draft-ngl", "--gpu-layers-draft", "--n-gpu-layers-draft" },
+        ["--gpu-layers-draft"] = new[] { "-ngld", "--spec-draft-ngl", "--gpu-layers-draft", "--n-gpu-layers-draft" },
+        ["--n-gpu-layers-draft"] = new[] { "-ngld", "--spec-draft-ngl", "--gpu-layers-draft", "--n-gpu-layers-draft" },
+
+        ["--spec-draft-p-split"] = new[] { "--spec-draft-p-split", "--draft-p-split" },
+        ["--draft-p-split"] = new[] { "--spec-draft-p-split", "--draft-p-split" },
+
+        ["--spec-draft-p-min"] = new[] { "--spec-draft-p-min", "--draft-p-min" },
+        ["--draft-p-min"] = new[] { "--spec-draft-p-min", "--draft-p-min" },
     };
 }
 

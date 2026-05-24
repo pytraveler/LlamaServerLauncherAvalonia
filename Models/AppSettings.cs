@@ -54,6 +54,17 @@ public class AppSettings
     public string PresencePenalty { get; set; } = "";
     public string FrequencyPenalty { get; set; } = "";
     public bool? ContextShift { get; set; }
+    public string SpecType { get; set; } = "";
+    public string SpecDraftModel { get; set; } = "";
+    public string SpecDraftGpuLayers { get; set; } = "";
+    public string SpecDraftNMax { get; set; } = "";
+    public string SpecDraftNMin { get; set; } = "";
+    public string SpecDraftPSplit { get; set; } = "";
+    public string SpecDraftPMin { get; set; } = "";
+    public string HfRepo { get; set; } = "";
+    public string HfFile { get; set; } = "";
+    public bool Offline { get; set; }
+    public string HfRepoDraft { get; set; } = "";
     public bool AutoRestart { get; set; }
     public bool AutoScrollLog { get; set; } = true;
     public bool LogEnabled { get; set; } = true;
@@ -70,4 +81,14 @@ public class AppSettings
     public string LlamaCppInstalledTag { get; set; } = "";
     public int SelectedTabIndex { get; set; }
     public Dictionary<string, List<string>> RecentValuesHistory { get; set; } = new();
+    public Dictionary<string, string> ReleaseBodyCache { get; set; } = new();
+    public List<string> ReleaseBodyCacheOrder { get; set; } = new();
+    public int MaxLogFiles { get; set; } = 5;
+    public long MaxLogSizeBytes { get; set; } = 10 * 1024 * 1024;
+
+    public bool RunInDocker { get; set; }
+    public string DockerImage { get; set; } = "ghcr.io/ggml-org/llama.cpp:server";
+    public bool DockerGpuAll { get; set; }
+    public bool DockerRm { get; set; } = true;
+    public string DockerContainerName { get; set; } = "";
 }

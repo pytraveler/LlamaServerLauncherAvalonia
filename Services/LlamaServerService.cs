@@ -12,16 +12,20 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 {
     private Process? _process;
     private readonly LogService _logService;
+    private DockerCliService? _dockerService;
     private ServerConfiguration? _currentConfig;
     private bool _disposed;
     private bool _isStoppingIntentionally;
+    private bool _isBusy;
+    private string? _dockerContainerName;
 
     public bool IsRunning => _process != null && !_process.HasExited;
     public bool IsSingleModelMode { get; private set; }
+    public bool IsBusy => _isBusy || (IsRunning && _process != null && !_process.HasExited);
     public bool WasStoppedIntentionally => _isStoppingIntentionally;
     public int? ProcessId => _process?.Id;
-    public string BaseUrl => _currentConfig != null 
-        ? $"http://{_currentConfig.Host}:{_currentConfig.Port}" 
+    public string BaseUrl => _currentConfig != null
+        ? $"http://{_currentConfig.Host}:{_currentConfig.Port}"
         : "http://127.0.0.1:8080";
 
     public event EventHandler<string>? OutputReceived;
@@ -32,8 +36,14 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         _logService = logService;
     }
 
-    public async Task StartAsync(ServerConfiguration config)
+    public async Task StartAsync(ServerConfiguration config, HashSet<string>? supportedFlags = null, List<string>? validSpecTypeValues = null, List<string>? validCacheTypeValues = null)
     {
+        if (_isBusy)
+        {
+            _logService.Warning("Server is busy (already starting)");
+            return;
+        }
+
         if (IsRunning)
         {
             _logService.Warning("Server is already running");
@@ -45,19 +55,20 @@ public class LlamaServerService : ILlamaServerService, IDisposable
             throw new InvalidOperationException("Executable path is not set. Download llama.cpp or specify the path manually.");
         }
 
-        if (string.IsNullOrEmpty(config.ModelPath) && string.IsNullOrEmpty(config.ModelsDir))
+        if (string.IsNullOrEmpty(config.ModelPath) && string.IsNullOrEmpty(config.ModelsDir) && string.IsNullOrEmpty(config.HfRepo) && string.IsNullOrEmpty(config.HfFile))
         {
-            throw new InvalidOperationException("Model path or models directory must be specified");
+            throw new InvalidOperationException("Model path, models directory, or Hugging Face repo/file must be specified");
         }
 
+        _isBusy = true;
         _currentConfig = config;
         _isStoppingIntentionally = false;
-        IsSingleModelMode = !string.IsNullOrEmpty(config.ModelPath);
+        IsSingleModelMode = !string.IsNullOrEmpty(config.ModelPath) || !string.IsNullOrEmpty(config.HfRepo) || !string.IsNullOrEmpty(config.HfFile);
 
         var startInfo = new ProcessStartInfo
         {
             FileName = config.ExecutablePath,
-            Arguments = CommandLineBuilder.Build(config),
+            Arguments = CommandLineBuilder.Build(config, supportedFlags, validSpecTypeValues, validCacheTypeValues),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -88,6 +99,93 @@ public class LlamaServerService : ILlamaServerService, IDisposable
             _logService.Error($"Failed to start server: {ex.Message}");
             throw;
         }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    public async Task StartDockerAsync(DockerCliService dockerService, ServerConfiguration config, HashSet<string>? supportedFlags = null, List<string>? validSpecTypeValues = null, List<string>? validCacheTypeValues = null)
+    {
+        if (_isBusy)
+        {
+            _logService.Warning("Server is busy (already starting or pulling image)");
+            return;
+        }
+
+        if (IsRunning)
+        {
+            _logService.Warning("Server is already running");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(config.ModelPath) && string.IsNullOrEmpty(config.ModelsDir) && string.IsNullOrEmpty(config.HfRepo) && string.IsNullOrEmpty(config.HfFile))
+        {
+            throw new InvalidOperationException("Model path, models directory, or Hugging Face repo/file must be specified");
+        }
+
+        _isBusy = true;
+        _dockerService = dockerService;
+        _currentConfig = config;
+        _isStoppingIntentionally = false;
+        IsSingleModelMode = !string.IsNullOrEmpty(config.ModelPath) || !string.IsNullOrEmpty(config.HfRepo) || !string.IsNullOrEmpty(config.HfFile);
+
+        try
+        {
+            var imageExists = await dockerService.ImageExistsAsync(config.DockerImage);
+            if (!imageExists)
+            {
+                _logService.Info($"Docker image '{config.DockerImage}' not found locally. Pulling...");
+                try
+                {
+                    await dockerService.PullAsync(config.DockerImage);
+                    _logService.Info($"Docker image '{config.DockerImage}' pulled successfully.");
+                }
+                catch (Exception ex)
+                {
+                    _logService.Error($"Failed to pull Docker image '{config.DockerImage}': {ex.Message}");
+                    throw;
+                }
+            }
+
+            var dockerCommand = CommandLineBuilder.BuildDockerCommand(config, supportedFlags, validSpecTypeValues, validCacheTypeValues);
+            var dockerArgs = dockerCommand.Substring("docker ".Length);
+
+            // Ensure container has a name for proper stop/kill
+            var containerName = !string.IsNullOrWhiteSpace(config.DockerContainerName)
+                ? config.DockerContainerName
+                : $"llama-launcher-{Guid.NewGuid().ToString("N")[..8]}";
+            _dockerContainerName = containerName;
+
+            if (!dockerArgs.Contains("--name"))
+            {
+                dockerArgs = $"run --name \"{containerName}\" " + dockerArgs.Substring("run ".Length);
+            }
+
+            _logService.Info($"Starting Docker server: docker {dockerArgs}");
+
+            _process = dockerService.CreateDockerRunProcess(dockerArgs);
+            _process.OutputDataReceived += OnOutputDataReceived;
+            _process.ErrorDataReceived += OnErrorDataReceived;
+            _process.EnableRaisingEvents = true;
+            _process.Exited += OnProcessExited;
+
+            _process.Start();
+            _process.BeginOutputReadLine();
+            _process.BeginErrorReadLine();
+
+            _logService.Info($"Docker server started with PID: {_process.Id}");
+            ServerStateChanged?.Invoke(this, true);
+        }
+        catch (Exception ex)
+        {
+            _logService.Error($"Failed to start Docker server: {ex.Message}");
+            throw;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
     }
 
     public async Task StopAsync()
@@ -106,8 +204,23 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 
             if (_process != null && !_process.HasExited)
             {
+                // If Docker mode, stop the container properly first
+                if (!string.IsNullOrEmpty(_dockerContainerName) && _dockerService != null)
+                {
+                    try
+                    {
+                        _logService.Info($"Stopping Docker container '{_dockerContainerName}'...");
+                        await _dockerService.StopAsync(_dockerContainerName);
+                        _logService.Info($"Docker container '{_dockerContainerName}' stopped.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logService.Warning($"Failed to stop Docker container gracefully: {ex.Message}");
+                    }
+                }
+
                 _process.Kill(entireProcessTree: true);
-                
+
                 try
                 {
                     await Task.Run(() => _process.WaitForExit(3000));
@@ -131,6 +244,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
                 _process.Dispose();
                 _process = null;
             }
+            _dockerContainerName = null;
         }
     }
 
@@ -145,7 +259,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         try
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            
+
             var modelsResponse = await client.GetAsync($"{BaseUrl}/v1/models");
             if (!modelsResponse.IsSuccessStatusCode)
             {
@@ -155,9 +269,9 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 
             var json = await modelsResponse.Content.ReadAsStringAsync();
             var modelsData = System.Text.Json.JsonDocument.Parse(json);
-            
+
             var loadedModels = new List<string>();
-            
+
             if (modelsData.RootElement.TryGetProperty("data", out var dataArray))
             {
                 foreach (var model in dataArray.EnumerateArray())
@@ -188,7 +302,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
                     $"{{\"model\":\"{modelId}\"}}",
                     Encoding.UTF8,
                     "application/json");
-                
+
                 var response = await client.PostAsync($"{BaseUrl}/models/unload", unloadContent);
                 if (response.IsSuccessStatusCode)
                 {
@@ -260,6 +374,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     {
         if (!string.IsNullOrEmpty(e.Data))
         {
+            _logService.LogRaw(e.Data);
             OutputReceived?.Invoke(this, e.Data);
         }
     }
@@ -268,6 +383,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     {
         if (!string.IsNullOrEmpty(e.Data))
         {
+            _logService.LogRaw(e.Data);
             OutputReceived?.Invoke(this, e.Data);
         }
     }
@@ -275,6 +391,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     private void OnProcessExited(object? sender, EventArgs e)
     {
         _logService.Info("Server process exited");
+        _dockerContainerName = null;
         ServerStateChanged?.Invoke(this, false);
     }
 

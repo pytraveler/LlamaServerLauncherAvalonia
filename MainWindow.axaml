@@ -68,9 +68,11 @@
                             Background="{DynamicResource SuccessBackgroundBrush}" Foreground="White" Click="LlamaDownloadClick"
                             ToolTip.Tip="{Binding LlamaUpdateTooltip}" Margin="0,0,5,0"/>
                     <Button Content="{Binding LlamaButtonText}" IsVisible="{Binding ShowLlamaDownloadButton}"
-                            Click="LlamaDownloadClick" Margin="0,0,5,0"/>
+                            Click="LlamaDownloadClick" Margin="0,0,5,0"
+                            ToolTip.Tip="{Binding Localized.PromptDownloadLlama}"/>
                     <Button Content="{Binding Localized.ChangeVersionLlama}" IsVisible="{Binding ShowLlamaChangeVersionButton}"
-                            Click="LlamaDownloadClick" Margin="0,0,5,0"/>
+                            Click="LlamaDownloadClick" Margin="0,0,5,0"
+                            ToolTip.Tip="{Binding LlamaInstalledVersionTooltip}"/>
                     <Button Content="{Binding Localized.ExportAll}" IsEnabled="True" Click="ExportAllClick" Margin="0,0,5,0" ToolTip.Tip="{Binding Localized.TooltipExportAll}"/>
                     <Button Content="{Binding Localized.ImportAll}" IsEnabled="True" Click="ImportAllClick" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipImportAll}"/>
                     <TextBlock Text="{Binding Localized.Language}" VerticalAlignment="Center" Margin="0,0,5,0"/>
@@ -114,8 +116,15 @@
             <Border Grid.Row="2" Margin="5,5,5,0" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
-                        <Button Content="{Binding Localized.StartServer}" Click="StartServerClick" 
-                                IsEnabled="{Binding CanStartServer}" Height="35" Margin="5" Padding="15,5"/>
+                        <SplitButton Content="{Binding Localized.StartServer}" Click="StartServerClick" 
+                                IsEnabled="{Binding CanStartServer}" Height="35" Margin="5" Padding="15,5">
+                            <SplitButton.Flyout>
+                                <MenuFlyout Placement="Bottom">
+                                    <MenuItem Header="{Binding Localized.RestartServer}" Click="RestartServerClick"
+                                              IsEnabled="{Binding IsServerRunning}"/>
+                                </MenuFlyout>
+                            </SplitButton.Flyout>
+                        </SplitButton>
                         <Button Content="{Binding Localized.StopServer}" Click="StopServerClick" 
                                 IsEnabled="{Binding IsServerRunning}" Height="35" Margin="5" Padding="15,5"/>
                         <Button Content="{Binding Localized.UnloadModel}" Click="UnloadModelClick" 
@@ -125,15 +134,39 @@
                                 ToolTip.Tip="{Binding Localized.TooltipOpenInBrowser}"/>
                     </StackPanel>
                     <CheckBox Content="{Binding Localized.AutoRestartOnCrash}" IsChecked="{Binding AutoRestart}" 
-                                HorizontalAlignment="Center" Margin="5"/>
+                                HorizontalAlignment="Center" Margin="5"
+                                Click="AutoRestartClick"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
                         <CheckBox Content="{Binding Localized.EnableLog}" IsChecked="{Binding LogEnabled}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <ToggleButton Content="{Binding ToggleLogButtonText}" IsChecked="{Binding LogVisible}" VerticalAlignment="Center"/>
                         <ToggleButton Content="{Binding ToggleTabPanelButtonText}" IsChecked="{Binding TabPanelVisible}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding ServerStatus}" 
-                                HorizontalAlignment="Center" Margin="5" FontWeight="Bold"
-                                IsVisible="{Binding !IsServerRunning}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" IsVisible="{Binding !IsServerRunning}">
+                        <TextBlock Text="ERROR" 
+                                   Margin="0,5,5,5" FontWeight="Bold"
+                                   Foreground="Red"
+                                   IsVisible="{Binding ShowServerStartError}">
+                            <TextBlock.Styles>
+                                <Style Selector="TextBlock">
+                                    <Style.Animations>
+                                        <Animation IterationCount="Infinite" Duration="0:0:0.5">
+                                            <KeyFrame Cue="0%">
+                                                <Setter Property="Opacity" Value="1.0"/>
+                                            </KeyFrame>
+                                            <KeyFrame Cue="50%">
+                                                <Setter Property="Opacity" Value="0.0"/>
+                                            </KeyFrame>
+                                            <KeyFrame Cue="100%">
+                                                <Setter Property="Opacity" Value="1.0"/>
+                                            </KeyFrame>
+                                        </Animation>
+                                    </Style.Animations>
+                                </Style>
+                            </TextBlock.Styles>
+                        </TextBlock>
+                        <TextBlock Text="{Binding ServerStatus}" 
+                                   Margin="5" FontWeight="Bold"/>
+                    </StackPanel>
                     <TextBlock Text="{Binding ServerStatus}" 
                                 HorizontalAlignment="Center" Margin="5" FontWeight="Bold"
                                 Foreground="{DynamicResource AccentForegroundBrush}"
@@ -178,6 +211,35 @@
                                         <Button Grid.Row="2" Grid.Column="3" Click="ClearModelsDirClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
                                             <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                         </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.HuggingFace}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <Grid ColumnDefinitions="220,3*,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.HfRepo}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding HfRepoToolTip}"/>
+                                        <Border Grid.Row="0" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
+                                                BorderBrush="{Binding HfRepoBorderBrush}"
+                                                ToolTip.Tip="{Binding HfRepoToolTip}">
+                                            <ctrl:HistoryTextBox PlaceholderText="{Binding HfRepoPlaceholder}" PropertyName="HfRepo"/>
+                                        </Border>
+                                        <Button Grid.Row="0" Grid.Column="3" Click="ClearHfRepoClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                        </Button>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.HfFile}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding HfFileToolTip}"/>
+                                        <Border Grid.Row="1" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
+                                                BorderBrush="{Binding HfFileBorderBrush}"
+                                                ToolTip.Tip="{Binding HfFileToolTip}">
+                                            <ctrl:HistoryTextBox PlaceholderText="{Binding HfFilePlaceholder}" PropertyName="HfFile"/>
+                                        </Border>
+                                        <Button Grid.Row="1" Grid.Column="3" Click="ClearHfFileClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                        </Button>
+
+                                        <CheckBox Grid.Row="2" Grid.Column="1" Content="{Binding Localized.Offline}" IsChecked="{Binding Offline}" Margin="0,5,0,0" IsEnabled="{Binding IsOfflineSupported}" ToolTip.Tip="{Binding OfflineToolTip}"/>
                                     </Grid>
                                 </StackPanel>
                             </Border>
@@ -415,15 +477,25 @@
                                     </Grid>
                                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                         <StackPanel Orientation="Horizontal" Margin="0,0,30,0">
-                                            <TextBlock Text="{Binding Localized.CacheTypeK}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipCacheTypeK}"/>
-                                            <ComboBox ItemsSource="{Binding CacheTypes}" SelectedItem="{Binding CacheTypeK}" Width="100"/>
+                                            <TextBlock Text="{Binding Localized.CacheTypeK}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <Border BorderThickness="2" CornerRadius="3"
+                                                    BorderBrush="{Binding CacheTypeKBorderBrush}"
+                                                    ToolTip.Tip="{Binding CacheTypeKToolTip}">
+                                                <ComboBox ItemsSource="{Binding CacheTypeOptions}" SelectedItem="{Binding CacheTypeK}" Width="100"
+                                                          IsEnabled="{Binding IsCacheTypeKSupported}"/>
+                                            </Border>
                                             <Button Click="ClearCacheTypeKClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
                                                 <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                             </Button>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding Localized.CacheTypeV}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipCacheTypeV}"/>
-                                            <ComboBox ItemsSource="{Binding CacheTypes}" SelectedItem="{Binding CacheTypeV}" Width="100"/>
+                                            <TextBlock Text="{Binding Localized.CacheTypeV}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <Border BorderThickness="2" CornerRadius="3"
+                                                    BorderBrush="{Binding CacheTypeVBorderBrush}"
+                                                    ToolTip.Tip="{Binding CacheTypeVToolTip}">
+                                                <ComboBox ItemsSource="{Binding CacheTypeOptions}" SelectedItem="{Binding CacheTypeV}" Width="100"
+                                                          IsEnabled="{Binding IsCacheTypeVSupported}"/>
+                                            </Border>
                                             <Button Click="ClearCacheTypeVClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
                                                 <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                             </Button>
@@ -434,11 +506,14 @@
 
                             <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                                 <StackPanel>
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
                                         <TextBlock Grid.Column="0" Text="{Binding Localized.CustomArguments}" FontWeight="Bold"/>
                                         <Button Grid.Column="1" Click="ClearCustomArgumentsClick" ToolTip.Tip="Clear" Padding="5,0">
                                             <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                         </Button>
+                                        <Button Grid.Column="2" Content="+" Click="OpenArgumentPickerClick"
+                                                ToolTip.Tip="{Binding Localized.TooltipPickArguments}" Margin="5,0,0,0"
+                                                IsVisible="{Binding IsHelpAvailable}"/>
                                     </Grid>
                                     <ScrollViewer VerticalScrollBarVisibility="Auto" Height="60">
                                         <TextBox x:Name="CustomArgumentsTextBox" Text="{Binding CustomArguments, UpdateSourceTrigger=PropertyChanged}" 
@@ -463,6 +538,185 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="{Binding Localized.TabSpeculative}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="10">
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.SpeculativeDecoding}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBlock Text="{Binding Localized.SpecType}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipSpecType}"/>
+                                        <Border BorderThickness="2" CornerRadius="3"
+                                                BorderBrush="{Binding SpecTypeBorderBrush}"
+                                                ToolTip.Tip="{Binding SpecTypeToolTip}">
+                                            <ComboBox x:Name="SpecTypeComboBox"
+                                                      ItemsSource="{Binding SpecTypeOptions}"
+                                                      SelectedItem="{Binding SpecType}"
+                                                      Width="200"
+                                                      IsEnabled="{Binding IsSpecTypeSupported}"/>
+                                        </Border>
+                                        <Button Click="ClearSpecTypeClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.SpecGeneralParams}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
+                                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.SpecDraftNMax}" ToolTip.Tip="{Binding SpecDraftNMaxToolTip}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <Border BorderThickness="2" CornerRadius="3"
+                                                        BorderBrush="{Binding SpecDraftNMaxBorderBrush}"
+                                                        ToolTip.Tip="{Binding SpecDraftNMaxToolTip}">
+                                                    <ctrl:HistoryTextBox Width="170" PlaceholderText="{Binding SpecDraftNMaxPlaceholder}" PropertyName="SpecDraftNMax"/>
+                                                </Border>
+                                                <Button Click="ClearSpecDraftNMaxClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                                    <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.SpecDraftNMin}" ToolTip.Tip="{Binding SpecDraftNMinToolTip}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <Border BorderThickness="2" CornerRadius="3"
+                                                        BorderBrush="{Binding SpecDraftNMinBorderBrush}"
+                                                        ToolTip.Tip="{Binding SpecDraftNMinToolTip}">
+                                                    <ctrl:HistoryTextBox Width="170" PlaceholderText="{Binding SpecDraftNMinPlaceholder}" PropertyName="SpecDraftNMin"/>
+                                                </Border>
+                                                <Button Click="ClearSpecDraftNMinClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                                    <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.SpecDraftPSplit}" ToolTip.Tip="{Binding SpecDraftPSplitToolTip}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <Border BorderThickness="2" CornerRadius="3"
+                                                        BorderBrush="{Binding SpecDraftPSplitBorderBrush}"
+                                                        ToolTip.Tip="{Binding SpecDraftPSplitToolTip}">
+                                                    <ctrl:HistoryTextBox Width="170" PlaceholderText="{Binding SpecDraftPSplitPlaceholder}" PropertyName="SpecDraftPSplit"/>
+                                                </Border>
+                                                <Button Click="ClearSpecDraftPSplitClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                                    <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.SpecDraftPMin}" ToolTip.Tip="{Binding SpecDraftPMinToolTip}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <Border BorderThickness="2" CornerRadius="3"
+                                                        BorderBrush="{Binding SpecDraftPMinBorderBrush}"
+                                                        ToolTip.Tip="{Binding SpecDraftPMinToolTip}">
+                                                    <ctrl:HistoryTextBox Width="170" PlaceholderText="{Binding SpecDraftPMinPlaceholder}" PropertyName="SpecDraftPMin"/>
+                                                </Border>
+                                                <Button Click="ClearSpecDraftPMinClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                                    <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.DraftModelParams}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <Grid ColumnDefinitions="220,3*,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.SpecDraftModel}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding DraftModelToolTip}"/>
+                                        <Border Grid.Row="0" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
+                                                BorderBrush="{Binding DraftModelBorderBrush}"
+                                                ToolTip.Tip="{Binding DraftModelToolTip}">
+                                            <ctrl:HistoryTextBox PlaceholderText="{Binding SpecDraftModelPlaceholder}" PropertyName="SpecDraftModel"/>
+                                        </Border>
+                                        <Button Grid.Row="0" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseDraftModelClick" Margin="5,0,0,0"/>
+                                        <Button Grid.Row="0" Grid.Column="3" Click="ClearSpecDraftModelClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                        </Button>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.SpecDraftGpuLayers}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding DraftGpuLayersToolTip}"/>
+                                        <Border Grid.Row="1" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
+                                                BorderBrush="{Binding DraftGpuLayersBorderBrush}"
+                                                ToolTip.Tip="{Binding DraftGpuLayersToolTip}">
+                                            <ctrl:HistoryTextBox PlaceholderText="{Binding SpecDraftGpuLayersPlaceholder}" PropertyName="SpecDraftGpuLayers"/>
+                                        </Border>
+                                        <Button Grid.Row="1" Grid.Column="3" Click="ClearSpecDraftGpuLayersClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                        </Button>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding Localized.HfRepoDraft}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding HfRepoDraftToolTip}"/>
+                                        <Border Grid.Row="2" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
+                                                BorderBrush="{Binding HfRepoDraftBorderBrush}"
+                                                ToolTip.Tip="{Binding HfRepoDraftToolTip}">
+                                            <ctrl:HistoryTextBox PlaceholderText="{Binding HfRepoDraftPlaceholder}" PropertyName="HfRepoDraft"/>
+                                        </Border>
+                                        <Button Grid.Row="2" Grid.Column="3" Click="ClearHfRepoDraftClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="{Binding Localized.TabDocker}" IsEnabled="{Binding DockerTabEnabled}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="10">
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.DockerSettings}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <CheckBox Content="{Binding Localized.RunInDocker}" IsChecked="{Binding RunInDocker}"
+                                              Margin="0,0,0,5" IsEnabled="{Binding DockerTabEnabled}"
+                                              ToolTip.Tip="{Binding Localized.TooltipRunInDocker}"/>
+                                    <CheckBox Content="{Binding Localized.DockerRemoveOnStop}" IsChecked="{Binding DockerRm}"
+                                              Margin="20,0,0,5" IsEnabled="{Binding RunInDocker}"
+                                              ToolTip.Tip="{Binding Localized.TooltipDockerRemoveOnStop}"/>
+                                    <CheckBox Content="{Binding Localized.DockerUseAllGpus}" IsChecked="{Binding DockerGpuAll}"
+                                              Margin="20,0,0,5" IsEnabled="{Binding RunInDocker}"
+                                              ToolTip.Tip="{Binding Localized.TooltipDockerUseAllGpus}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
+                                <StackPanel>
+                                    <Grid ColumnDefinitions="220,*,Auto" RowDefinitions="Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.DockerImage}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipDockerImage}"/>
+                                        <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,2"
+                                                  ItemsSource="{Binding DockerImageOptions}"
+                                                  SelectedItem="{Binding DockerImage}"
+                                                  IsEditable="True"
+                                                  IsEnabled="{Binding RunInDocker}"
+                                                  ToolTip.Tip="{Binding Localized.TooltipDockerImage}"/>
+                                        <Button Grid.Row="0" Grid.Column="2" Click="ClearDockerImageClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                        </Button>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.DockerContainerName}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipDockerContainerName}"/>
+                                        <TextBox Grid.Row="1" Grid.Column="1" Margin="0,2"
+                                                 Text="{Binding DockerContainerName, UpdateSourceTrigger=PropertyChanged}"
+                                                 IsEnabled="{Binding RunInDocker}"
+                                                 PlaceholderText="{Binding Localized.PlaceholderDockerContainerName}"
+                                                 ToolTip.Tip="{Binding Localized.TooltipDockerContainerName}"/>
+                                        <Button Grid.Row="1" Grid.Column="2" Click="ClearDockerContainerNameClick" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5"
+                                    IsVisible="{Binding DockerNotInstalledWarning}">
+                                <TextBlock Text="{Binding Localized.DockerNotInstalled}"
+                                           Foreground="{DynamicResource WarningForegroundBrush}" TextWrapping="Wrap"/>
                             </Border>
                         </StackPanel>
                     </ScrollViewer>
@@ -536,11 +790,15 @@
 
             <Border Grid.Row="5" Margin="5,0,5,5" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5"
                     MinHeight="60"
-                    IsVisible="{Binding LogVisible}">
+                    IsVisible="{Binding LogVisible}"
+                    BorderBrush="{Binding LogBorderBrush}"
+                    BorderThickness="{Binding LogBorderThickness}">
                 <Grid RowDefinitions="Auto,*">
                     <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,5">
                         <CheckBox Content="{Binding Localized.AutoScrollLog}" IsChecked="{Binding AutoScroll}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <Button Content="{Binding Localized.ClearLog}" Click="ClearLogClick" VerticalAlignment="Center"/>
+                        <Button Content="{Binding Localized.CopyLog}" Click="CopyLogClick" VerticalAlignment="Center" Margin="5,0,0,0" ToolTip.Tip="{Binding Localized.TooltipCopyLog}"/>
+                        <Button Content="{Binding Localized.SaveLog}" Click="SaveLogClick" VerticalAlignment="Center" Margin="5,0,0,0" ToolTip.Tip="{Binding Localized.TooltipSaveLog}"/>
                     </StackPanel>
                     <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <TextBox x:Name="LogTextBox" Text="{Binding LogText}"

@@ -489,6 +489,83 @@ public partial class MainWindow : Window
             _viewModel.FrequencyPenalty = string.Empty;
     }
 
+    private void ClearSpecTypeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.SpecType = string.Empty;
+    }
+
+    private void ClearSpecDraftNMaxClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.SpecDraftNMax = string.Empty;
+    }
+
+    private void ClearSpecDraftNMinClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.SpecDraftNMin = string.Empty;
+    }
+
+    private void ClearSpecDraftPSplitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.SpecDraftPSplit = string.Empty;
+    }
+
+    private void ClearSpecDraftPMinClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.SpecDraftPMin = string.Empty;
+    }
+
+    private void ClearSpecDraftModelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.SpecDraftModel = string.Empty;
+    }
+
+    private void ClearSpecDraftGpuLayersClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.SpecDraftGpuLayers = string.Empty;
+    }
+
+    private void ClearHfRepoClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.HfRepo = string.Empty;
+    }
+
+    private void ClearHfFileClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.HfFile = string.Empty;
+    }
+
+    private void ClearHfRepoDraftClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.HfRepoDraft = string.Empty;
+    }
+
+    private void ClearDockerImageClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.DockerImage = "ghcr.io/ggml-org/llama.cpp:server";
+    }
+
+    private void ClearDockerContainerNameClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.DockerContainerName = string.Empty;
+    }
+
+    private void BrowseDraftModelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.BrowseDraftModelCommand.Execute(null);
+    }
+
     private void ClearCacheTypeKClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (_viewModel != null)
@@ -504,6 +581,12 @@ public partial class MainWindow : Window
     private void ClearCustomArgumentsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.ClearCustomArguments();
+    }
+
+    private async void OpenArgumentPickerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        await _viewModel.OpenArgumentPickerAsync();
     }
 
     private void CustomArgumentToggleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
@@ -550,22 +633,37 @@ public partial class MainWindow : Window
 
     private void StartServerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        _viewModel?.DismissServerStartError();
         _viewModel?.StartServerCommand.Execute(null);
+    }
+
+    private void RestartServerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.DismissServerStartError();
+        _viewModel?.RestartServerCommand.Execute(null);
     }
 
     private void StopServerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        _viewModel?.DismissServerStartError();
         _viewModel?.StopServerCommand.Execute(null);
     }
 
     private void UnloadModelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        _viewModel?.DismissServerStartError();
         _viewModel?.UnloadModelCommand.Execute(null);
     }
 
     private void OpenInBrowserClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        _viewModel?.DismissServerStartError();
         _viewModel?.OpenInBrowserCommand.Execute(null);
+    }
+
+    private void AutoRestartClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.DismissServerStartError();
     }
 
     private void BrowseExecutableClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -634,7 +732,11 @@ public partial class MainWindow : Window
         if (_viewModel == null) return;
 
         var dialog = new DownloadDialogWindow();
-        var vm = new DownloadDialogViewModel(_viewModel.DownloadService, null);
+        var vm = new DownloadDialogViewModel(
+            _viewModel.DownloadService,
+            _viewModel.ReleaseBodyCache,
+            _viewModel.ReleaseBodyCacheOrder,
+            null);
         dialog.SetViewModel(vm);
         await dialog.ShowDialog(this);
 
@@ -658,6 +760,28 @@ public partial class MainWindow : Window
     private void ClearLogClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.ClearLogCommand.Execute(null);
+    }
+
+    private async void CopyLogClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        try
+        {
+            var text = _viewModel.LogText;
+            if (string.IsNullOrEmpty(text)) return;
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard != null)
+                await clipboard.SetTextAsync(text);
+        }
+        catch
+        {
+            // Ignore clipboard errors
+        }
+    }
+
+    private void SaveLogClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.SaveLogCommand.Execute(null);
     }
 
 #region Drag and Drop
@@ -1341,6 +1465,7 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
             }
             _isClosing = true;
             System.Diagnostics.Debug.WriteLine("OnClosing: Calling base.OnClosing");
+            _viewModel?.Dispose();
             base.OnClosing(e);
             return;
         }
@@ -1381,6 +1506,7 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
             if (_viewModel != null)
             {
                 await SaveWindowPositionAsync();
+                _viewModel.Dispose();
             }
             base.OnClosing(e);
         }

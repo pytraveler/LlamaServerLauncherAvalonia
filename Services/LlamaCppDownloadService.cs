@@ -38,7 +38,6 @@ public class LlamaCppDownloadService
     };
 
     private const string RepoApiUrl = "https://api.github.com/repos/ggml-org/llama.cpp/releases";
-    private const string LauncherRepoApiUrl = "https://api.github.com/repos/pytraveler/LlamaServerLauncherAvalonia/releases";
     private readonly string _installDir;
 
     public LlamaCppDownloadService(string? appDataPath = null)
@@ -216,33 +215,20 @@ public class LlamaCppDownloadService
         }
     }
 
-    public async Task<List<ReleaseAsset>> GetExperimentalBuildsAsync()
-    {
-        var url = $"{LauncherRepoApiUrl}?per_page=1";
-        using var resp = await _http.GetAsync(url);
-        resp.EnsureSuccessStatusCode();
-
-        var json = await resp.Content.ReadAsStringAsync();
-        var releases = ParseReleases(json);
-        if (releases.Count == 0) return new();
-
-        var experimental = releases[0].Assets
-            .Where(a => a.Name.StartsWith("experimental-llama-cpp-", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        return FilterAssetsForCurrentOS(experimental);
-    }
-
     public bool IsInPath(string directory)
     {
         var userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
-        var entries = userPath.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var separator = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ';' : ':';
+        var entries = userPath.Split(separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var normalizedDir = directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var comparison = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
         foreach (var entry in entries)
         {
             var normalizedEntry = entry.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            if (string.Equals(normalizedEntry, normalizedDir, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(normalizedEntry, normalizedDir, comparison))
                 return true;
         }
         return false;
@@ -251,17 +237,21 @@ public class LlamaCppDownloadService
     public async Task AddToPathIfNeededAsync(string directory)
     {
         var userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
-        var entries = userPath.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var separator = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ';' : ':';
+        var entries = userPath.Split(separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var normalizedDir = directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var comparison = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
         foreach (var entry in entries)
         {
             var normalizedEntry = entry.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            if (string.Equals(normalizedEntry, normalizedDir, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(normalizedEntry, normalizedDir, comparison))
                 return;
         }
 
-        var newPath = string.IsNullOrEmpty(userPath) ? normalizedDir : $"{userPath};{normalizedDir}";
+        var newPath = string.IsNullOrEmpty(userPath) ? normalizedDir : $"{userPath}{separator}{normalizedDir}";
         Environment.SetEnvironmentVariable("PATH", newPath, EnvironmentVariableTarget.User);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

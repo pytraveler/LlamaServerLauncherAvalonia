@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
         Title="{Binding Localized.DownloadDialogTitle}"
-        Width="550" Height="520"
+        Width="550" Height="580"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         MinWidth="450" MinHeight="420">
@@ -11,101 +11,77 @@
         <vm:DownloadDialogViewModel/>
     </Design.DataContext>
 
-    <Grid Margin="15" RowDefinitions="*,Auto,Auto,Auto">
-        <TabControl SelectedIndex="{Binding SelectedSourceIndex}" Grid.Row="0" Margin="0,0,0,10">
-            <TabItem Header="{Binding Localized.TabOfficial}">
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="0,5,0,0">
-                    <TextBlock Grid.Row="0" Text="{Binding Localized.SelectRelease}" FontWeight="Bold" Margin="0,0,0,5"/>
+    <Grid Margin="15" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto">
+        <TextBlock Grid.Row="0" Text="{Binding Localized.SelectRelease}" FontWeight="Bold" Margin="0,0,0,5"/>
 
-                    <ComboBox Grid.Row="1"
-                              ItemsSource="{Binding Releases}"
-                              SelectedItem="{Binding SelectedRelease}"
-                              IsEditable="True"
-                              Text="{Binding ManualTagInput, UpdateSourceTrigger=PropertyChanged}"
-                              IsEnabled="{Binding !IsDownloading}"
-                              Margin="0,0,0,5"
-                              HorizontalAlignment="Stretch">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock>
-                                    <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}{0} — {1:yyyy-MM-dd HH:mm}">
-                                            <Binding Path="Tag"/>
-                                            <Binding Path="PublishedAt"/>
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                </TextBlock>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+        <ComboBox Grid.Row="1"
+                  ItemsSource="{Binding Releases}"
+                  SelectedItem="{Binding SelectedRelease}"
+                  IsEditable="True"
+                  Text="{Binding ManualTagInput, UpdateSourceTrigger=PropertyChanged}"
+                  IsEnabled="{Binding !IsDownloading}"
+                  Margin="0,0,0,5"
+                  HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock>
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0} — {1:yyyy-MM-dd HH:mm}">
+                                <Binding Path="Tag"/>
+                                <Binding Path="PublishedAt"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
 
-                    <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Foreground="Orange" Margin="0,0,0,5"
-                               IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        <Border Grid.Row="2"
+                CornerRadius="4" Padding="8" Margin="0,0,0,5"
+                MaxHeight="120"
+                IsVisible="{Binding ReleaseDescription, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <TextBlock Text="{Binding ReleaseDescription}"
+                           TextWrapping="Wrap"
+                           Opacity="0.7"
+                           FontSize="12"/>
+            </ScrollViewer>
+        </Border>
 
-                    <TextBlock Grid.Row="3" Text="{Binding Localized.SelectBuild}" FontWeight="Bold" Margin="0,0,0,5"/>
+        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Foreground="Orange" Margin="0,0,0,5"
+                   IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
-                    <ListBox Grid.Row="4"
-                             ItemsSource="{Binding AvailableAssets}"
-                             SelectedItem="{Binding SelectedAsset}"
-                             IsEnabled="{Binding !IsDownloading}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock>
-                                    <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}{0} ({1:F1} MB)">
-                                            <Binding Path="Name"/>
-                                            <Binding Path="SizeMB"/>
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                </TextBlock>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Grid>
-            </TabItem>
+        <TextBlock Grid.Row="4" Text="{Binding Localized.SelectBuild}" FontWeight="Bold" Margin="0,0,0,5"/>
 
-            <TabItem Header="{Binding Localized.TabExperimental}">
-                <Grid RowDefinitions="Auto,Auto,*" Margin="0,5,0,0">
-                    <Border Grid.Row="0" Background="#33FFA500" CornerRadius="4" Padding="10" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="{Binding Localized.ExperimentalWarning}" 
-                                       Foreground="Orange" FontWeight="Bold" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
+        <ListBox Grid.Row="5"
+                 ItemsSource="{Binding AvailableAssets}"
+                 SelectedItem="{Binding SelectedAsset}"
+                 IsEnabled="{Binding !IsDownloading}"
+                 Margin="0,0,0,10">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock>
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0} ({1:F1} MB)">
+                                <Binding Path="Name"/>
+                                <Binding Path="SizeMB"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
 
-                    <TextBlock Grid.Row="1" Text="{Binding ExperimentalStatusMessage}" Foreground="Orange" Margin="0,0,0,5"
-                               IsVisible="{Binding ExperimentalStatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-
-                    <ListBox Grid.Row="2"
-                             ItemsSource="{Binding ExperimentalAssets}"
-                             SelectedItem="{Binding SelectedExperimentalAsset}"
-                             IsEnabled="{Binding !IsDownloading}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock>
-                                    <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}{0} ({1:F1} MB)">
-                                            <Binding Path="Name"/>
-                                            <Binding Path="SizeMB"/>
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                </TextBlock>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Grid>
-            </TabItem>
-        </TabControl>
-
-        <ProgressBar Grid.Row="1" Minimum="0" Maximum="100"
+        <ProgressBar Grid.Row="6" Minimum="0" Maximum="100"
                      Value="{Binding DownloadProgress}"
                      IsVisible="{Binding ShowProgress}"
                      Margin="0,0,0,10"/>
 
-        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Margin="0,0,0,10"
+        <TextBlock Grid.Row="7" Text="{Binding StatusMessage}" Margin="0,0,0,10"
                    IsVisible="{Binding IsDownloading}"/>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{Binding Localized.DownloadButton}" Click="DownloadClick"
                     IsEnabled="{Binding CanDownload}" Width="100" Margin="0,0,10,0"/>
             <Button Content="{Binding Localized.Cancel}" Click="CancelClick" Width="80"/>

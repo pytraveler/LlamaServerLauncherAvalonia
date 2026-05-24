@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -10,19 +13,20 @@ using LlamaServerLauncher.Services;
 
 namespace LlamaServerLauncher.ViewModels;
 
-public enum DownloadSource { Official, Experimental }
-
 public class DownloadDialogViewModel : INotifyPropertyChanged
 {
     private readonly LlamaCppDownloadService _downloadService;
+    private readonly Dictionary<string, string> _bodyCache;
+    private readonly List<string> _bodyCacheOrder;
     private CancellationTokenSource? _cts;
     private Timer? _debounceTimer;
+
+    private const int MaxCachedDescriptions = 20;
 
     public LocalizedStrings Localized => LocalizedStrings.Instance;
 
     public ObservableCollection<ReleaseInfo> Releases { get; } = new();
     public ObservableCollection<ReleaseAsset> AvailableAssets { get; } = new();
-    public ObservableCollection<ReleaseAsset> ExperimentalAssets { get; } = new();
 
     private ReleaseInfo? _selectedRelease;
     public ReleaseInfo? SelectedRelease
@@ -35,6 +39,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
                 _selectedRelease = value;
                 OnPropertyChanged();
                 PopulateAssets();
+                UpdateReleaseDescription();
                 OnPropertyChanged(nameof(CanDownload));
             }
         }
@@ -56,52 +61,11 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         }
     }
 
-    private ReleaseAsset? _selectedExperimentalAsset;
-    public ReleaseAsset? SelectedExperimentalAsset
-    {
-        get => _selectedExperimentalAsset;
-        set
-        {
-            if (_selectedExperimentalAsset != value)
-            {
-                _selectedExperimentalAsset = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(CanDownload));
-            }
-        }
-    }
-
-    private DownloadSource _selectedSource = DownloadSource.Official;
-    public int SelectedSourceIndex
-    {
-        get => (int)_selectedSource;
-        set
-        {
-            var source = (DownloadSource)value;
-            if (_selectedSource != source)
-            {
-                _selectedSource = source;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(CanDownload));
-                OnPropertyChanged(nameof(IsExperimental));
-            }
-        }
-    }
-
-    public bool IsExperimental => _selectedSource == DownloadSource.Experimental;
-
     private bool _isLoading = true;
     public bool IsLoading
     {
         get => _isLoading;
         set { _isLoading = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanDownload)); }
-    }
-
-    private bool _isLoadingExperimental;
-    public bool IsLoadingExperimental
-    {
-        get => _isLoadingExperimental;
-        set { _isLoadingExperimental = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanDownload)); }
     }
 
     private bool _isDownloading;
@@ -123,13 +87,6 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     {
         get => _statusMessage;
         set { _statusMessage = value; OnPropertyChanged(); }
-    }
-
-    private string _experimentalStatusMessage = "";
-    public string ExperimentalStatusMessage
-    {
-        get => _experimentalStatusMessage;
-        set { _experimentalStatusMessage = value; OnPropertyChanged(); }
     }
 
     private string _manualTagInput = "";
@@ -154,14 +111,19 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         set { _isReleaseNotFound = value; OnPropertyChanged(); }
     }
 
+    private string _releaseDescription = "";
+    public string ReleaseDescription
+    {
+        get => _releaseDescription;
+        set { _releaseDescription = value; OnPropertyChanged(); }
+    }
+
     public bool CanDownload
     {
         get
         {
             if (IsDownloading || IsLoading) return false;
-            if (_selectedSource == DownloadSource.Official)
-                return SelectedAsset != null && !IsReleaseNotFound;
-            return SelectedExperimentalAsset != null && !IsLoadingExperimental;
+            return SelectedAsset != null && !IsReleaseNotFound;
         }
     }
 
@@ -172,28 +134,20 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     public event Action? RequestClose;
 
-    public DownloadDialogViewModel(LlamaCppDownloadService downloadService, string? preselectedTag = null)
+    public DownloadDialogViewModel(LlamaCppDownloadService downloadService, Dictionary<string, string> bodyCache, List<string> bodyCacheOrder, string? preselectedTag = null)
     {
         _downloadService = downloadService;
+        _bodyCache = bodyCache;
+        _bodyCacheOrder = bodyCacheOrder;
         _ = LoadReleasesAsync(preselectedTag);
     }
 
     private async Task LoadReleasesAsync(string? preselectedTag = null)
     {
         IsLoading = true;
-        IsLoadingExperimental = true;
         StatusMessage = LocalizedStrings.GetString("LoadingReleases");
-        ExperimentalStatusMessage = LocalizedStrings.GetString("LoadingExperimental");
         IsReleaseNotFound = false;
 
-        var officialTask = LoadOfficialReleasesAsync(preselectedTag);
-        var experimentalTask = LoadExperimentalBuildsAsync();
-
-        await Task.WhenAll(officialTask, experimentalTask);
-    }
-
-    private async Task LoadOfficialReleasesAsync(string? preselectedTag)
-    {
         try
         {
             var releases = await _downloadService.GetLatestReleasesAsync(10);
@@ -229,37 +183,6 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task LoadExperimentalBuildsAsync()
-    {
-        try
-        {
-            var builds = await _downloadService.GetExperimentalBuildsAsync();
-
-            Dispatcher.UIThread.Post(() =>
-            {
-                ExperimentalAssets.Clear();
-                foreach (var b in builds)
-                    ExperimentalAssets.Add(b);
-
-                if (ExperimentalAssets.Count > 0)
-                    SelectedExperimentalAsset = ExperimentalAssets[0];
-
-                IsLoadingExperimental = false;
-                ExperimentalStatusMessage = ExperimentalAssets.Count == 0
-                    ? LocalizedStrings.GetString("NoExperimentalBuilds")
-                    : "";
-            });
-        }
-        catch (Exception ex)
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                IsLoadingExperimental = false;
-                ExperimentalStatusMessage = string.Format(LocalizedStrings.GetString("DownloadFailed"), ex.Message);
-            });
-        }
-    }
-
     private void PopulateAssets()
     {
         AvailableAssets.Clear();
@@ -276,6 +199,73 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
             SelectedAsset = AvailableAssets[0];
         else
             StatusMessage = LocalizedStrings.GetString("NoAssetsForOS");
+    }
+
+    private void UpdateReleaseDescription()
+    {
+        if (_selectedRelease == null || string.IsNullOrWhiteSpace(_selectedRelease.Body))
+        {
+            ReleaseDescription = "";
+            return;
+        }
+
+        CacheReleaseBody(_selectedRelease.Tag, _selectedRelease.Body);
+        ReleaseDescription = CleanReleaseBody(_selectedRelease.Body);
+    }
+
+    private static string CleanReleaseBody(string body)
+    {
+        var text = body;
+
+        text = Regex.Replace(text, @"<details\s+open>\s*", "", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"</details>", "", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"<details[^>]*>.*?</details>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        text = Regex.Replace(text, @"\[([^\]]*)\]\([^)]*\)", "$1");
+        text = Regex.Replace(text, @"\*\*([^*]*)\*\*", "$1");
+        text = Regex.Replace(text, @"^\s*[\r\n]", "", RegexOptions.Multiline);
+        text = text.Trim();
+
+        return text;
+    }
+
+    private void CacheReleaseBody(string tag, string body)
+    {
+        if (string.IsNullOrEmpty(tag) || string.IsNullOrEmpty(body)) return;
+
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(body));
+
+        if (_bodyCache.ContainsKey(tag))
+        {
+            _bodyCache[tag] = encoded;
+            _bodyCacheOrder.Remove(tag);
+            _bodyCacheOrder.Add(tag);
+        }
+        else
+        {
+            _bodyCache[tag] = encoded;
+            _bodyCacheOrder.Add(tag);
+        }
+
+        while (_bodyCacheOrder.Count > MaxCachedDescriptions)
+        {
+            var oldest = _bodyCacheOrder[0];
+            _bodyCacheOrder.RemoveAt(0);
+            _bodyCache.Remove(oldest);
+        }
+    }
+
+    public string? GetCachedReleaseBody(string tag)
+    {
+        if (string.IsNullOrEmpty(tag)) return null;
+        if (!_bodyCache.TryGetValue(tag, out var encoded)) return null;
+        try
+        {
+            return Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void RestartDebounce()
@@ -326,24 +316,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
     public async Task DownloadAsync()
     {
-        var asset = _selectedSource == DownloadSource.Official ? SelectedAsset : SelectedExperimentalAsset;
-        if (asset == null || IsDownloading) return;
-
-        if (_selectedSource == DownloadSource.Experimental)
-        {
-            var warning = LocalizedStrings.GetString("ExperimentalConfirmDownload");
-            var result = await Dispatcher.UIThread.InvokeAsync(async () =>
-            {
-                var dlgResult = await MessageBox.ShowAsync(
-                    MainWindow.Instance!,
-                    warning,
-                    LocalizedStrings.GetString("ConfirmTitle"),
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Warning);
-                return dlgResult;
-            });
-            if (result != MessageBoxResult.Yes) return;
-        }
+        if (SelectedAsset == null || IsDownloading) return;
 
         IsDownloading = true;
         StatusMessage = LocalizedStrings.GetString("Downloading");
@@ -364,9 +337,8 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
         try
         {
-            var allAssets = _selectedSource == DownloadSource.Official
-                ? _selectedRelease?.Assets
-                : new System.Collections.Generic.List<ReleaseAsset>(ExperimentalAssets);
+            var asset = SelectedAsset;
+            var allAssets = _selectedRelease?.Assets;
 
             await _downloadService.DownloadAndExtractAsync(asset, progress, _cts.Token,
                 _downloadService.FindMatchingCudaDllAsset(asset, allAssets));
@@ -391,10 +363,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
                 }
             }
 
-            if (_selectedSource == DownloadSource.Official)
-                DownloadedReleaseTag = _selectedRelease?.Tag;
-            else
-                DownloadedReleaseTag = "exp:" + asset.Name;
+            DownloadedReleaseTag = _selectedRelease?.Tag;
 
             Dispatcher.UIThread.Post(() =>
             {

@@ -1,26 +1,37 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace LlamaServerLauncher.Models;
 
 public static class CommandLineBuilder
 {
-    public static string Build(ServerConfiguration config)
+    public static string Build(ServerConfiguration config, HashSet<string>? supportedFlags = null, List<string>? validSpecTypeValues = null, List<string>? validCacheTypeValues = null)
     {
         var args = new List<string>();
         
         var processedProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var normalizedCustomArgs = CommandLineParser.NormalizeSpecialCharacters(config.CustomArguments);
-        Dictionary<string, string?> customArgValues = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string?> allCustomArgValues = new(StringComparer.OrdinalIgnoreCase);
 
         if (!string.IsNullOrEmpty(normalizedCustomArgs))
         {
             var parsed = CommandLineParser.ParseArguments(normalizedCustomArgs);
-            customArgValues = CommandLineParser.GetArgumentValues(parsed);
+            allCustomArgValues = CommandLineParser.GetArgumentValues(parsed);
         }
+
+        var disabledCustomArgs = config.CustomArgumentToggleStates?
+            .Where(kvp => !kvp.Value)
+            .Select(kvp => kvp.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        Dictionary<string, string?> customArgValues = allCustomArgValues
+            .Where(kvp => !disabledCustomArgs.Contains(kvp.Key))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
 
         bool IsOverriddenByAlias(string flag)
         {
@@ -93,31 +104,61 @@ public static class CommandLineBuilder
             return null;
         }
 
+        string? ResolveSupportedFlag(string flag)
+        {
+            if (supportedFlags == null)
+                return flag;
+
+            if (supportedFlags.Contains(flag))
+                return flag;
+
+            string? propertyName = GetPropertyNameForFlag(flag);
+            if (propertyName == null)
+                return null;
+
+            foreach (var kvp in ServerConfiguration.KnownArguments)
+            {
+                if (kvp.Value.PropertyName.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (supportedFlags.Contains(kvp.Key))
+                        return kvp.Key;
+                }
+            }
+
+            return null;
+        }
+
         void AddIfNotOverridden(List<string> list, string flag, string? uiValue)
         {
             string? customValue = GetCustomValue(flag);
+            string? resolved = ResolveSupportedFlag(flag);
             
             if (customValue != null)
             {
-                list.Add($"{flag} {QuoteIfNeeded(customValue)}");
+                if (resolved != null)
+                    list.Add($"{resolved} {QuoteIfNeeded(customValue)}");
             }
             else if (!IsFlagPresentInCustomArgs(flag) && !string.IsNullOrEmpty(uiValue))
             {
-                list.Add($"{flag} {uiValue}");
+                if (resolved != null)
+                    list.Add($"{resolved} {uiValue}");
             }
         }
 
         void AddBoolOnOff(List<string> list, string flag, bool? uiValue, string invertedFlag = "")
         {
             string? customValue = GetCustomValue(flag);
+            string? resolved = ResolveSupportedFlag(flag);
             
             if (customValue != null)
             {
-                list.Add($"{flag} {customValue}");
+                if (resolved != null)
+                    list.Add($"{resolved} {customValue}");
             }
             else if (uiValue.HasValue)
             {
-                list.Add($"{flag} {(uiValue.Value ? "on" : "off")}");
+                if (resolved != null)
+                    list.Add($"{resolved} {(uiValue.Value ? "on" : "off")}");
             }
         }
 
@@ -131,7 +172,8 @@ public static class CommandLineBuilder
             
             if (actualFlag != null)
             {
-                list.Add(actualFlag);
+                if (ResolveSupportedFlag(flag) != null || ResolveSupportedFlag(invertedFlag) != null)
+                    list.Add(actualFlag);
                 return;
             }
 
@@ -140,11 +182,15 @@ public static class CommandLineBuilder
 
             if (uiValue.Value)
             {
-                list.Add(flag);
+                var resolved = ResolveSupportedFlag(flag);
+                if (resolved != null)
+                    list.Add(resolved);
             }
             else if (!string.IsNullOrEmpty(invertedFlag))
             {
-                list.Add(invertedFlag);
+                var resolved = ResolveSupportedFlag(invertedFlag);
+                if (resolved != null)
+                    list.Add(resolved);
             }
         }
 
@@ -178,8 +224,19 @@ public static class CommandLineBuilder
             args.Add($"-mm \"{EscapePath(config.MmprojPath)}\"");
         }
         
-        AddIfNotOverridden(args, "-ctk", config.CacheTypeK);
-        AddIfNotOverridden(args, "-ctv", config.CacheTypeV);
+        bool cacheTypeKValid = string.IsNullOrEmpty(config.CacheTypeK)
+            || validCacheTypeValues == null
+            || validCacheTypeValues.Count == 0
+            || validCacheTypeValues.Contains(config.CacheTypeK);
+        if (cacheTypeKValid)
+            AddIfNotOverridden(args, "-ctk", config.CacheTypeK);
+
+        bool cacheTypeVValid = string.IsNullOrEmpty(config.CacheTypeV)
+            || validCacheTypeValues == null
+            || validCacheTypeValues.Count == 0
+            || validCacheTypeValues.Contains(config.CacheTypeV);
+        if (cacheTypeVValid)
+            AddIfNotOverridden(args, "-ctv", config.CacheTypeV);
 
         AddIfNotOverridden(args, "--top-k", config.TopK?.ToString(CultureInfo.InvariantCulture));
         AddIfNotOverridden(args, "--top-p", config.TopP?.ToString(CultureInfo.InvariantCulture));
@@ -210,6 +267,64 @@ public static class CommandLineBuilder
         }
 
         AddBoolOnOff(args, "-fa", config.FlashAttention);
+
+        // Spec-type
+        if (!string.IsNullOrEmpty(config.SpecType) && config.SpecType != "none")
+        {
+            bool specTypeValueValid = validSpecTypeValues == null
+                || validSpecTypeValues.Count == 0
+                || validSpecTypeValues.Contains(config.SpecType);
+
+            if (specTypeValueValid)
+            {
+                AddIfNotOverridden(args, "--spec-type", config.SpecType);
+            }
+        }
+
+        // Draft model (-md)
+        string? draftModelCustomValue = GetCustomValue("-md");
+        var mdResolved = ResolveSupportedFlag("-md");
+        if (draftModelCustomValue != null)
+        {
+            if (mdResolved != null)
+                args.Add($"{mdResolved} {QuoteIfNeeded(draftModelCustomValue)}");
+        }
+        else if (!string.IsNullOrEmpty(config.SpecDraftModel))
+        {
+            if (mdResolved != null)
+                args.Add($"{mdResolved} \"{EscapePath(config.SpecDraftModel)}\"");
+        }
+
+        // -ngld
+        {
+            var ngldVal = string.IsNullOrEmpty(config.SpecDraftGpuLayers) ? null : config.SpecDraftGpuLayers;
+            AddIfNotOverridden(args, "-ngld", ngldVal);
+        }
+
+        // General spec params
+        {
+            var nmaxVal = config.SpecDraftNMax?.ToString();
+            AddIfNotOverridden(args, "--spec-draft-n-max", nmaxVal);
+        }
+        {
+            var nminVal = config.SpecDraftNMin?.ToString();
+            AddIfNotOverridden(args, "--spec-draft-n-min", nminVal);
+        }
+        {
+            var psplitVal = config.SpecDraftPSplit?.ToString(CultureInfo.InvariantCulture);
+            AddIfNotOverridden(args, "--spec-draft-p-split", psplitVal);
+        }
+        {
+            var pminVal = config.SpecDraftPMin?.ToString(CultureInfo.InvariantCulture);
+            AddIfNotOverridden(args, "--spec-draft-p-min", pminVal);
+        }
+
+        // HuggingFace args
+        AddIfNotOverridden(args, "-hf", config.HfRepo);
+        AddIfNotOverridden(args, "-hff", config.HfFile);
+        AddIfNotOverridden(args, "-hfd", config.HfRepoDraft);
+        if (config.Offline)
+            args.Add("--offline");
 
         string? actualWebuiFlag = GetActualCustomFlag("--webui", "--no-webui");
         
@@ -246,7 +361,7 @@ public static class CommandLineBuilder
             args.Add("-v");
         }
 
-        AddRemainingCustomArgs(args, normalizedCustomArgs, customArgValues);
+        AddRemainingCustomArgs(args, normalizedCustomArgs, customArgValues, disabledCustomArgs);
 
         return string.Join(" ", args);
     }
@@ -299,27 +414,18 @@ public static class CommandLineBuilder
         "ModelPath",
         "ModelsDir",
         "MmprojPath",
-        "ExecutablePath"
+        "ExecutablePath",
+        "SpecDraftModel"
     };
 
     public static bool IsPathProperty(string propertyName) => PathProperties.Contains(propertyName);
 
-    private static void AddRemainingCustomArgs(List<string> args, string normalizedCustomArgs, Dictionary<string, string?> usedCustomValues)
+    private static void AddRemainingCustomArgs(List<string> args, string normalizedCustomArgs, Dictionary<string, string?> usedCustomValues, HashSet<string> disabledCustomArgs)
     {
         if (string.IsNullOrEmpty(normalizedCustomArgs))
             return;
 
         var parsed = CommandLineParser.ParseArguments(normalizedCustomArgs);
-        var usedFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var kvp in ServerConfiguration.KnownArguments)
-        {
-            if (usedCustomValues.ContainsKey(kvp.Key) || 
-                (usedCustomValues.ContainsKey(kvp.Key) && usedCustomValues[kvp.Key] != null))
-            {
-                usedFlags.Add(kvp.Key);
-            }
-        }
 
         for (int i = 0; i < parsed.Count; i++)
         {
@@ -327,7 +433,24 @@ public static class CommandLineBuilder
             if (!arg.StartsWith("-"))
                 continue;
 
-            if (usedFlags.Contains(arg))
+            if (disabledCustomArgs.Contains(arg))
+            {
+                // Skip disabled flag and its value if present
+                if (i + 1 < parsed.Count && !parsed[i + 1].StartsWith("-"))
+                    i++;
+                continue;
+            }
+
+            bool alreadyInArgs = false;
+            foreach (var existing in args)
+            {
+                if (existing == arg || existing.StartsWith(arg + " ") || existing.StartsWith(arg + "\t"))
+                {
+                    alreadyInArgs = true;
+                    break;
+                }
+            }
+            if (alreadyInArgs)
                 continue;
 
             if (i + 1 < parsed.Count && !parsed[i + 1].StartsWith("-"))
@@ -342,9 +465,124 @@ public static class CommandLineBuilder
         }
     }
 
-    public static string BuildFullCommand(ServerConfiguration config)
+    public static string BuildFullCommand(ServerConfiguration config, HashSet<string>? supportedFlags = null, List<string>? validSpecTypeValues = null, List<string>? validCacheTypeValues = null)
     {
-        var args = Build(config);
+        if (config.RunInDocker)
+            return BuildDockerCommand(config, supportedFlags, validSpecTypeValues, validCacheTypeValues);
+        var args = Build(config, supportedFlags, validSpecTypeValues, validCacheTypeValues);
         return $"\"{config.ExecutablePath}\" {args}";
+    }
+
+    public static string BuildDockerCommand(ServerConfiguration config, HashSet<string>? supportedFlags = null, List<string>? validSpecTypeValues = null, List<string>? validCacheTypeValues = null)
+    {
+        var dockerArgs = new List<string>();
+        dockerArgs.Add("run");
+
+        if (config.DockerRm)
+            dockerArgs.Add("--rm");
+
+        if (config.DockerGpuAll)
+            dockerArgs.Add("--gpus all");
+
+        if (!string.IsNullOrWhiteSpace(config.DockerContainerName))
+            dockerArgs.Add($"--name \"{config.DockerContainerName}\"");
+
+        dockerArgs.Add("-p");
+        dockerArgs.Add($"{config.Port}:{config.Port}");
+
+        var rewrittenConfig = RewritePathsForDocker(config, out var volumes);
+        foreach (var vol in volumes)
+            dockerArgs.Add($"-v \"{vol}\"");
+
+        dockerArgs.Add(config.DockerImage);
+
+        var llamaArgs = Build(rewrittenConfig, supportedFlags, validSpecTypeValues, validCacheTypeValues);
+        if (!string.IsNullOrEmpty(llamaArgs))
+            dockerArgs.Add(llamaArgs);
+
+        return "docker " + string.Join(" ", dockerArgs);
+    }
+
+    private static ServerConfiguration RewritePathsForDocker(ServerConfiguration config, out List<string> volumes)
+    {
+        volumes = new List<string>();
+        var rewritten = config.Clone();
+
+        rewritten.Host = "0.0.0.0";
+
+        var mountMap = new Dictionary<string, string>();
+
+        if (!string.IsNullOrEmpty(config.ModelPath))
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(config.ModelPath));
+            if (!string.IsNullOrEmpty(dir) && !mountMap.ContainsKey(dir))
+            {
+                var mountPoint = $"/models/{mountMap.Count}";
+                mountMap[dir] = mountPoint;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(config.ModelsDir))
+        {
+            var dir = Path.GetFullPath(config.ModelsDir);
+            if (!mountMap.ContainsKey(dir))
+            {
+                var mountPoint = $"/models/{mountMap.Count}";
+                mountMap[dir] = mountPoint;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(config.MmprojPath))
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(config.MmprojPath));
+            if (!string.IsNullOrEmpty(dir) && !mountMap.ContainsKey(dir))
+            {
+                var mountPoint = $"/models/{mountMap.Count}";
+                mountMap[dir] = mountPoint;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(config.SpecDraftModel))
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(config.SpecDraftModel));
+            if (!string.IsNullOrEmpty(dir) && !mountMap.ContainsKey(dir))
+            {
+                var mountPoint = $"/models/{mountMap.Count}";
+                mountMap[dir] = mountPoint;
+            }
+        }
+
+        foreach (var kvp in mountMap)
+            volumes.Add($"{kvp.Key}:{kvp.Value}");
+
+        if (!string.IsNullOrEmpty(rewritten.ModelPath))
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(config.ModelPath));
+            if (!string.IsNullOrEmpty(dir) && mountMap.TryGetValue(dir, out var mp))
+                rewritten.ModelPath = mp + "/" + Path.GetFileName(config.ModelPath);
+        }
+
+        if (!string.IsNullOrEmpty(rewritten.ModelsDir))
+        {
+            var dir = Path.GetFullPath(config.ModelsDir);
+            if (mountMap.TryGetValue(dir, out var mp))
+                rewritten.ModelsDir = mp;
+        }
+
+        if (!string.IsNullOrEmpty(rewritten.MmprojPath))
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(config.MmprojPath));
+            if (!string.IsNullOrEmpty(dir) && mountMap.TryGetValue(dir, out var mp))
+                rewritten.MmprojPath = mp + "/" + Path.GetFileName(config.MmprojPath);
+        }
+
+        if (!string.IsNullOrEmpty(rewritten.SpecDraftModel))
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(config.SpecDraftModel));
+            if (!string.IsNullOrEmpty(dir) && mountMap.TryGetValue(dir, out var mp))
+                rewritten.SpecDraftModel = mp + "/" + Path.GetFileName(config.SpecDraftModel);
+        }
+
+        return rewritten;
     }
 }

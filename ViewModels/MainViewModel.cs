@@ -8,6 +8,8 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -26,6 +28,7 @@ public class MainViewModel : INotifyPropertyChanged
     private ConfigurationService _configService;
     private readonly LogService _logService;
     private readonly LlamaCppDownloadService _downloadService;
+    private readonly DockerCliService _dockerService;
     private readonly AppUpdateService _appUpdateService = new();
     private readonly DataPathResolver _dataPathResolver;
     private ServerConfiguration? _loadedProfileConfig;
@@ -33,6 +36,8 @@ public class MainViewModel : INotifyPropertyChanged
     private string _llamaCppInstalledTag = "";
     private Dictionary<string, List<string>> _recentValues = new();
     private const int MaxRecentValues = 10;
+    private Dictionary<string, string> _releaseBodyCache = new();
+    private List<string> _releaseBodyCacheOrder = new();
 
     public LogService LogService => _logService;
     public LocalizedStrings Localized { get; } = LocalizedStrings.Instance;
@@ -61,7 +66,25 @@ public class MainViewModel : INotifyPropertyChanged
         new LanguageOption { Code = "ru", Name = "Русский" }
     };
 
-    public List<string> CacheTypes { get; } = new() { "", "f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1", "turbo2", "turbo3", "turbo4" };
+    private List<string> _cacheTypeOptions = new() { "", "f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1", "turbo2", "turbo3", "turbo4" };
+    private List<string> _validCacheTypeValues = new(); // only values from help, for command line validation
+    private bool _suppressCacheTypeKChange;
+    private bool _suppressCacheTypeVChange;
+
+    public List<string> CacheTypeOptions => _cacheTypeOptions;
+
+    public List<string> DockerImageOptions { get; } = new()
+    {
+        "ghcr.io/ggml-org/llama.cpp:server",
+        "ghcr.io/ggml-org/llama.cpp:server-cuda",
+        "ghcr.io/ggml-org/llama.cpp:server-cuda13",
+        "ghcr.io/ggml-org/llama.cpp:server-rocm",
+        "ghcr.io/ggml-org/llama.cpp:server-vulkan",
+        "ghcr.io/ggml-org/llama.cpp:server-intel",
+        "ghcr.io/ggml-org/llama.cpp:server-musa",
+        "ghcr.io/ggml-org/llama.cpp:server-openvino",
+        "ghcr.io/ggml-org/llama.cpp:server-s390x"
+    };
 
     public record FontSizeOption(string Label, string Value, double Size);
     public List<FontSizeOption> FontSizeOptions { get; } = new()
@@ -194,6 +217,58 @@ public class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(PresencePenaltyPlaceholder));
         OnPropertyChanged(nameof(FrequencyPenaltyPlaceholder));
         OnPropertyChanged(nameof(FeatureNotSupportedTooltip));
+        // Placeholders — main tab
+        OnPropertyChanged(nameof(ModelPathPlaceholder));
+        OnPropertyChanged(nameof(ModelsDirPlaceholder));
+        OnPropertyChanged(nameof(HostPlaceholder));
+        OnPropertyChanged(nameof(PortPlaceholder));
+        OnPropertyChanged(nameof(ContextSizePlaceholder));
+        OnPropertyChanged(nameof(ThreadsPlaceholder));
+        OnPropertyChanged(nameof(GpuLayersPlaceholder));
+        OnPropertyChanged(nameof(TemperaturePlaceholder));
+        OnPropertyChanged(nameof(MaxTokensPlaceholder));
+        OnPropertyChanged(nameof(BatchSizePlaceholder));
+        OnPropertyChanged(nameof(UBatchSizePlaceholder));
+        OnPropertyChanged(nameof(MinPPlaceholder));
+        OnPropertyChanged(nameof(TopKPlaceholder));
+        OnPropertyChanged(nameof(TopPPlaceholder));
+        OnPropertyChanged(nameof(RepeatPenaltyPlaceholder));
+        OnPropertyChanged(nameof(ApiKeyPlaceholder));
+        OnPropertyChanged(nameof(AliasPlaceholder));
+        OnPropertyChanged(nameof(LogFilePathPlaceholder));
+        OnPropertyChanged(nameof(MmprojPathPlaceholder));
+        OnPropertyChanged(nameof(CustomArgumentsPlaceholder));
+        // Placeholders — speculative tab
+        OnPropertyChanged(nameof(SpecDraftNMaxPlaceholder));
+        OnPropertyChanged(nameof(SpecDraftNMinPlaceholder));
+        OnPropertyChanged(nameof(SpecDraftPSplitPlaceholder));
+        OnPropertyChanged(nameof(SpecDraftPMinPlaceholder));
+        OnPropertyChanged(nameof(SpecDraftGpuLayersPlaceholder));
+        OnPropertyChanged(nameof(SpecDraftModelPlaceholder));
+        // Placeholders — HF
+        OnPropertyChanged(nameof(HfRepoPlaceholder));
+        OnPropertyChanged(nameof(HfFilePlaceholder));
+        OnPropertyChanged(nameof(HfRepoDraftPlaceholder));
+        // Tooltips — speculative tab
+        OnPropertyChanged(nameof(SpecTypeToolTip));
+        OnPropertyChanged(nameof(SpecDraftNMaxToolTip));
+        OnPropertyChanged(nameof(SpecDraftNMinToolTip));
+        OnPropertyChanged(nameof(SpecDraftPSplitToolTip));
+        OnPropertyChanged(nameof(SpecDraftPMinToolTip));
+        OnPropertyChanged(nameof(DraftModelToolTip));
+        OnPropertyChanged(nameof(DraftGpuLayersToolTip));
+        // Tooltips — HF
+        OnPropertyChanged(nameof(HfRepoToolTip));
+        OnPropertyChanged(nameof(HfFileToolTip));
+        OnPropertyChanged(nameof(OfflineToolTip));
+        OnPropertyChanged(nameof(HfRepoDraftToolTip));
+        // Tooltips — cache type
+        OnPropertyChanged(nameof(CacheTypeKToolTip));
+        OnPropertyChanged(nameof(CacheTypeVToolTip));
+        // Unsupported warning (used by speculative and cache tooltips)
+        OnPropertyChanged(nameof(UnsupportedArgWarningText));
+        // DataPathTooltip uses Localized strings
+        OnPropertyChanged(nameof(DataPathTooltip));
     }
 
     private string _executablePath = string.Empty;
@@ -237,8 +312,29 @@ public class MainViewModel : INotifyPropertyChanged
     private string _presencePenalty = string.Empty;
     private string _frequencyPenalty = string.Empty;
     private bool? _contextShift;
+    private string _specType = string.Empty;
+    private string _specDraftModel = string.Empty;
+    private string _specDraftGpuLayers = string.Empty;
+    private string _specDraftNMax = string.Empty;
+    private string _specDraftNMin = string.Empty;
+    private string _specDraftPSplit = string.Empty;
+    private string _specDraftPMin = string.Empty;
+    private string _hfRepo = string.Empty;
+    private string _hfFile = string.Empty;
+    private bool _offline;
+    private string _hfRepoDraft = string.Empty;
+    private bool _runInDocker;
+    private string _dockerImage = "ghcr.io/ggml-org/llama.cpp:server";
+    private bool _dockerGpuAll;
+    private bool _dockerRm = true;
+    private string _dockerContainerName = string.Empty;
+    private bool _isDockerAvailable;
     private HashSet<string>? _supportedFlags;
     private string _lastCheckedExePath = "";
+    private string _lastHelpText = "";
+    private List<string> _specTypeOptions = new() { "", "none", "draft-simple", "draft-mtp" };
+    private List<string> _validSpecTypeValues = new(); // only values from help, for command line validation
+    private bool _suppressSpecTypeChange; // prevents ComboBox from resetting SpecType during ItemsSource rebuild
     private bool _autoRestart;
     private bool _autoScroll = true;
     private bool _logEnabled = true;
@@ -256,6 +352,11 @@ public class MainViewModel : INotifyPropertyChanged
     private string _logText = string.Empty;
     private string _currentCommand = string.Empty;
     private bool _useDefaultDataPath = true;
+    private bool _showServerStartError;
+    private DateTime? _serverStartTime;
+    private CancellationTokenSource? _errorAnimationCts;
+    private readonly List<string> _pendingLogs = new();
+    private bool _logFlushScheduled;
 
     public Func<string, string, Task<bool>>? ConfirmActionFunc { get; set; }
     public Func<string, string, string, Task> ShowMessageFunc { get; set; } = (_, _, _) => Task.CompletedTask;
@@ -273,6 +374,7 @@ public class MainViewModel : INotifyPropertyChanged
         _serverService = new LlamaServerService(_logService);
         _configService = new ConfigurationService(_logService, resolvedPath);
         _downloadService = new LlamaCppDownloadService(resolvedPath);
+        _dockerService = new DockerCliService(_logService);
 
         _serverService.OutputReceived += OnServerOutput;
         _serverService.ServerStateChanged += OnServerStateChanged;
@@ -286,7 +388,9 @@ public class MainViewModel : INotifyPropertyChanged
         BrowseModelsDirCommand = new AsyncRelayCommand(BrowseModelsDirAsync);
         BrowseLogFileCommand = new AsyncRelayCommand(BrowseLogFileAsync);
         BrowseMmprojCommand = new AsyncRelayCommand(BrowseMmprojAsync);
+        BrowseDraftModelCommand = new AsyncRelayCommand(BrowseDraftModelAsync);
         StartServerCommand = new AsyncRelayCommand(StartServerAsync, () => CanStartServer);
+        RestartServerCommand = new AsyncRelayCommand(RestartServerAsync, () => IsServerRunning);
         StopServerCommand = new AsyncRelayCommand(StopServerAsync, () => IsServerRunning);
         UnloadModelCommand = new AsyncRelayCommand(UnloadModelAsync, () => IsServerRunning && !_serverService.IsSingleModelMode);
         OpenInBrowserCommand = new AsyncRelayCommand(OpenInBrowserAsync, () => CanOpenInBrowser);
@@ -301,6 +405,9 @@ public class MainViewModel : INotifyPropertyChanged
         ImportAllCommand = new AsyncRelayCommand(ImportAllProfilesAsync);
         ClearAllFieldsCommand = new RelayCommand(ClearAllFields);
         ClearLogCommand = new RelayCommand(ClearLog);
+        CopyLogCommand = new RelayCommand(CopyLog);
+        SaveLogCommand = new AsyncRelayCommand(SaveLogAsync);
+        OpenArgumentPickerCommand = new AsyncRelayCommand(OpenArgumentPickerAsync);
         ShowWindowCommand = new RelayCommand(_ => { });
         CloseFromTrayCommand = new RelayCommand(async _ => { });
 
@@ -314,9 +421,29 @@ public class MainViewModel : INotifyPropertyChanged
     {
         var settings = await _configService.LoadAppSettingsAsync();
         ApplyAppSettings(settings);
+        _logService.Configure(settings.MaxLogFiles, settings.MaxLogSizeBytes);
         _ = CheckForLlamaUpdateAsync();
         _ = CheckForAppUpdateAsync();
         _ = RefreshSupportedFlagsAsync();
+        _ = CheckDockerAvailabilityAsync();
+    }
+
+    public async Task CheckDockerAvailabilityAsync()
+    {
+        try
+        {
+            IsDockerAvailable = await _dockerService.IsDockerInstalledAsync();
+        }
+        catch
+        {
+            IsDockerAvailable = false;
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(CanStartServer));
+            if (StartServerCommand is AsyncRelayCommand startCmd)
+                startCmd.RaiseCanExecuteChanged();
+        }
     }
 
     public void ApplyAppSettings(AppSettings settings)
@@ -369,6 +496,17 @@ public class MainViewModel : INotifyPropertyChanged
         PresencePenalty = settings.PresencePenalty;
         FrequencyPenalty = settings.FrequencyPenalty;
         ContextShift = settings.ContextShift;
+        SpecType = settings.SpecType;
+        SpecDraftModel = settings.SpecDraftModel;
+        SpecDraftGpuLayers = settings.SpecDraftGpuLayers;
+        SpecDraftNMax = settings.SpecDraftNMax;
+        SpecDraftNMin = settings.SpecDraftNMin;
+        SpecDraftPSplit = settings.SpecDraftPSplit;
+        SpecDraftPMin = settings.SpecDraftPMin;
+        HfRepo = settings.HfRepo;
+        HfFile = settings.HfFile;
+        Offline = settings.Offline;
+        HfRepoDraft = settings.HfRepoDraft;
         AutoRestart = settings.AutoRestart;
         AutoScroll = settings.AutoScrollLog;
         LogEnabled = settings.LogEnabled;
@@ -383,6 +521,11 @@ public class MainViewModel : INotifyPropertyChanged
         SelectedFontFamily = settings.FontFamily ?? "";
         _llamaCppInstalledTag = settings.LlamaCppInstalledTag ?? "";
         SelectedTabIndex = settings.SelectedTabIndex;
+        RunInDocker = settings.RunInDocker;
+        DockerImage = string.IsNullOrEmpty(settings.DockerImage) ? "ghcr.io/ggml-org/llama.cpp:server" : settings.DockerImage;
+        DockerGpuAll = settings.DockerGpuAll;
+        DockerRm = settings.DockerRm;
+        DockerContainerName = settings.DockerContainerName ?? "";
         ParseCustomArguments();
         if (settings.CustomArgumentToggleStates != null && settings.CustomArgumentToggleStates.Count > 0)
         {
@@ -395,6 +538,8 @@ public class MainViewModel : INotifyPropertyChanged
         }
         _isInitializing = false;
         _recentValues = settings.RecentValuesHistory ?? new Dictionary<string, List<string>>();
+        _releaseBodyCache = settings.ReleaseBodyCache ?? new Dictionary<string, string>();
+        _releaseBodyCacheOrder = settings.ReleaseBodyCacheOrder ?? new List<string>();
         ApplyTheme();
     }
 
@@ -675,6 +820,17 @@ public class MainViewModel : INotifyPropertyChanged
             PresencePenalty = PresencePenalty,
             FrequencyPenalty = FrequencyPenalty,
             ContextShift = ContextShift,
+            SpecType = SpecType,
+            SpecDraftModel = SpecDraftModel,
+            SpecDraftGpuLayers = SpecDraftGpuLayers,
+            SpecDraftNMax = SpecDraftNMax,
+            SpecDraftNMin = SpecDraftNMin,
+            SpecDraftPSplit = SpecDraftPSplit,
+            SpecDraftPMin = SpecDraftPMin,
+            HfRepo = HfRepo,
+            HfFile = HfFile,
+            Offline = Offline,
+            HfRepoDraft = HfRepoDraft,
             AutoRestart = AutoRestart,
             AutoScrollLog = AutoScroll,
             LogEnabled = LogEnabled,
@@ -690,7 +846,16 @@ public class MainViewModel : INotifyPropertyChanged
             CustomArgumentToggleStates = GetToggleStates(),
             LlamaCppInstalledTag = _llamaCppInstalledTag,
             SelectedTabIndex = SelectedTabIndex,
-            RecentValuesHistory = new Dictionary<string, List<string>>(_recentValues)
+            RecentValuesHistory = new Dictionary<string, List<string>>(_recentValues),
+            ReleaseBodyCache = new Dictionary<string, string>(_releaseBodyCache),
+            ReleaseBodyCacheOrder = new List<string>(_releaseBodyCacheOrder),
+            MaxLogFiles = _logService.MaxLogFiles,
+            MaxLogSizeBytes = _logService.MaxLogSizeBytes,
+            RunInDocker = RunInDocker,
+            DockerImage = DockerImage,
+            DockerGpuAll = DockerGpuAll,
+            DockerRm = DockerRm,
+            DockerContainerName = DockerContainerName
         };
     }
 
@@ -848,13 +1013,67 @@ public class MainViewModel : INotifyPropertyChanged
     public string CacheTypeK
     {
         get => _cacheTypeK;
-        set { _cacheTypeK = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+        set
+        {
+            if (_suppressCacheTypeKChange) return;
+            _cacheTypeK = value;
+
+            if (!string.IsNullOrEmpty(value) && !_cacheTypeOptions.Contains(value))
+            {
+                _cacheTypeOptions = new List<string>(_cacheTypeOptions) { value };
+                _suppressCacheTypeKChange = true;
+                _suppressCacheTypeVChange = true;
+                try
+                {
+                    OnPropertyChanged(nameof(CacheTypeOptions));
+                }
+                finally
+                {
+                    _suppressCacheTypeKChange = false;
+                    _suppressCacheTypeVChange = false;
+                }
+            }
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            OnPropertyChanged(nameof(HasUnsupportedCacheTypeK));
+            OnPropertyChanged(nameof(CacheTypeKBorderBrush));
+            OnPropertyChanged(nameof(CacheTypeKToolTip));
+            UpdateCurrentCommand();
+        }
     }
 
     public string CacheTypeV
     {
         get => _cacheTypeV;
-        set { _cacheTypeV = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+        set
+        {
+            if (_suppressCacheTypeVChange) return;
+            _cacheTypeV = value;
+
+            if (!string.IsNullOrEmpty(value) && !_cacheTypeOptions.Contains(value))
+            {
+                _cacheTypeOptions = new List<string>(_cacheTypeOptions) { value };
+                _suppressCacheTypeKChange = true;
+                _suppressCacheTypeVChange = true;
+                try
+                {
+                    OnPropertyChanged(nameof(CacheTypeOptions));
+                }
+                finally
+                {
+                    _suppressCacheTypeKChange = false;
+                    _suppressCacheTypeVChange = false;
+                }
+            }
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            OnPropertyChanged(nameof(HasUnsupportedCacheTypeV));
+            OnPropertyChanged(nameof(CacheTypeVBorderBrush));
+            OnPropertyChanged(nameof(CacheTypeVToolTip));
+            UpdateCurrentCommand();
+        }
     }
 
     public string TopK
@@ -1010,6 +1229,254 @@ public class MainViewModel : INotifyPropertyChanged
         set { _contextShift = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
     }
 
+    public string SpecType
+    {
+        get => _specType;
+        set
+        {
+            if (_suppressSpecTypeChange) return;
+            _specType = value;
+
+            if (!string.IsNullOrEmpty(value) && !_specTypeOptions.Contains(value))
+            {
+                _specTypeOptions = new List<string>(_specTypeOptions) { value };
+                _suppressSpecTypeChange = true;
+                try
+                {
+                    OnPropertyChanged(nameof(SpecTypeOptions));
+                }
+                finally
+                {
+                    _suppressSpecTypeChange = false;
+                }
+            }
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            OnPropertyChanged(nameof(ShowSpecFields));
+            OnPropertyChanged(nameof(ShowDraftModelFields));
+            OnPropertyChanged(nameof(HasUnsupportedSpecType));
+            OnPropertyChanged(nameof(SpecTypeBorderBrush));
+            OnPropertyChanged(nameof(SpecTypeToolTip));
+            UpdateCurrentCommand();
+        }
+    }
+
+    public string SpecDraftModel
+    {
+        get => _specDraftModel;
+        set { _specDraftModel = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string SpecDraftGpuLayers
+    {
+        get => _specDraftGpuLayers;
+        set { _specDraftGpuLayers = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string SpecDraftNMax
+    {
+        get => _specDraftNMax;
+        set { _specDraftNMax = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string SpecDraftNMin
+    {
+        get => _specDraftNMin;
+        set { _specDraftNMin = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string SpecDraftPSplit
+    {
+        get => _specDraftPSplit;
+        set { _specDraftPSplit = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string SpecDraftPMin
+    {
+        get => _specDraftPMin;
+        set { _specDraftPMin = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string HfRepo
+    {
+        get => _hfRepo;
+        set
+        {
+            if (_hfRepo != value)
+            {
+                _hfRepo = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanStartServer));
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(HasUnsupportedHfRepo));
+                OnPropertyChanged(nameof(HfRepoBorderBrush));
+                OnPropertyChanged(nameof(HfRepoToolTip));
+                UpdateCurrentCommand();
+                if (StartServerCommand is AsyncRelayCommand startCmd)
+                    startCmd.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string HfFile
+    {
+        get => _hfFile;
+        set
+        {
+            if (_hfFile != value)
+            {
+                _hfFile = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanStartServer));
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(HasUnsupportedHfFile));
+                OnPropertyChanged(nameof(HfFileBorderBrush));
+                OnPropertyChanged(nameof(HfFileToolTip));
+                UpdateCurrentCommand();
+                if (StartServerCommand is AsyncRelayCommand startCmd)
+                    startCmd.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool Offline
+    {
+        get => _offline;
+        set
+        {
+            if (_offline != value)
+            {
+                _offline = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(HasUnsupportedOffline));
+                OnPropertyChanged(nameof(OfflineToolTip));
+                UpdateCurrentCommand();
+            }
+        }
+    }
+
+    public string HfRepoDraft
+    {
+        get => _hfRepoDraft;
+        set
+        {
+            if (_hfRepoDraft != value)
+            {
+                _hfRepoDraft = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(HasUnsupportedHfRepoDraft));
+                OnPropertyChanged(nameof(HfRepoDraftBorderBrush));
+                OnPropertyChanged(nameof(HfRepoDraftToolTip));
+                UpdateCurrentCommand();
+            }
+        }
+    }
+
+    public bool RunInDocker
+    {
+        get => _runInDocker;
+        set
+        {
+            if (_runInDocker != value)
+            {
+                _runInDocker = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(CanStartServer));
+                UpdateCurrentCommand();
+                if (StartServerCommand is AsyncRelayCommand startCmd)
+                    startCmd.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string DockerImage
+    {
+        get => _dockerImage;
+        set
+        {
+            if (_dockerImage != value)
+            {
+                _dockerImage = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                UpdateCurrentCommand();
+            }
+        }
+    }
+
+    public bool DockerGpuAll
+    {
+        get => _dockerGpuAll;
+        set
+        {
+            if (_dockerGpuAll != value)
+            {
+                _dockerGpuAll = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                UpdateCurrentCommand();
+            }
+        }
+    }
+
+    public bool DockerRm
+    {
+        get => _dockerRm;
+        set
+        {
+            if (_dockerRm != value)
+            {
+                _dockerRm = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                UpdateCurrentCommand();
+            }
+        }
+    }
+
+    public string DockerContainerName
+    {
+        get => _dockerContainerName;
+        set
+        {
+            if (_dockerContainerName != value)
+            {
+                _dockerContainerName = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                UpdateCurrentCommand();
+            }
+        }
+    }
+
+    public bool IsDockerAvailable
+    {
+        get => _isDockerAvailable;
+        set
+        {
+            if (_isDockerAvailable != value)
+            {
+                _isDockerAvailable = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(DockerTabEnabled));
+                OnPropertyChanged(nameof(DockerNotInstalledWarning));
+            }
+        }
+    }
+
+    public bool DockerTabEnabled => _isDockerAvailable;
+    public bool DockerNotInstalledWarning => !_isDockerAvailable;
+
+    public bool ShowSpecFields => !string.IsNullOrEmpty(SpecType) && SpecType != "none";
+
+    public bool ShowDraftModelFields => ShowSpecFields && SpecType == "draft-simple";
+
+    public List<string> SpecTypeOptions => _specTypeOptions;
+
     public bool AutoRestart
     {
         get => _autoRestart;
@@ -1097,6 +1564,15 @@ public class MainViewModel : INotifyPropertyChanged
         ? LocalizedStrings.Instance.UpdateLlama
         : LocalizedStrings.Instance.DownloadLlama;
 
+    public string LlamaInstalledVersionTooltip
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(_llamaCppInstalledTag)) return "";
+            return string.Format(LocalizedStrings.GetString("InstalledVersionTooltip"), _llamaCppInstalledTag);
+        }
+    }
+
     private bool _isAppUpdateAvailable;
     private string _appUpdateTooltip = "";
     private AppUpdateInfo? _pendingAppUpdate;
@@ -1148,6 +1624,20 @@ public class MainViewModel : INotifyPropertyChanged
     public bool IsPresencePenaltySupported => IsPropertySupported("--presence-penalty");
     public bool IsFrequencyPenaltySupported => IsPropertySupported("--frequency-penalty");
     public bool IsContextShiftSupported => IsPropertySupported("--context-shift");
+    public bool IsSpecTypeSupported => IsPropertySupported("--spec-type");
+    public bool IsCacheTypeKSupported => IsPropertySupported("-ctk", "--cache-type-k");
+    public bool IsCacheTypeVSupported => IsPropertySupported("-ctv", "--cache-type-v");
+    public bool IsDraftModelSupported => IsPropertySupported("-md", "--spec-draft-model", "--model-draft");
+    public bool IsDraftGpuLayersSupported => IsPropertySupported("-ngld", "--spec-draft-ngl", "--gpu-layers-draft", "--n-gpu-layers-draft");
+    public bool IsSpecDraftNMaxSupported => IsPropertySupported("--spec-draft-n-max");
+    public bool IsSpecDraftNMinSupported => IsPropertySupported("--spec-draft-n-min");
+    public bool IsSpecDraftPSplitSupported => IsPropertySupported("--spec-draft-p-split", "--draft-p-split");
+    public bool IsSpecDraftPMinSupported => IsPropertySupported("--spec-draft-p-min", "--draft-p-min");
+    public bool IsHfRepoSupported => IsPropertySupported("--hf-repo", "-hf", "-hfr");
+    public bool IsHfFileSupported => IsPropertySupported("--hf-file", "-hff");
+    public bool IsOfflineSupported => IsPropertySupported("--offline");
+    public bool IsHfRepoDraftSupported => IsPropertySupported("--hf-repo-draft", "-hfd", "-hfrd");
+    public bool IsHelpAvailable => _supportedFlags != null;
 
     public string ParallelSlotsPlaceholder => LocalizedStrings.Instance.PlaceholderParallelSlots;
     public string TimeoutPlaceholder => LocalizedStrings.Instance.PlaceholderTimeout;
@@ -1155,7 +1645,98 @@ public class MainViewModel : INotifyPropertyChanged
     public string SeedPlaceholder => LocalizedStrings.Instance.PlaceholderSeed;
     public string PresencePenaltyPlaceholder => LocalizedStrings.Instance.PlaceholderPresencePenalty;
     public string FrequencyPenaltyPlaceholder => LocalizedStrings.Instance.PlaceholderFrequencyPenalty;
+    public string SpecDraftNMaxPlaceholder => LocalizedStrings.Instance.PlaceholderSpecDraftNMax;
+    public string SpecDraftNMinPlaceholder => LocalizedStrings.Instance.PlaceholderSpecDraftNMin;
+    public string SpecDraftPSplitPlaceholder => LocalizedStrings.Instance.PlaceholderSpecDraftPSplit;
+    public string SpecDraftPMinPlaceholder => LocalizedStrings.Instance.PlaceholderSpecDraftPMin;
+    public string SpecDraftGpuLayersPlaceholder => LocalizedStrings.Instance.PlaceholderSpecDraftGpuLayers;
+    public string SpecDraftModelPlaceholder => LocalizedStrings.Instance.PlaceholderSpecDraftModel;
+    public string HfRepoPlaceholder => LocalizedStrings.Instance.PlaceholderHfRepo;
+    public string HfFilePlaceholder => LocalizedStrings.Instance.PlaceholderHfFile;
+    public string HfRepoDraftPlaceholder => LocalizedStrings.Instance.PlaceholderHfRepoDraft;
     public string FeatureNotSupportedTooltip => LocalizedStrings.Instance.FeatureNotSupported;
+    public string UnsupportedArgWarningText => LocalizedStrings.Instance.UnsupportedArgWarning;
+
+    /// <summary>
+    /// True when the SpecType control has a meaningful value that is not supported
+    /// by the current executable (either --spec-type flag is missing, or the value
+    /// is not in the valid values list parsed from help).
+    /// Used to show a visual warning indicator.
+    /// </summary>
+    public bool HasUnsupportedSpecType => !string.IsNullOrEmpty(SpecType)
+        && SpecType != "none"
+        && (!IsSpecTypeSupported || !_validSpecTypeValues.Contains(SpecType));
+
+    private static readonly Avalonia.Media.IBrush _warningBrush =
+        new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 165, 0)); // Orange
+    private static readonly Avalonia.Media.IBrush _transparentBrush =
+        new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(0, 0, 0, 0));
+
+    public Avalonia.Media.IBrush SpecTypeBorderBrush => HasUnsupportedSpecType ? _warningBrush : _transparentBrush;
+
+    public string SpecTypeToolTip => HasUnsupportedSpecType
+        ? UnsupportedArgWarningText
+        : (LocalizedStrings.Instance.TooltipSpecType ?? "");
+
+    /// <summary>
+    /// True when CacheTypeK has a value not supported by the current executable.
+    /// </summary>
+    public bool HasUnsupportedCacheTypeK => !string.IsNullOrEmpty(CacheTypeK)
+        && (!IsCacheTypeKSupported || (_validCacheTypeValues.Count > 0 && !_validCacheTypeValues.Contains(CacheTypeK)));
+
+    /// <summary>
+    /// True when CacheTypeV has a value not supported by the current executable.
+    /// </summary>
+    public bool HasUnsupportedCacheTypeV => !string.IsNullOrEmpty(CacheTypeV)
+        && (!IsCacheTypeVSupported || (_validCacheTypeValues.Count > 0 && !_validCacheTypeValues.Contains(CacheTypeV)));
+
+    public Avalonia.Media.IBrush CacheTypeKBorderBrush => HasUnsupportedCacheTypeK ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush CacheTypeVBorderBrush => HasUnsupportedCacheTypeV ? _warningBrush : _transparentBrush;
+
+    public string CacheTypeKToolTip => HasUnsupportedCacheTypeK
+        ? UnsupportedArgWarningText
+        : (LocalizedStrings.Instance.TooltipCacheTypeK ?? "");
+
+    public string CacheTypeVToolTip => HasUnsupportedCacheTypeV
+        ? UnsupportedArgWarningText
+        : (LocalizedStrings.Instance.TooltipCacheTypeV ?? "");
+
+    // Unsupported warning indicators for spec params
+    public bool HasUnsupportedDraftModel => !IsDraftModelSupported && !string.IsNullOrEmpty(SpecDraftModel);
+    public bool HasUnsupportedDraftGpuLayers => !IsDraftGpuLayersSupported && !string.IsNullOrEmpty(SpecDraftGpuLayers);
+    public bool HasUnsupportedSpecDraftNMax => !IsSpecDraftNMaxSupported && !string.IsNullOrEmpty(SpecDraftNMax);
+    public bool HasUnsupportedSpecDraftNMin => !IsSpecDraftNMinSupported && !string.IsNullOrEmpty(SpecDraftNMin);
+    public bool HasUnsupportedSpecDraftPSplit => !IsSpecDraftPSplitSupported && !string.IsNullOrEmpty(SpecDraftPSplit);
+    public bool HasUnsupportedSpecDraftPMin => !IsSpecDraftPMinSupported && !string.IsNullOrEmpty(SpecDraftPMin);
+
+    public Avalonia.Media.IBrush DraftModelBorderBrush => HasUnsupportedDraftModel ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush DraftGpuLayersBorderBrush => HasUnsupportedDraftGpuLayers ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush SpecDraftNMaxBorderBrush => HasUnsupportedSpecDraftNMax ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush SpecDraftNMinBorderBrush => HasUnsupportedSpecDraftNMin ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush SpecDraftPSplitBorderBrush => HasUnsupportedSpecDraftPSplit ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush SpecDraftPMinBorderBrush => HasUnsupportedSpecDraftPMin ? _warningBrush : _transparentBrush;
+
+    public string DraftModelToolTip => HasUnsupportedDraftModel ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipSpecDraftModel ?? "");
+    public string DraftGpuLayersToolTip => HasUnsupportedDraftGpuLayers ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipSpecDraftGpuLayers ?? "");
+    public string SpecDraftNMaxToolTip => HasUnsupportedSpecDraftNMax ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipSpecDraftNMax ?? "");
+    public string SpecDraftNMinToolTip => HasUnsupportedSpecDraftNMin ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipSpecDraftNMin ?? "");
+    public string SpecDraftPSplitToolTip => HasUnsupportedSpecDraftPSplit ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipSpecDraftPSplit ?? "");
+    public string SpecDraftPMinToolTip => HasUnsupportedSpecDraftPMin ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipSpecDraftPMin ?? "");
+
+    // Unsupported warning indicators for HF params
+    public bool HasUnsupportedHfRepo => !IsHfRepoSupported && !string.IsNullOrEmpty(HfRepo);
+    public bool HasUnsupportedHfFile => !IsHfFileSupported && !string.IsNullOrEmpty(HfFile);
+    public bool HasUnsupportedOffline => !IsOfflineSupported && Offline;
+    public bool HasUnsupportedHfRepoDraft => !IsHfRepoDraftSupported && !string.IsNullOrEmpty(HfRepoDraft);
+
+    public Avalonia.Media.IBrush HfRepoBorderBrush => HasUnsupportedHfRepo ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush HfFileBorderBrush => HasUnsupportedHfFile ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush HfRepoDraftBorderBrush => HasUnsupportedHfRepoDraft ? _warningBrush : _transparentBrush;
+
+    public string HfRepoToolTip => HasUnsupportedHfRepo ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipHfRepo ?? "");
+    public string HfFileToolTip => HasUnsupportedHfFile ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipHfFile ?? "");
+    public string OfflineToolTip => HasUnsupportedOffline ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipOffline ?? "");
+    public string HfRepoDraftToolTip => HasUnsupportedHfRepoDraft ? UnsupportedArgWarningText : (LocalizedStrings.Instance.TooltipHfRepoDraft ?? "");
 
     private void UpdateFeatureSupportProperties()
     {
@@ -1171,26 +1752,287 @@ public class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsPresencePenaltySupported));
         OnPropertyChanged(nameof(IsFrequencyPenaltySupported));
         OnPropertyChanged(nameof(IsContextShiftSupported));
+        OnPropertyChanged(nameof(IsSpecTypeSupported));
+        OnPropertyChanged(nameof(IsCacheTypeKSupported));
+        OnPropertyChanged(nameof(IsCacheTypeVSupported));
+        OnPropertyChanged(nameof(IsDraftModelSupported));
+        OnPropertyChanged(nameof(IsDraftGpuLayersSupported));
+        OnPropertyChanged(nameof(IsSpecDraftNMaxSupported));
+        OnPropertyChanged(nameof(IsSpecDraftNMinSupported));
+        OnPropertyChanged(nameof(IsSpecDraftPSplitSupported));
+        OnPropertyChanged(nameof(IsSpecDraftPMinSupported));
+        OnPropertyChanged(nameof(IsHfRepoSupported));
+        OnPropertyChanged(nameof(IsHfFileSupported));
+        OnPropertyChanged(nameof(IsOfflineSupported));
+        OnPropertyChanged(nameof(IsHfRepoDraftSupported));
+        OnPropertyChanged(nameof(HasUnsupportedSpecType));
+        OnPropertyChanged(nameof(SpecTypeBorderBrush));
+        OnPropertyChanged(nameof(SpecTypeToolTip));
+        OnPropertyChanged(nameof(HasUnsupportedDraftModel));
+        OnPropertyChanged(nameof(HasUnsupportedDraftGpuLayers));
+        OnPropertyChanged(nameof(HasUnsupportedSpecDraftNMax));
+        OnPropertyChanged(nameof(HasUnsupportedSpecDraftNMin));
+        OnPropertyChanged(nameof(HasUnsupportedSpecDraftPSplit));
+        OnPropertyChanged(nameof(HasUnsupportedSpecDraftPMin));
+        OnPropertyChanged(nameof(DraftModelBorderBrush));
+        OnPropertyChanged(nameof(DraftGpuLayersBorderBrush));
+        OnPropertyChanged(nameof(SpecDraftNMaxBorderBrush));
+        OnPropertyChanged(nameof(SpecDraftNMinBorderBrush));
+        OnPropertyChanged(nameof(SpecDraftPSplitBorderBrush));
+        OnPropertyChanged(nameof(SpecDraftPMinBorderBrush));
+        OnPropertyChanged(nameof(DraftModelToolTip));
+        OnPropertyChanged(nameof(DraftGpuLayersToolTip));
+        OnPropertyChanged(nameof(SpecDraftNMaxToolTip));
+        OnPropertyChanged(nameof(SpecDraftNMinToolTip));
+        OnPropertyChanged(nameof(SpecDraftPSplitToolTip));
+        OnPropertyChanged(nameof(SpecDraftPMinToolTip));
+        OnPropertyChanged(nameof(HasUnsupportedCacheTypeK));
+        OnPropertyChanged(nameof(HasUnsupportedCacheTypeV));
+        OnPropertyChanged(nameof(CacheTypeKBorderBrush));
+        OnPropertyChanged(nameof(CacheTypeVBorderBrush));
+        OnPropertyChanged(nameof(CacheTypeKToolTip));
+        OnPropertyChanged(nameof(CacheTypeVToolTip));
+        OnPropertyChanged(nameof(HasUnsupportedHfRepo));
+        OnPropertyChanged(nameof(HasUnsupportedHfFile));
+        OnPropertyChanged(nameof(HasUnsupportedOffline));
+        OnPropertyChanged(nameof(HasUnsupportedHfRepoDraft));
+        OnPropertyChanged(nameof(HfRepoBorderBrush));
+        OnPropertyChanged(nameof(HfFileBorderBrush));
+        OnPropertyChanged(nameof(HfRepoDraftBorderBrush));
+        OnPropertyChanged(nameof(HfRepoToolTip));
+        OnPropertyChanged(nameof(HfFileToolTip));
+        OnPropertyChanged(nameof(OfflineToolTip));
+        OnPropertyChanged(nameof(HfRepoDraftToolTip));
+        OnPropertyChanged(nameof(IsHelpAvailable));
     }
 
     public async Task RefreshSupportedFlagsAsync()
     {
-        if (string.IsNullOrEmpty(ExecutablePath) || !File.Exists(ExecutablePath))
+        try
         {
-            _supportedFlags = null;
-            _lastCheckedExePath = "";
-            UpdateFeatureSupportProperties();
-            return;
-        }
-        if (ExecutablePath == _lastCheckedExePath && _supportedFlags != null)
-            return;
+            var exePath = ExecutablePath;
+            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+            {
+                // Try the default llama-server path when explicit path is not set
+                var defaultPath = _downloadService.GetDefaultLlamaServerPath();
+                if (!string.IsNullOrEmpty(defaultPath))
+                    exePath = defaultPath;
+            }
 
-        _supportedFlags = await LlamaHelpParserService.GetSupportedFlagsAsync(ExecutablePath);
-        _lastCheckedExePath = ExecutablePath;
-        UpdateFeatureSupportProperties();
+            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+            {
+                _logService.Warning($"[FlagFilter] Executable not found (checked '{exePath}'), flag filtering disabled");
+                _supportedFlags = null;
+                _lastCheckedExePath = "";
+                _lastHelpText = "";
+                UpdateFeatureSupportProperties();
+                UpdateSpecTypeOptions();
+                UpdateCacheTypeOptions();
+                UpdateCurrentCommand();
+            }
+
+            // Avoid re-parsing the same executable
+            if (exePath == _lastCheckedExePath && _supportedFlags != null)
+                return;
+
+            var result = await LlamaHelpParserService.GetSupportedFlagsWithHelpAsync(exePath);
+            if (result != null)
+            {
+                _supportedFlags = result.Flags;
+                _lastHelpText = result.HelpText;
+            }
+            else
+            {
+                _logService.Warning($"[FlagFilter] Failed to parse help from '{exePath}', flag filtering disabled");
+                _supportedFlags = null;
+                _lastHelpText = "";
+            }
+            _lastCheckedExePath = exePath;
+            UpdateFeatureSupportProperties();
+            UpdateSpecTypeOptions();
+            UpdateCacheTypeOptions();
+            UpdateCurrentCommand();
+        }
+        catch (Exception ex)
+        {
+            _logService.Error($"[FlagFilter] RefreshSupportedFlagsAsync threw: {ex}");
+            _supportedFlags = null;
+        }
+    }
+
+    private void UpdateSpecTypeOptions()
+    {
+        var parsedValues = new List<string>();
+
+        if (!string.IsNullOrEmpty(_lastHelpText))
+        {
+            parsedValues = LlamaHelpParserService.ParseSpecTypeValues(_lastHelpText);
+        }
+
+        // Valid values: only what was explicitly parsed from help (for command line validation).
+        // When no help text available, treat everything as valid (null = no restriction).
+        _validSpecTypeValues = string.IsNullOrEmpty(_lastHelpText) ? new List<string>() : parsedValues;
+
+        // Build the desired UI options list
+        var desiredOptions = new List<string> { "" };
+        if (parsedValues.Count > 0)
+        {
+            desiredOptions.AddRange(parsedValues);
+        }
+        else if (string.IsNullOrEmpty(_lastHelpText))
+        {
+            // No help text available — use full defaults
+            desiredOptions.AddRange(new[] { "none", "draft-simple", "draft-mtp" });
+        }
+
+        // Preserve current selection so user can see it's unsupported
+        if (!string.IsNullOrEmpty(_specType) && !desiredOptions.Contains(_specType))
+        {
+            desiredOptions.Add(_specType);
+        }
+
+        // Save current value before rebuilding the list
+        var savedSpecType = _specType;
+
+        // Suppress SpecType setter to prevent ComboBox TwoWay binding
+        // from nulling out the value during the ItemsSource transition
+        _suppressSpecTypeChange = true;
+        try
+        {
+            _specTypeOptions = desiredOptions;
+            OnPropertyChanged(nameof(SpecTypeOptions));
+        }
+        finally
+        {
+            _suppressSpecTypeChange = false;
+        }
+
+        if (savedSpecType != null && savedSpecType == _specType)
+        {
+            var specTypeToReApply = _specType;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (_specType == specTypeToReApply)
+                {
+                    // Flicker: temporarily set to null, notify, then restore.
+                    // This forces Avalonia's TwoWay binding to see a source change
+                    // and push the real value to the ComboBox's SelectedItem.
+                    _specType = string.Empty;
+                    OnPropertyChanged(nameof(SpecType));
+                    _specType = specTypeToReApply;
+                    OnPropertyChanged(nameof(SpecType));
+                    OnPropertyChanged(nameof(ShowSpecFields));
+                    OnPropertyChanged(nameof(ShowDraftModelFields));
+                    OnPropertyChanged(nameof(HasUnsupportedSpecType));
+                    OnPropertyChanged(nameof(SpecTypeBorderBrush));
+                    OnPropertyChanged(nameof(SpecTypeToolTip));
+                    UpdateCurrentCommand();
+                }
+            });
+        }
+
+        OnPropertyChanged(nameof(HasUnsupportedSpecType));
+        OnPropertyChanged(nameof(SpecTypeBorderBrush));
+        OnPropertyChanged(nameof(SpecTypeToolTip));
+    }
+
+    private void UpdateCacheTypeOptions()
+    {
+        var parsedValues = new List<string>();
+
+        if (!string.IsNullOrEmpty(_lastHelpText))
+        {
+            parsedValues = LlamaHelpParserService.ParseCacheTypeValues(_lastHelpText);
+        }
+
+        // Valid values: only what was explicitly parsed from help (for command line validation).
+        _validCacheTypeValues = string.IsNullOrEmpty(_lastHelpText) ? new List<string>() : parsedValues;
+
+        // Build the desired UI options list
+        var desiredOptions = new List<string> { "" };
+        if (parsedValues.Count > 0)
+        {
+            desiredOptions.AddRange(parsedValues);
+        }
+        else if (string.IsNullOrEmpty(_lastHelpText))
+        {
+            // No help text available — use full defaults
+            desiredOptions.AddRange(new[] { "f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1", "turbo2", "turbo3", "turbo4" });
+        }
+
+        // Preserve current selections so user can see they're unsupported
+        if (!string.IsNullOrEmpty(_cacheTypeK) && !desiredOptions.Contains(_cacheTypeK))
+            desiredOptions.Add(_cacheTypeK);
+        if (!string.IsNullOrEmpty(_cacheTypeV) && !desiredOptions.Contains(_cacheTypeV))
+            desiredOptions.Add(_cacheTypeV);
+
+        // Suppress setters to prevent ComboBox TwoWay binding from nulling values
+        var savedCacheTypeK = _cacheTypeK;
+        var savedCacheTypeV = _cacheTypeV;
+
+        _suppressCacheTypeKChange = true;
+        _suppressCacheTypeVChange = true;
+        try
+        {
+            _cacheTypeOptions = desiredOptions;
+            OnPropertyChanged(nameof(CacheTypeOptions));
+        }
+        finally
+        {
+            _suppressCacheTypeKChange = false;
+            _suppressCacheTypeVChange = false;
+        }
+
+        // Force Avalonia TwoWay binding to re-read the current values
+        if (savedCacheTypeK != null && savedCacheTypeK == _cacheTypeK)
+        {
+            var ctk = _cacheTypeK;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (_cacheTypeK == ctk)
+                {
+                    _cacheTypeK = string.Empty;
+                    OnPropertyChanged(nameof(CacheTypeK));
+                    _cacheTypeK = ctk;
+                    OnPropertyChanged(nameof(CacheTypeK));
+                    OnPropertyChanged(nameof(HasUnsupportedCacheTypeK));
+                    OnPropertyChanged(nameof(CacheTypeKBorderBrush));
+                    OnPropertyChanged(nameof(CacheTypeKToolTip));
+                    UpdateCurrentCommand();
+                }
+            });
+        }
+        if (savedCacheTypeV != null && savedCacheTypeV == _cacheTypeV)
+        {
+            var ctv = _cacheTypeV;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (_cacheTypeV == ctv)
+                {
+                    _cacheTypeV = string.Empty;
+                    OnPropertyChanged(nameof(CacheTypeV));
+                    _cacheTypeV = ctv;
+                    OnPropertyChanged(nameof(CacheTypeV));
+                    OnPropertyChanged(nameof(HasUnsupportedCacheTypeV));
+                    OnPropertyChanged(nameof(CacheTypeVBorderBrush));
+                    OnPropertyChanged(nameof(CacheTypeVToolTip));
+                    UpdateCurrentCommand();
+                }
+            });
+        }
+
+        OnPropertyChanged(nameof(HasUnsupportedCacheTypeK));
+        OnPropertyChanged(nameof(CacheTypeKBorderBrush));
+        OnPropertyChanged(nameof(CacheTypeKToolTip));
+        OnPropertyChanged(nameof(HasUnsupportedCacheTypeV));
+        OnPropertyChanged(nameof(CacheTypeVBorderBrush));
+        OnPropertyChanged(nameof(CacheTypeVToolTip));
     }
 
     public LlamaCppDownloadService DownloadService => _downloadService;
+
+    public Dictionary<string, string> ReleaseBodyCache => _releaseBodyCache;
+    public List<string> ReleaseBodyCacheOrder => _releaseBodyCacheOrder;
 
     public string ToggleLogButtonText => _logVisible
         ? LocalizedStrings.Instance.HideLog
@@ -1264,6 +2106,19 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    private static bool ToggleStatesEqual(Dictionary<string, bool>? a, Dictionary<string, bool>? b)
+    {
+        if (a == null && b == null) return true;
+        if (a == null || b == null) return false;
+        if (a.Count != b.Count) return false;
+        foreach (var kvp in a)
+        {
+            if (!b.TryGetValue(kvp.Key, out var val) || val != kvp.Value)
+                return false;
+        }
+        return true;
+    }
+
     private static bool ConfigsEqual(ServerConfiguration a, ServerConfiguration b)
     {
         return a.ExecutablePath == b.ExecutablePath &&
@@ -1306,7 +2161,17 @@ public class MainViewModel : INotifyPropertyChanged
             a.PresencePenalty == b.PresencePenalty &&
             a.FrequencyPenalty == b.FrequencyPenalty &&
             a.ContextShift == b.ContextShift &&
-            a.CustomArguments == b.CustomArguments;
+            a.HfRepo == b.HfRepo &&
+            a.HfFile == b.HfFile &&
+            a.Offline == b.Offline &&
+            a.HfRepoDraft == b.HfRepoDraft &&
+            a.RunInDocker == b.RunInDocker &&
+            a.DockerImage == b.DockerImage &&
+            a.DockerGpuAll == b.DockerGpuAll &&
+            a.DockerRm == b.DockerRm &&
+            a.DockerContainerName == b.DockerContainerName &&
+            a.CustomArguments == b.CustomArguments &&
+            ToggleStatesEqual(a.CustomArgumentToggleStates, b.CustomArgumentToggleStates);
     }
 
     public string ProfileNameInput
@@ -1329,6 +2194,8 @@ public class MainViewModel : INotifyPropertyChanged
                 // Notify commands that depend on IsServerRunning
                 if (StopServerCommand is AsyncRelayCommand stopCmd)
                     stopCmd.RaiseCanExecuteChanged();
+                if (RestartServerCommand is AsyncRelayCommand restartCmd)
+                    restartCmd.RaiseCanExecuteChanged();
                 if (UnloadModelCommand is AsyncRelayCommand unloadCmd)
                     unloadCmd.RaiseCanExecuteChanged();
                 if (OpenInBrowserCommand is AsyncRelayCommand openCmd)
@@ -1370,12 +2237,32 @@ public class MainViewModel : INotifyPropertyChanged
         private set { _currentCommand = value; OnPropertyChanged(); }
     }
 
+    public bool ShowServerStartError
+    {
+        get => _showServerStartError;
+        private set
+        {
+            if (_showServerStartError != value)
+            {
+                _showServerStartError = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(LogBorderBrush));
+                OnPropertyChanged(nameof(LogBorderThickness));
+            }
+        }
+    }
+
+    public Avalonia.Media.IBrush LogBorderBrush => ShowServerStartError ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Colors.Red) : _transparentBrush;
+    public Avalonia.Thickness LogBorderThickness => ShowServerStartError ? new Avalonia.Thickness(2) : new Avalonia.Thickness(0);
+
     public ICommand BrowseExecutableCommand { get; }
     public ICommand BrowseModelCommand { get; }
     public ICommand BrowseModelsDirCommand { get; }
     public ICommand BrowseLogFileCommand { get; }
     public ICommand BrowseMmprojCommand { get; }
+    public ICommand BrowseDraftModelCommand { get; }
     public ICommand StartServerCommand { get; }
+    public ICommand RestartServerCommand { get; }
     public ICommand StopServerCommand { get; }
     public ICommand UnloadModelCommand { get; }
     public ICommand OpenInBrowserCommand { get; }
@@ -1390,8 +2277,11 @@ public class MainViewModel : INotifyPropertyChanged
     public ICommand ImportAllCommand { get; }
     public ICommand ClearAllFieldsCommand { get; }
     public ICommand ClearLogCommand { get; }
+    public ICommand CopyLogCommand { get; }
+    public ICommand SaveLogCommand { get; }
     public ICommand ShowWindowCommand { get; set; }
     public ICommand CloseFromTrayCommand { get; set; }
+    public ICommand OpenArgumentPickerCommand { get; }
 
     /// <summary>
     /// Set by MainWindow to allow the ViewModel to request opening the download dialog.
@@ -1399,7 +2289,9 @@ public class MainViewModel : INotifyPropertyChanged
     public Func<Task>? OpenDownloadDialogFunc { get; set; }
 
     public bool CanStartServer =>
-        !string.IsNullOrEmpty(ModelPath) || !string.IsNullOrEmpty(ModelsDir);
+        !_serverService.IsBusy
+        && (!string.IsNullOrEmpty(ModelPath) || !string.IsNullOrEmpty(ModelsDir) || !string.IsNullOrEmpty(HfRepo) || !string.IsNullOrEmpty(HfFile))
+        && (RunInDocker ? IsDockerAvailable : true);
 
     public bool CanOpenInBrowser => IsServerRunning && EnableWebUI != false;
 
@@ -1418,7 +2310,7 @@ public class MainViewModel : INotifyPropertyChanged
     private void UpdateCurrentCommand()
     {
         var config = GetCurrentConfig();
-        CurrentCommand = CommandLineBuilder.BuildFullCommand(config);
+        CurrentCommand = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
     }
 
     private async Task BrowseModelAsync()
@@ -1466,6 +2358,74 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    private async Task BrowseDraftModelAsync()
+    {
+        var result = await WindowsFileDialogs.OpenFileDialogAsync(
+            "Select Draft Model File",
+            new[] { ("Model files", "*.gguf"), ("All files", "*.*") },
+            false);
+        if (result != null && result.Length > 0)
+        {
+            SpecDraftModel = result[0];
+        }
+    }
+
+    public async Task OpenArgumentPickerAsync()
+    {
+        if (_supportedFlags == null || string.IsNullOrWhiteSpace(_lastHelpText))
+        {
+            if (ShowMessageFunc != null)
+                await ShowMessageFunc(LocalizedStrings.Instance.ErrorTitle, LocalizedStrings.Instance.NoHelpAvailable, "error");
+            return;
+        }
+
+        var allArgs = LlamaHelpParserService.ParseArgumentDescriptions(_lastHelpText);
+
+        var existingCustomArgs = new HashSet<string>(CustomArgumentItems.Select(x => x.Name), StringComparer.OrdinalIgnoreCase);
+        var knownFlags = new HashSet<string>(ServerConfiguration.KnownArguments.Keys, StringComparer.OrdinalIgnoreCase);
+        var excludedFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "-h", "--help", "--version", "--license", "--usage"
+        };
+
+        var filtered = allArgs
+            .Where(a => _supportedFlags.Contains(a.PrimaryFlag))
+            .Where(a => !knownFlags.Contains(a.PrimaryFlag))
+            .Where(a => !existingCustomArgs.Contains(a.PrimaryFlag))
+            .Where(a => !a.AllFlags.Any(f => knownFlags.Contains(f)))
+            .Where(a => !a.AllFlags.Any(f => existingCustomArgs.Contains(f)))
+            .Where(a => !excludedFlags.Contains(a.PrimaryFlag))
+            .Where(a => !a.AllFlags.Any(f => excludedFlags.Contains(f)))
+            .ToList();
+
+        var dialog = new ArgumentPickerWindow();
+        var vm = new ArgumentPickerViewModel(filtered);
+        dialog.SetViewModel(vm);
+        await dialog.ShowDialog(MainWindow.Instance!);
+
+        if (!dialog.IsConfirmed) return;
+
+        var selected = dialog.SelectedArguments;
+        if (selected == null || selected.Count == 0) return;
+
+        var additions = new List<string>();
+        foreach (var item in selected)
+        {
+            if (!string.IsNullOrEmpty(item.DefaultValue))
+                additions.Add($"{item.PrimaryFlag} {item.DefaultValue}");
+            else
+                additions.Add(item.PrimaryFlag);
+        }
+
+        var newArgs = string.Join(" ", additions);
+        if (!string.IsNullOrWhiteSpace(CustomArguments))
+            CustomArguments = CustomArguments.Trim() + " " + newArgs;
+        else
+            CustomArguments = newArgs;
+
+        ParseAndUpdateCustomArguments();
+    }
+
     public ServerConfiguration GetCurrentConfig()
     {
         return new ServerConfiguration
@@ -1498,7 +2458,8 @@ public class MainViewModel : INotifyPropertyChanged
             LogFilePath = LogFilePath,
             VerboseLogging = VerboseLogging,
             Alias = Alias,
-            CustomArguments = CustomArguments,
+            CustomArguments = string.Join(" ", CustomArgumentItems.Select(x => x.OriginalArg)),
+            CustomArgumentToggleStates = GetToggleStates(),
             ParallelSlots = ParseNullableInt(ParallelSlots),
             ContBatching = ContBatching,
             Timeout = ParseNullableInt(Timeout),
@@ -1510,7 +2471,23 @@ public class MainViewModel : INotifyPropertyChanged
             Seed = ParseNullableInt(Seed),
             PresencePenalty = ParseNullableDouble(PresencePenalty),
             FrequencyPenalty = ParseNullableDouble(FrequencyPenalty),
-            ContextShift = ContextShift
+            ContextShift = ContextShift,
+            SpecType = SpecType,
+            SpecDraftModel = SpecDraftModel,
+            SpecDraftGpuLayers = SpecDraftGpuLayers,
+            SpecDraftNMax = ParseNullableInt(SpecDraftNMax),
+            SpecDraftNMin = ParseNullableInt(SpecDraftNMin),
+            SpecDraftPSplit = ParseNullableDouble(SpecDraftPSplit),
+            SpecDraftPMin = ParseNullableDouble(SpecDraftPMin),
+            HfRepo = HfRepo,
+            HfFile = HfFile,
+            Offline = Offline,
+            HfRepoDraft = HfRepoDraft,
+            RunInDocker = RunInDocker,
+            DockerImage = DockerImage,
+            DockerGpuAll = DockerGpuAll,
+            DockerRm = DockerRm,
+            DockerContainerName = DockerContainerName
         };
     }
 
@@ -1557,6 +2534,22 @@ private void LoadConfigToUI(ServerConfiguration config)
         PresencePenalty = string.Empty;
         FrequencyPenalty = string.Empty;
         ContextShift = null;
+        SpecType = string.Empty;
+        SpecDraftModel = string.Empty;
+        SpecDraftGpuLayers = string.Empty;
+        SpecDraftNMax = string.Empty;
+        SpecDraftNMin = string.Empty;
+        SpecDraftPSplit = string.Empty;
+        SpecDraftPMin = string.Empty;
+        HfRepo = string.Empty;
+        HfFile = string.Empty;
+        Offline = false;
+        HfRepoDraft = string.Empty;
+        RunInDocker = false;
+        DockerImage = "ghcr.io/ggml-org/llama.cpp:server";
+        DockerGpuAll = false;
+        DockerRm = true;
+        DockerContainerName = string.Empty;
         CustomArguments = string.Empty;
         AutoRestart = false;
         // Note: ProfileNameInput and _loadedProfileName are NOT cleared here
@@ -1603,10 +2596,30 @@ private void LoadConfigToUI(ServerConfiguration config)
         PresencePenalty = config.PresencePenalty?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         FrequencyPenalty = config.FrequencyPenalty?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         ContextShift = config.ContextShift;
+        SpecType = config.SpecType ?? string.Empty;
+        SpecDraftModel = config.SpecDraftModel ?? string.Empty;
+        SpecDraftGpuLayers = config.SpecDraftGpuLayers ?? string.Empty;
+        SpecDraftNMax = config.SpecDraftNMax?.ToString() ?? string.Empty;
+        SpecDraftNMin = config.SpecDraftNMin?.ToString() ?? string.Empty;
+        SpecDraftPSplit = config.SpecDraftPSplit?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        SpecDraftPMin = config.SpecDraftPMin?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        HfRepo = config.HfRepo ?? string.Empty;
+        HfFile = config.HfFile ?? string.Empty;
+        Offline = config.Offline;
+        HfRepoDraft = config.HfRepoDraft ?? string.Empty;
+        RunInDocker = config.RunInDocker;
+        DockerImage = config.DockerImage ?? "ghcr.io/ggml-org/llama.cpp:server";
+        DockerGpuAll = config.DockerGpuAll;
+        DockerRm = config.DockerRm;
+        DockerContainerName = config.DockerContainerName ?? string.Empty;
         _disabledArguments.Clear();
         _originalCustomArguments = string.Empty;
         CustomArguments = config.CustomArguments ?? string.Empty;
         ParseCustomArguments();
+        if (config.CustomArgumentToggleStates != null && config.CustomArgumentToggleStates.Count > 0)
+        {
+            ApplyToggleStates(config.CustomArgumentToggleStates);
+        }
         RebuildCustomArgumentsFromToggles();
     }
 
@@ -1652,6 +2665,22 @@ private void LoadConfigToUI(ServerConfiguration config)
         PresencePenalty = string.Empty;
         FrequencyPenalty = string.Empty;
         ContextShift = null;
+        SpecType = string.Empty;
+        SpecDraftModel = string.Empty;
+        SpecDraftGpuLayers = string.Empty;
+        SpecDraftNMax = string.Empty;
+        SpecDraftNMin = string.Empty;
+        SpecDraftPSplit = string.Empty;
+        SpecDraftPMin = string.Empty;
+        HfRepo = string.Empty;
+        HfFile = string.Empty;
+        Offline = false;
+        HfRepoDraft = string.Empty;
+        RunInDocker = false;
+        DockerImage = "ghcr.io/ggml-org/llama.cpp:server";
+        DockerGpuAll = false;
+        DockerRm = true;
+        DockerContainerName = string.Empty;
         _disabledArguments.Clear();
         _originalCustomArguments = string.Empty;
         CustomArgumentItems.Clear();
@@ -2202,43 +3231,66 @@ public void RebuildCustomArgumentsFromToggles()
         AddRecentValue(nameof(ParallelSlots), ParallelSlots);
         AddRecentValue(nameof(Timeout), Timeout);
         AddRecentValue(nameof(ReasoningBudget), ReasoningBudget);
+        AddRecentValue(nameof(SpecDraftModel), SpecDraftModel);
+        AddRecentValue(nameof(SpecDraftGpuLayers), SpecDraftGpuLayers);
+        AddRecentValue(nameof(SpecDraftNMax), SpecDraftNMax);
+        AddRecentValue(nameof(SpecDraftNMin), SpecDraftNMin);
+        AddRecentValue(nameof(SpecDraftPSplit), SpecDraftPSplit);
+        AddRecentValue(nameof(SpecDraftPMin), SpecDraftPMin);
+        AddRecentValue(nameof(HfRepo), HfRepo);
+        AddRecentValue(nameof(HfFile), HfFile);
+        AddRecentValue(nameof(HfRepoDraft), HfRepoDraft);
     }
 
     private async Task StartServerAsync()
     {
         try
         {
+            DismissServerStartError();
             var config = GetCurrentConfig();
 
-            if (string.IsNullOrEmpty(config.ExecutablePath))
+            if (!config.RunInDocker)
             {
-                var defaultPath = _downloadService.GetDefaultLlamaServerPath();
-                if (defaultPath != null)
+                if (string.IsNullOrEmpty(config.ExecutablePath))
                 {
-                    config.ExecutablePath = defaultPath;
-                }
-                else
-                {
-                    var prompt = LocalizedStrings.Instance.PromptDownloadLlama;
-                    var result = await MessageBox.ShowAsync(
-                        MainWindow.Instance!,
-                        prompt,
-                        LocalizedStrings.Instance.ConfirmTitle,
-                        MessageBoxButtons.YesNoCancel,
-                        MessageBoxIcon.Question);
-
-                    if (result == MessageBoxResult.Yes)
+                    var defaultPath = _downloadService.GetDefaultLlamaServerPath();
+                    if (defaultPath != null)
                     {
-                        if (OpenDownloadDialogFunc != null)
-                            await OpenDownloadDialogFunc();
+                        config.ExecutablePath = defaultPath;
+                    }
+                    else
+                    {
+                        var prompt = LocalizedStrings.Instance.PromptDownloadLlama;
+                        var result = await MessageBox.ShowAsync(
+                            MainWindow.Instance!,
+                            prompt,
+                            LocalizedStrings.Instance.ConfirmTitle,
+                            MessageBoxButtons.YesNoCancel,
+                            MessageBoxIcon.Question);
+
+                        if (result == MessageBoxResult.Yes)
+                        {
+                            if (OpenDownloadDialogFunc != null)
+                                await OpenDownloadDialogFunc();
+                            return;
+                        }
                         return;
                     }
-                    return;
                 }
+            }
+            else
+            {
+                if (!_isDockerAvailable)
+                    throw new InvalidOperationException(LocalizedStrings.Instance.DockerNotInstalledError);
             }
 
             RecordCurrentValuesToHistory();
-            await _serverService.StartAsync(config);
+            await RefreshSupportedFlagsAsync();
+
+            if (config.RunInDocker)
+                await _serverService.StartDockerAsync(_dockerService, config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+            else
+                await _serverService.StartAsync(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
         }
         catch (Exception ex)
         {
@@ -2265,9 +3317,45 @@ public void RebuildCustomArgumentsFromToggles()
         await dialog.ShowDialog(MainWindow.Instance!);
     }
 
+    private void ShowServerStartErrorAnimation()
+    {
+        DismissServerStartError();
+        ShowServerStartError = true;
+        _errorAnimationCts = new CancellationTokenSource();
+        var cts = _errorAnimationCts;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_errorAnimationCts == cts)
+                        ShowServerStartError = false;
+                });
+            }
+            catch (TaskCanceledException)
+            {
+            }
+        });
+    }
+
+    public void DismissServerStartError()
+    {
+        _errorAnimationCts?.Cancel();
+        _errorAnimationCts = null;
+        ShowServerStartError = false;
+    }
+
     private async Task StopServerAsync()
     {
         await _serverService.StopAsync();
+    }
+
+    private async Task RestartServerAsync()
+    {
+        await StopServerAsync();
+        await StartServerAsync();
     }
 
     public async Task StopServerIfRunningAsync()
@@ -2517,21 +3605,21 @@ public void RebuildCustomArgumentsFromToggles()
             
             if (filePath.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
             {
-                var command = CommandLineBuilder.BuildFullCommand(config);
+                var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
                 var batContent = $"@echo off\n{command}\npause";
                 await System.IO.File.WriteAllTextAsync(filePath, batContent);
                 _logService.Info($"Profile exported to BAT '{filePath}'");
             }
             else if (filePath.EndsWith(".command", StringComparison.OrdinalIgnoreCase))
             {
-                var command = CommandLineBuilder.BuildFullCommand(config);
+                var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
                 var commandContent = $"#!/bin/bash\n{command}\necho 'Press Enter to exit...'\nread";
                 await System.IO.File.WriteAllTextAsync(filePath, commandContent);
                 _logService.Info($"Profile exported to MacOS command script '{filePath}'");
             }
             else if (filePath.EndsWith(".sh", StringComparison.OrdinalIgnoreCase))
             {
-                var command = CommandLineBuilder.BuildFullCommand(config);
+                var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
                 var shContent = $"#!/bin/bash\n{command}\necho 'Press Enter to exit...'\nread";
                 await System.IO.File.WriteAllTextAsync(filePath, shContent);
                 _logService.Info($"Profile exported to Linux shell script '{filePath}'");
@@ -2685,7 +3773,7 @@ public void RebuildCustomArgumentsFromToggles()
         if (!string.IsNullOrEmpty(filePath))
         {
             var config = GetCurrentConfig();
-            var command = CommandLineBuilder.BuildFullCommand(config);
+            var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
             var batContent = $"@echo off\n{command}\npause";
             await System.IO.File.WriteAllTextAsync(filePath, batContent);
         }
@@ -2693,36 +3781,89 @@ public void RebuildCustomArgumentsFromToggles()
 
     private void ClearLog()
     {
+        lock (_pendingLogs)
+        {
+            _pendingLogs.Clear();
+        }
         LogLines.Clear();
         LogText = string.Empty;
+    }
+
+    private void CopyLog()
+    {
+    }
+
+    private async Task SaveLogAsync()
+    {
+        _logService.Flush();
+        string text;
+        using (var fs = new System.IO.FileStream(
+            _logService.LogFilePath,
+            System.IO.FileMode.Open,
+            System.IO.FileAccess.Read,
+            System.IO.FileShare.ReadWrite))
+        using (var reader = new System.IO.StreamReader(fs, System.Text.Encoding.UTF8))
+        {
+            text = await reader.ReadToEndAsync();
+        }
+        if (string.IsNullOrEmpty(text)) return;
+        var filePath = await WindowsFileDialogs.SaveFileDialogAsync(
+            Resources.LocalizedStrings.Instance.SaveLogDialogTitle,
+            "log",
+            new[] { ("Log files (*.log)", "*.log"), ("Text files (*.txt)", "*.txt"), ("All files", "*") });
+        if (!string.IsNullOrEmpty(filePath))
+        {
+            await System.IO.File.WriteAllTextAsync(filePath, text);
+            _logService.Info($"Log saved to '{filePath}'");
+        }
     }
 
     private void OnLogReceived(object? sender, string logLine)
     {
         if (!LogEnabled) return;
-        Dispatcher.UIThread.Invoke(() =>
-        {
-            LogLines.Add(logLine);
-            if (LogLines.Count > 1000)
-            {
-                LogLines.RemoveAt(0);
-            }
-            LogText = string.Join("\n", LogLines);
-        });
+        EnqueueLogLine(logLine);
     }
 
     private void OnServerOutput(object? sender, string output)
     {
         if (!LogEnabled) return;
-        Dispatcher.UIThread.Invoke(() =>
+        EnqueueLogLine(output);
+    }
+
+    private void EnqueueLogLine(string line)
+    {
+        lock (_pendingLogs)
         {
-            LogLines.Add(output);
+            _pendingLogs.Add(line);
+            if (_logFlushScheduled) return;
+            _logFlushScheduled = true;
+        }
+        Dispatcher.UIThread.Post(FlushLogs);
+    }
+
+    private void FlushLogs()
+    {
+        List<string> toFlush;
+        lock (_pendingLogs)
+        {
+            toFlush = new List<string>(_pendingLogs);
+            _pendingLogs.Clear();
+            _logFlushScheduled = false;
+        }
+
+        foreach (var line in toFlush)
+        {
+            LogLines.Add(line);
             if (LogLines.Count > 1000)
             {
                 LogLines.RemoveAt(0);
             }
+        }
+
+        if (toFlush.Count > 0)
+        {
             LogText = string.Join("\n", LogLines);
-        });
+        }
     }
 
     private bool _isAutoRestarting;
@@ -2734,9 +3875,23 @@ public void RebuildCustomArgumentsFromToggles()
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 IsServerRunning = isRunning;
-                ServerStatus = isRunning 
-                    ? string.Format(Resources.LocalizedStrings.GetString("StatusRunning"), _serverService.ProcessId) 
+                ServerStatus = isRunning
+                    ? string.Format(Resources.LocalizedStrings.GetString("StatusRunning"), _serverService.ProcessId)
                     : Localized.StatusStopped;
+
+                if (isRunning)
+                {
+                    _serverStartTime = DateTime.Now;
+                    DismissServerStartError();
+                }
+                else
+                {
+                    if (_serverStartTime.HasValue && (DateTime.Now - _serverStartTime.Value).TotalSeconds < 5 && !_serverService.WasStoppedIntentionally)
+                    {
+                        ShowServerStartErrorAnimation();
+                    }
+                    _serverStartTime = null;
+                }
 
                 if (!isRunning && AutoRestart && !_isAutoRestarting && !_serverService.WasStoppedIntentionally)
                 {
@@ -2746,7 +3901,11 @@ public void RebuildCustomArgumentsFromToggles()
                     try
                     {
                         var config = GetCurrentConfig();
-                        await _serverService.StartAsync(config);
+                        await RefreshSupportedFlagsAsync();
+                        if (config.RunInDocker)
+                            await _serverService.StartDockerAsync(_dockerService, config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+                        else
+                            await _serverService.StartAsync(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
                     }
                     catch (Exception ex)
                     {
@@ -2778,7 +3937,9 @@ public void RebuildCustomArgumentsFromToggles()
                 if (release != null)
                 {
                     IsLlamaUpdateAvailable = true;
-                    var desc = release.Body.Length > 200 ? release.Body[..200] + "..." : release.Body;
+                    CacheReleaseBody(release.Tag, release.Body);
+                    var cleaned = CleanReleaseBody(release.Body);
+                    var desc = cleaned.Length > 300 ? cleaned[..300] + "..." : cleaned;
                     LlamaUpdateTooltip = $"{release.Tag}\n{release.PublishedAt:yyyy-MM-dd HH:mm}\n{desc}";
                 }
             }
@@ -2795,6 +3956,46 @@ public void RebuildCustomArgumentsFromToggles()
         OnPropertyChanged(nameof(ShowLlamaDownloadButton));
         OnPropertyChanged(nameof(ShowLlamaChangeVersionButton));
         OnPropertyChanged(nameof(LlamaButtonText));
+        OnPropertyChanged(nameof(LlamaInstalledVersionTooltip));
+    }
+
+    private static string CleanReleaseBody(string body)
+    {
+        var text = body;
+        text = Regex.Replace(text, @"<details\s+open>\s*", "", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"</details>", "", RegexOptions.IgnoreCase);
+        text = Regex.Replace(text, @"<details[^>]*>.*?</details>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        text = Regex.Replace(text, @"\[([^\]]*)\]\([^)]*\)", "$1");
+        text = Regex.Replace(text, @"\*\*([^*]*)\*\*", "$1");
+        text = Regex.Replace(text, @"^\s*[\r\n]", "", RegexOptions.Multiline);
+        text = text.Trim();
+        return text;
+    }
+
+    private void CacheReleaseBody(string tag, string body)
+    {
+        if (string.IsNullOrEmpty(tag) || string.IsNullOrEmpty(body)) return;
+
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(body));
+
+        if (_releaseBodyCache.ContainsKey(tag))
+        {
+            _releaseBodyCache[tag] = encoded;
+            _releaseBodyCacheOrder.Remove(tag);
+            _releaseBodyCacheOrder.Add(tag);
+        }
+        else
+        {
+            _releaseBodyCache[tag] = encoded;
+            _releaseBodyCacheOrder.Add(tag);
+        }
+
+        while (_releaseBodyCacheOrder.Count > 20)
+        {
+            var oldest = _releaseBodyCacheOrder[0];
+            _releaseBodyCacheOrder.RemoveAt(0);
+            _releaseBodyCache.Remove(oldest);
+        }
     }
 
     private async Task CheckForAppUpdateAsync()
@@ -2872,6 +4073,12 @@ public void RebuildCustomArgumentsFromToggles()
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    public void Dispose()
+    {
+        _logService?.Dispose();
+        _serverService?.Dispose();
     }
 }
 
