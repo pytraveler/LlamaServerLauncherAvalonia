@@ -62,6 +62,9 @@
   <data name="StopServer" xml:space="preserve">
     <value>Stop Server</value>
   </data>
+  <data name="RestartServer" xml:space="preserve">
+    <value>Restart Server</value>
+  </data>
   <data name="UnloadModel" xml:space="preserve">
     <value>Unload Models</value>
   </data>
@@ -236,6 +239,21 @@
   <data name="ClearLog" xml:space="preserve">
     <value>Clear Log</value>
   </data>
+  <data name="CopyLog" xml:space="preserve">
+    <value>Copy Log</value>
+  </data>
+  <data name="SaveLog" xml:space="preserve">
+    <value>Save Log</value>
+  </data>
+  <data name="SaveLogDialogTitle" xml:space="preserve">
+    <value>Save Log File</value>
+  </data>
+  <data name="TooltipCopyLog" xml:space="preserve">
+    <value>Copy entire log to clipboard</value>
+  </data>
+  <data name="TooltipSaveLog" xml:space="preserve">
+    <value>Save entire log to file</value>
+  </data>
   <data name="TooltipClearAllFields" xml:space="preserve">
     <value>Clear all fields</value>
   </data>
@@ -312,7 +330,7 @@
     <value>TCP port for the server. Default: 8080</value>
   </data>
   <data name="TooltipContextSize" xml:space="preserve">
-    <value>Size of the prompt context in tokens (-c). Larger values use more RAM/VRAM. Default: 512</value>
+    <value>Size of the prompt context in tokens (-c). Larger values use more RAM/VRAM. Default: 0</value>
   </data>
   <data name="TooltipThreads" xml:space="preserve">
     <value>Number of CPU threads for generation (-t). More threads = faster, but diminishing returns.</value>
@@ -782,25 +800,193 @@
   <data name="AppUpdateConfirm" xml:space="preserve">
     <value>A new version of the application is available. Download and restart?</value>
   </data>
-  <data name="TabOfficial" xml:space="preserve">
-    <value>Official llama.cpp</value>
-  </data>
-  <data name="TabExperimental" xml:space="preserve">
-    <value>Experimental (TurboQuant)</value>
-  </data>
-  <data name="ExperimentalWarning" xml:space="preserve">
-    <value>This is not an official ggml/llama.cpp release. It serves for evaluation purposes only.</value>
-  </data>
-  <data name="ExperimentalConfirmDownload" xml:space="preserve">
-    <value>Download experimental build? This is not an official ggml/llama.cpp release and serves for evaluation purposes only.</value>
-  </data>
-  <data name="NoExperimentalBuilds" xml:space="preserve">
-    <value>No experimental builds available</value>
-  </data>
-  <data name="LoadingExperimental" xml:space="preserve">
-    <value>Loading experimental builds...</value>
+  <data name="InstalledVersionTooltip" xml:space="preserve">
+    <value>Installed version: {0}</value>
   </data>
   <data name="ThanksMethelina" xml:space="preserve">
     <value>Thanks for contributions and moral support:</value>
+  </data>
+  <data name="PickArguments" xml:space="preserve">
+    <value>Add from help</value>
+  </data>
+  <data name="TooltipPickArguments" xml:space="preserve">
+    <value>Pick supported arguments from llama-server help</value>
+  </data>
+  <data name="ArgumentPickerTitle" xml:space="preserve">
+    <value>Select Arguments</value>
+  </data>
+  <data name="ArgumentPickerFilter" xml:space="preserve">
+    <value>Filter...</value>
+  </data>
+  <data name="ArgumentPickerFlag" xml:space="preserve">
+    <value>Flag</value>
+  </data>
+  <data name="ArgumentPickerDescription" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="ArgumentPickerDefault" xml:space="preserve">
+    <value>Default</value>
+  </data>
+  <data name="ArgumentPickerAdd" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="ArgumentPickerCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="TabSpeculative" xml:space="preserve">
+    <value>Speculative</value>
+  </data>
+  <data name="SpeculativeDecoding" xml:space="preserve">
+    <value>Speculative Decoding</value>
+  </data>
+  <data name="SpecType" xml:space="preserve">
+    <value>Spec Type:</value>
+  </data>
+  <data name="TooltipSpecType" xml:space="preserve">
+    <value>Type of speculative decoding (--spec-type). Default: none</value>
+  </data>
+  <data name="SpecGeneralParams" xml:space="preserve">
+    <value>General Parameters</value>
+  </data>
+  <data name="SpecDraftNMax" xml:space="preserve">
+    <value>Draft N-Max:</value>
+  </data>
+  <data name="SpecDraftNMin" xml:space="preserve">
+    <value>Draft N-Min:</value>
+  </data>
+  <data name="SpecDraftPSplit" xml:space="preserve">
+    <value>Draft P-Split:</value>
+  </data>
+  <data name="SpecDraftPMin" xml:space="preserve">
+    <value>Draft P-Min:</value>
+  </data>
+  <data name="TooltipSpecDraftNMax" xml:space="preserve">
+    <value>Number of tokens to draft for speculative decoding (--spec-draft-n-max). Default: 3</value>
+  </data>
+  <data name="TooltipSpecDraftNMin" xml:space="preserve">
+    <value>Minimum number of draft tokens to use (--spec-draft-n-min). Default: 0</value>
+  </data>
+  <data name="TooltipSpecDraftPSplit" xml:space="preserve">
+    <value>Speculative decoding split probability (--spec-draft-p-split). Default: 0.10</value>
+  </data>
+  <data name="TooltipSpecDraftPMin" xml:space="preserve">
+    <value>Minimum speculative decoding probability (greedy) (--spec-draft-p-min). Default: 0.00</value>
+  </data>
+  <data name="PlaceholderSpecDraftNMax" xml:space="preserve">
+    <value>Default: 3</value>
+  </data>
+  <data name="PlaceholderSpecDraftNMin" xml:space="preserve">
+    <value>Default: 0</value>
+  </data>
+  <data name="PlaceholderSpecDraftPSplit" xml:space="preserve">
+    <value>Default: 0.10</value>
+  </data>
+  <data name="PlaceholderSpecDraftPMin" xml:space="preserve">
+    <value>Default: 0.00</value>
+  </data>
+  <data name="DraftModelParams" xml:space="preserve">
+    <value>Draft Model</value>
+  </data>
+  <data name="SpecDraftModel" xml:space="preserve">
+    <value>Draft Model:</value>
+  </data>
+  <data name="TooltipSpecDraftModel" xml:space="preserve">
+    <value>Draft model for speculative decoding (--spec-draft-model, -md)</value>
+  </data>
+  <data name="PlaceholderSpecDraftModel" xml:space="preserve">
+    <value>e.g. models/draft-q4_0.gguf</value>
+  </data>
+  <data name="SpecDraftGpuLayers" xml:space="preserve">
+    <value>Draft GPU Layers:</value>
+  </data>
+  <data name="TooltipSpecDraftGpuLayers" xml:space="preserve">
+    <value>Max number of draft model layers in VRAM (-ngld). Number, 'auto', or 'all'. Default: auto</value>
+  </data>
+  <data name="PlaceholderSpecDraftGpuLayers" xml:space="preserve">
+    <value>Default: auto</value>
+  </data>
+  <data name="UnsupportedArgWarning" xml:space="preserve">
+    <value>This argument is not supported by the current llama-server executable and will be omitted from the command line</value>
+  </data>
+  <data name="HuggingFace" xml:space="preserve">
+    <value>Hugging Face</value>
+  </data>
+  <data name="HfRepo" xml:space="preserve">
+    <value>HF Repo:</value>
+  </data>
+  <data name="HfFile" xml:space="preserve">
+    <value>HF File:</value>
+  </data>
+  <data name="Offline" xml:space="preserve">
+    <value>Offline</value>
+  </data>
+  <data name="HfRepoDraft" xml:space="preserve">
+    <value>HF Draft Repo:</value>
+  </data>
+  <data name="PlaceholderHfRepo" xml:space="preserve">
+    <value>e.g. user/model:Q4_K_M</value>
+  </data>
+  <data name="PlaceholderHfFile" xml:space="preserve">
+    <value>Specific file in repo</value>
+  </data>
+  <data name="PlaceholderHfRepoDraft" xml:space="preserve">
+    <value>e.g. user/draft-model:Q4_K_M</value>
+  </data>
+  <data name="TooltipHfRepo" xml:space="preserve">
+    <value>Hugging Face model repository (--hf-repo). Alternative to local -m.</value>
+  </data>
+  <data name="TooltipHfFile" xml:space="preserve">
+    <value>Specific file in HF repo (--hf-file). Overrides quant in --hf-repo.</value>
+  </data>
+  <data name="TooltipOffline" xml:space="preserve">
+    <value>Force cache-only mode, no network access (--offline)</value>
+  </data>
+  <data name="TooltipHfRepoDraft" xml:space="preserve">
+    <value>HF repo for draft model (--hf-repo-draft). Alternative to local -md.</value>
+  </data>
+  <data name="TabDocker" xml:space="preserve">
+    <value>Docker</value>
+  </data>
+  <data name="DockerSettings" xml:space="preserve">
+    <value>Docker Settings</value>
+  </data>
+  <data name="RunInDocker" xml:space="preserve">
+    <value>Run in Docker</value>
+  </data>
+  <data name="DockerRemoveOnStop" xml:space="preserve">
+    <value>Remove container on stop</value>
+  </data>
+  <data name="DockerUseAllGpus" xml:space="preserve">
+    <value>Use all GPUs</value>
+  </data>
+  <data name="DockerImage" xml:space="preserve">
+    <value>Docker Image:</value>
+  </data>
+  <data name="DockerContainerName" xml:space="preserve">
+    <value>Container Name:</value>
+  </data>
+  <data name="DockerNotInstalled" xml:space="preserve">
+    <value>Docker is not installed or not available. Install Docker to enable this tab.</value>
+  </data>
+  <data name="DockerNotInstalledError" xml:space="preserve">
+    <value>Docker is not installed or not available</value>
+  </data>
+  <data name="TooltipRunInDocker" xml:space="preserve">
+    <value>Run llama-server inside a Docker container instead of launching the executable directly</value>
+  </data>
+  <data name="TooltipDockerRemoveOnStop" xml:space="preserve">
+    <value>Automatically remove the container when it stops (--rm)</value>
+  </data>
+  <data name="TooltipDockerUseAllGpus" xml:space="preserve">
+    <value>Pass --gpus all to Docker for GPU acceleration</value>
+  </data>
+  <data name="TooltipDockerImage" xml:space="preserve">
+    <value>Docker image to use for llama-server. Images from ghcr.io/ggml-org/llama.cpp are available.</value>
+  </data>
+  <data name="TooltipDockerContainerName" xml:space="preserve">
+    <value>Optional name for the Docker container (--name)</value>
+  </data>
+  <data name="PlaceholderDockerContainerName" xml:space="preserve">
+    <value>Optional container name</value>
   </data>
 </root>

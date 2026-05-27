@@ -62,6 +62,9 @@
   <data name="StopServer" xml:space="preserve">
     <value>Остановить сервер</value>
   </data>
+  <data name="RestartServer" xml:space="preserve">
+    <value>Перезапустить сервер</value>
+  </data>
   <data name="UnloadModel" xml:space="preserve">
     <value>Выгрузить модели</value>
   </data>
@@ -236,6 +239,21 @@
   <data name="ClearLog" xml:space="preserve">
     <value>Очистить лог</value>
   </data>
+  <data name="CopyLog" xml:space="preserve">
+    <value>Копировать лог</value>
+  </data>
+  <data name="SaveLog" xml:space="preserve">
+    <value>Сохранить лог</value>
+  </data>
+  <data name="SaveLogDialogTitle" xml:space="preserve">
+    <value>Сохранить лог-файл</value>
+  </data>
+  <data name="TooltipCopyLog" xml:space="preserve">
+    <value>Копировать весь лог в буфер обмена</value>
+  </data>
+  <data name="TooltipSaveLog" xml:space="preserve">
+    <value>Сохранить весь лог в файл</value>
+  </data>
   <data name="TooltipClearAllFields" xml:space="preserve">
     <value>Очистить все поля</value>
   </data>
@@ -312,7 +330,7 @@
     <value>TCP-порт сервера. По умолчанию: 8080</value>
   </data>
   <data name="TooltipContextSize" xml:space="preserve">
-    <value>Размер контекста промпта в токенах (-c). Большие значения требуют больше RAM/VRAM. По умолчанию: 512</value>
+    <value>Размер контекста промпта в токенах (-c). Большие значения требуют больше RAM/VRAM. По умолчанию: 0</value>
   </data>
   <data name="TooltipThreads" xml:space="preserve">
     <value>Количество потоков CPU для генерации (-t). Больше потоков = быстрее, но с убывающей отдачей.</value>
@@ -782,25 +800,193 @@
   <data name="AppUpdateConfirm" xml:space="preserve">
     <value>Доступна новая версия приложения. Скачать и перезапустить?</value>
   </data>
-  <data name="TabOfficial" xml:space="preserve">
-    <value>Официальный llama.cpp</value>
-  </data>
-  <data name="TabExperimental" xml:space="preserve">
-    <value>Экспериментальный (TurboQuant)</value>
-  </data>
-  <data name="ExperimentalWarning" xml:space="preserve">
-    <value>Это не официальный релиз ggml/llama.cpp и служит только для ознакомления.</value>
-  </data>
-  <data name="ExperimentalConfirmDownload" xml:space="preserve">
-    <value>Загрузить экспериментальную сборку? Это не официальный релиз ggml/llama.cpp и служит только для ознакомления.</value>
-  </data>
-  <data name="NoExperimentalBuilds" xml:space="preserve">
-    <value>Экспериментальные сборки недоступны</value>
-  </data>
-  <data name="LoadingExperimental" xml:space="preserve">
-    <value>Загрузка экспериментальных сборок...</value>
+  <data name="InstalledVersionTooltip" xml:space="preserve">
+    <value>Установленная версия: {0}</value>
   </data>
   <data name="ThanksMethelina" xml:space="preserve">
     <value>Спасибо за вклад в проект и моральную поддержку:</value>
+  </data>
+  <data name="PickArguments" xml:space="preserve">
+    <value>Добавить из справки</value>
+  </data>
+  <data name="TooltipPickArguments" xml:space="preserve">
+    <value>Выбрать поддерживаемые аргументы из справки llama-server</value>
+  </data>
+  <data name="ArgumentPickerTitle" xml:space="preserve">
+    <value>Выбор аргументов</value>
+  </data>
+  <data name="ArgumentPickerFilter" xml:space="preserve">
+    <value>Фильтр...</value>
+  </data>
+  <data name="ArgumentPickerFlag" xml:space="preserve">
+    <value>Флаг</value>
+  </data>
+  <data name="ArgumentPickerDescription" xml:space="preserve">
+    <value>Описание</value>
+  </data>
+  <data name="ArgumentPickerDefault" xml:space="preserve">
+    <value>По умолчанию</value>
+  </data>
+  <data name="ArgumentPickerAdd" xml:space="preserve">
+    <value>Добавить</value>
+  </data>
+  <data name="ArgumentPickerCancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
+  <data name="TabSpeculative" xml:space="preserve">
+    <value>Спекулятивный</value>
+  </data>
+  <data name="SpeculativeDecoding" xml:space="preserve">
+    <value>Спекулятивное декодирование</value>
+  </data>
+  <data name="SpecType" xml:space="preserve">
+    <value>Тип спекуляции:</value>
+  </data>
+  <data name="TooltipSpecType" xml:space="preserve">
+    <value>Тип спекулятивного декодирования (--spec-type). По умолчанию: none</value>
+  </data>
+  <data name="SpecGeneralParams" xml:space="preserve">
+    <value>Общие параметры</value>
+  </data>
+  <data name="SpecDraftNMax" xml:space="preserve">
+    <value>Draft N-Max:</value>
+  </data>
+  <data name="SpecDraftNMin" xml:space="preserve">
+    <value>Draft N-Min:</value>
+  </data>
+  <data name="SpecDraftPSplit" xml:space="preserve">
+    <value>Draft P-Split:</value>
+  </data>
+  <data name="SpecDraftPMin" xml:space="preserve">
+    <value>Draft P-Min:</value>
+  </data>
+  <data name="TooltipSpecDraftNMax" xml:space="preserve">
+    <value>Число токенов для драфта (--spec-draft-n-max). По умолчанию: 3</value>
+  </data>
+  <data name="TooltipSpecDraftNMin" xml:space="preserve">
+    <value>Минимальное число токенов драфта (--spec-draft-n-min). По умолчанию: 0</value>
+  </data>
+  <data name="TooltipSpecDraftPSplit" xml:space="preserve">
+    <value>Вероятность разделения (--spec-draft-p-split). По умолчанию: 0.10</value>
+  </data>
+  <data name="TooltipSpecDraftPMin" xml:space="preserve">
+    <value>Минимальная вероятность (greedy) (--spec-draft-p-min). По умолчанию: 0.00</value>
+  </data>
+  <data name="PlaceholderSpecDraftNMax" xml:space="preserve">
+    <value>По умолчанию: 3</value>
+  </data>
+  <data name="PlaceholderSpecDraftNMin" xml:space="preserve">
+    <value>По умолчанию: 0</value>
+  </data>
+  <data name="PlaceholderSpecDraftPSplit" xml:space="preserve">
+    <value>По умолчанию: 0.10</value>
+  </data>
+  <data name="PlaceholderSpecDraftPMin" xml:space="preserve">
+    <value>По умолчанию: 0.00</value>
+  </data>
+  <data name="DraftModelParams" xml:space="preserve">
+    <value>Черновая модель</value>
+  </data>
+  <data name="SpecDraftModel" xml:space="preserve">
+    <value>Черновая модель:</value>
+  </data>
+  <data name="TooltipSpecDraftModel" xml:space="preserve">
+    <value>Черновая модель для спекулятивного декодирования (--spec-draft-model, -md)</value>
+  </data>
+  <data name="PlaceholderSpecDraftModel" xml:space="preserve">
+    <value>например, models/draft-q4_0.gguf</value>
+  </data>
+  <data name="SpecDraftGpuLayers" xml:space="preserve">
+    <value>GPU слои драфта:</value>
+  </data>
+  <data name="TooltipSpecDraftGpuLayers" xml:space="preserve">
+    <value>Макс. число слоёв драфта в VRAM (-ngld). Число, 'auto' или 'all'. По умолчанию: auto</value>
+  </data>
+  <data name="PlaceholderSpecDraftGpuLayers" xml:space="preserve">
+    <value>По умолчанию: auto</value>
+  </data>
+  <data name="UnsupportedArgWarning" xml:space="preserve">
+    <value>Этот аргумент не поддерживается текущим исполняемым файлом llama-server и будет исключён из командной строки</value>
+  </data>
+  <data name="HuggingFace" xml:space="preserve">
+    <value>Hugging Face</value>
+  </data>
+  <data name="HfRepo" xml:space="preserve">
+    <value>HF репозиторий:</value>
+  </data>
+  <data name="HfFile" xml:space="preserve">
+    <value>HF файл:</value>
+  </data>
+  <data name="Offline" xml:space="preserve">
+    <value>Офлайн</value>
+  </data>
+  <data name="HfRepoDraft" xml:space="preserve">
+    <value>HF репо draft:</value>
+  </data>
+  <data name="PlaceholderHfRepo" xml:space="preserve">
+    <value>напр. user/model:Q4_K_M</value>
+  </data>
+  <data name="PlaceholderHfFile" xml:space="preserve">
+    <value>Конкретный файл в репозитории</value>
+  </data>
+  <data name="PlaceholderHfRepoDraft" xml:space="preserve">
+    <value>напр. user/draft-model:Q4_K_M</value>
+  </data>
+  <data name="TooltipHfRepo" xml:space="preserve">
+    <value>Репозиторий модели Hugging Face (--hf-repo). Альтернатива локальному -m.</value>
+  </data>
+  <data name="TooltipHfFile" xml:space="preserve">
+    <value>Конкретный файл в HF-репозитории (--hf-file). Переопределяет квант в --hf-repo.</value>
+  </data>
+  <data name="TooltipOffline" xml:space="preserve">
+    <value>Режим только кэша, без сети (--offline)</value>
+  </data>
+  <data name="TooltipHfRepoDraft" xml:space="preserve">
+    <value>HF-репозиторий для draft-модели (--hf-repo-draft). Альтернатива локальному -md.</value>
+  </data>
+  <data name="TabDocker" xml:space="preserve">
+    <value>Docker</value>
+  </data>
+  <data name="DockerSettings" xml:space="preserve">
+    <value>Настройки Docker</value>
+  </data>
+  <data name="RunInDocker" xml:space="preserve">
+    <value>Запуск в Docker</value>
+  </data>
+  <data name="DockerRemoveOnStop" xml:space="preserve">
+    <value>Уничтожать контейнер после остановки</value>
+  </data>
+  <data name="DockerUseAllGpus" xml:space="preserve">
+    <value>Использовать все GPU</value>
+  </data>
+  <data name="DockerImage" xml:space="preserve">
+    <value>Docker образ:</value>
+  </data>
+  <data name="DockerContainerName" xml:space="preserve">
+    <value>Имя контейнера:</value>
+  </data>
+  <data name="DockerNotInstalled" xml:space="preserve">
+    <value>Docker не установлен или недоступен. Установите Docker для активации этой вкладки.</value>
+  </data>
+  <data name="DockerNotInstalledError" xml:space="preserve">
+    <value>Docker не установлен или недоступен</value>
+  </data>
+  <data name="TooltipRunInDocker" xml:space="preserve">
+    <value>Запускать llama-server внутри Docker-контейнера вместо прямого запуска исполняемого файла</value>
+  </data>
+  <data name="TooltipDockerRemoveOnStop" xml:space="preserve">
+    <value>Автоматически удалять контейнер при остановке (--rm)</value>
+  </data>
+  <data name="TooltipDockerUseAllGpus" xml:space="preserve">
+    <value>Передать --gpus all в Docker для ускорения на GPU</value>
+  </data>
+  <data name="TooltipDockerImage" xml:space="preserve">
+    <value>Docker-образ для llama-server. Доступны образы из ghcr.io/ggml-org/llama.cpp.</value>
+  </data>
+  <data name="TooltipDockerContainerName" xml:space="preserve">
+    <value>Необязательное имя для Docker-контейнера (--name)</value>
+  </data>
+  <data name="PlaceholderDockerContainerName" xml:space="preserve">
+    <value>Необязательное имя контейнера</value>
   </data>
 </root>
