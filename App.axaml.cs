@@ -133,7 +133,6 @@ public partial class App : Application
                 
                 // Build initial menu
                 BuildTrayMenu(closeCmd);
-                _trayIcon.Menu = _trayMenu;
                 
                 // Subscribe to culture changes to rebuild menu
                 LocalizedStrings.CultureChanged += OnCultureChanged;
@@ -230,7 +229,10 @@ public partial class App : Application
         _trayMenu.Add(new NativeMenuItem(LocalizedStrings.Instance.Close) { Command = new CommandAdapter(closeCmd) });
         
         if (_trayIcon != null)
+        {
+            _trayIcon.Menu = null;
             _trayIcon.Menu = _trayMenu;
+        }
     }
 
     private void OnCultureChanged()
