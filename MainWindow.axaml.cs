@@ -12,6 +12,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using LlamaServerLauncher.Models;
 using LlamaServerLauncher.Resources;
 using LlamaServerLauncher.Services;
@@ -30,6 +31,9 @@ public partial class MainWindow : Window
     private bool _isCustomLogDrag;
     private double _customLogDragStartY;
     private double _customLogDragStartHeight;
+    private bool _isAutoCompleting;
+    private bool _suppressAutoComplete;
+    private TextBox? _profileComboBoxTextBox;
 
     public static MainWindow? Instance { get; private set; }
     public IntPtr WindowHandle => _windowHandle;
@@ -44,6 +48,7 @@ public partial class MainWindow : Window
         Opened += (s, e) =>
         {
             this.GetValue(Window.WindowStateProperty);
+            InitializeProfileComboBoxAutoComplete();
         };
         
         // Use the fact that Window implements IPriorityValue
@@ -282,10 +287,169 @@ public partial class MainWindow : Window
         await _configService.SaveAppSettingsAsync(settings);
     }
 
+    private void InitializeProfileComboBoxAutoComplete()
+    {
+        var comboBox = this.FindControl<ComboBox>("ProfileComboBox");
+        if (comboBox == null) return;
+
+        comboBox.SelectionChanged += ProfileComboBox_SelectionChanged;
+        comboBox.DropDownOpened += ProfileComboBox_DropDownOpened;
+        comboBox.AddHandler(PointerWheelChangedEvent, ProfileComboBox_PointerWheelChanged, RoutingStrategies.Tunnel);
+
+        // Try to find TextBox; if not available yet, retry after template is applied
+        TrySubscribeTextBox(comboBox);
+    }
+
+    private void TrySubscribeTextBox(ComboBox comboBox)
+    {
+        comboBox.ApplyTemplate();
+        _profileComboBoxTextBox = comboBox.FindDescendantOfType<TextBox>();
+        if (_profileComboBoxTextBox != null)
+        {
+            _profileComboBoxTextBox.TextChanged += ProfileComboBox_TextChanged;
+            _profileComboBoxTextBox.AddHandler(KeyDownEvent, ProfileComboBoxInnerKeyDown, RoutingStrategies.Tunnel);
+        }
+    }
+
+    private void ProfileComboBox_DropDownOpened(object? sender, EventArgs e)
+    {
+        // If TextBox was not found earlier, try again when dropdown opens
+        if (_profileComboBoxTextBox == null)
+        {
+            var comboBox = sender as ComboBox;
+            if (comboBox != null)
+                TrySubscribeTextBox(comboBox);
+        }
+    }
+
+    private void ProfileComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_viewModel == null) return;
+
+        var comboBox = sender as ComboBox;
+        if (comboBox == null) return;
+
+        // When user selects from dropdown, sync ProfileNameInput with the selected item
+        if (comboBox.SelectedItem is string selectedProfile)
+        {
+            _isAutoCompleting = true;
+            try
+            {
+                if (_profileComboBoxTextBox != null)
+                {
+                    _profileComboBoxTextBox.Text = selectedProfile;
+                    _profileComboBoxTextBox.SelectionStart = selectedProfile.Length;
+                    _profileComboBoxTextBox.SelectionEnd = selectedProfile.Length;
+                }
+                _viewModel.ProfileNameInput = selectedProfile;
+            }
+            finally
+            {
+                _isAutoCompleting = false;
+            }
+        }
+    }
+
+    private void ProfileComboBox_TextChanged(object? sender, EventArgs e)
+    {
+        if (_isAutoCompleting || _viewModel == null || _profileComboBoxTextBox == null)
+            return;
+
+        var currentText = _profileComboBoxTextBox.Text ?? "";
+
+        if (string.IsNullOrEmpty(currentText) || _suppressAutoComplete)
+        {
+            _suppressAutoComplete = false;
+            return;
+        }
+
+        var profiles = _viewModel.Profiles;
+        var match = profiles.FirstOrDefault(p => p.StartsWith(currentText, StringComparison.OrdinalIgnoreCase));
+
+        if (match != null && !string.Equals(match, currentText, StringComparison.OrdinalIgnoreCase))
+        {
+            _isAutoCompleting = true;
+            try
+            {
+                var caretIndex = currentText.Length;
+                _profileComboBoxTextBox.Text = match;
+                _profileComboBoxTextBox.SelectionStart = caretIndex;
+                _profileComboBoxTextBox.SelectionEnd = match.Length;
+
+                var comboBox = this.FindControl<ComboBox>("ProfileComboBox");
+                if (comboBox != null)
+                {
+                    comboBox.IsDropDownOpen = true;
+                    comboBox.SelectedItem = match;
+                }
+            }
+            finally
+            {
+                _isAutoCompleting = false;
+            }
+        }
+    }
+
+    private void ProfileComboBoxInnerKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Back || e.Key == Key.Delete)
+        {
+            _suppressAutoComplete = true;
+        }
+    }
+
+    private void ProfileComboBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (_viewModel == null) return;
+
+        var comboBox = sender as ComboBox;
+        if (comboBox == null) return;
+
+        var profiles = _viewModel.Profiles;
+        if (profiles.Count == 0) return;
+
+        var currentIndex = -1;
+        var selected = comboBox.SelectedItem as string;
+        if (selected != null)
+            currentIndex = profiles.IndexOf(selected);
+
+        // Scroll up (delta.Y > 0) = previous, scroll down = next
+        int direction = e.Delta.Y > 0 ? -1 : 1;
+        var newIndex = currentIndex + direction;
+
+        if (newIndex < 0) newIndex = profiles.Count - 1;
+        if (newIndex >= profiles.Count) newIndex = 0;
+
+        var newProfile = profiles[newIndex];
+
+        _isAutoCompleting = true;
+        try
+        {
+            comboBox.SelectedItem = newProfile;
+
+            if (_profileComboBoxTextBox != null)
+            {
+                _profileComboBoxTextBox.Text = newProfile;
+                _profileComboBoxTextBox.SelectionStart = newProfile.Length;
+                _profileComboBoxTextBox.SelectionEnd = newProfile.Length;
+            }
+
+            _viewModel.ProfileNameInput = newProfile;
+        }
+        finally
+        {
+            _isAutoCompleting = false;
+        }
+
+        e.Handled = true;
+    }
+
     private void ProfileComboBox_KeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && _viewModel?.LoadProfileCommand.CanExecute(null) == true)
         {
+            if (sender is ComboBox cb)
+                cb.IsDropDownOpen = false;
             _viewModel.LoadProfileCommand.Execute(null);
             e.Handled = true;
         }
@@ -634,6 +798,7 @@ public partial class MainWindow : Window
 
     private void StartServerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        if (_viewModel?.CanStartServer != true) return;
         _viewModel?.DismissServerStartError();
         _viewModel?.StartServerCommand.Execute(null);
     }

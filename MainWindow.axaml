@@ -52,7 +52,15 @@
     </Window.Resources>
 
     <Grid>
-        <Grid x:Name="MainGrid" RowDefinitions="Auto,Auto,Auto,*,Auto,200">
+        <Grid x:Name="MainGrid">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="200" MinHeight="80"/>
+            </Grid.RowDefinitions>
             <Grid Grid.Row="0" ColumnDefinitions="Auto,*">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="5,5,10,5">
                     <Button Click="AboutClick" ToolTip.Tip="{Binding Localized.TooltipAbout}"
@@ -116,8 +124,8 @@
             <Border Grid.Row="2" Margin="5,5,5,0" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
-                        <SplitButton Content="{Binding Localized.StartServer}" Click="StartServerClick" 
-                                IsEnabled="{Binding CanStartServer}" Height="35" Margin="5" Padding="15,5">
+                        <SplitButton Content="{Binding Localized.StartServer}" Click="StartServerClick"
+                                Height="35" Margin="5" Padding="15,5">
                             <SplitButton.Flyout>
                                 <MenuFlyout Placement="Bottom">
                                     <MenuItem Header="{Binding Localized.RestartServer}" Click="RestartServerClick"
@@ -789,7 +797,6 @@
                           IsVisible="{Binding LogVisible}"/>
 
             <Border Grid.Row="5" Margin="5,0,5,5" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5"
-                    MinHeight="60"
                     IsVisible="{Binding LogVisible}"
                     BorderBrush="{Binding LogBorderBrush}"
                     BorderThickness="{Binding LogBorderThickness}">
@@ -800,7 +807,7 @@
                         <Button Content="{Binding Localized.CopyLog}" Click="CopyLogClick" VerticalAlignment="Center" Margin="5,0,0,0" ToolTip.Tip="{Binding Localized.TooltipCopyLog}"/>
                         <Button Content="{Binding Localized.SaveLog}" Click="SaveLogClick" VerticalAlignment="Center" Margin="5,0,0,0" ToolTip.Tip="{Binding Localized.TooltipSaveLog}"/>
                     </StackPanel>
-                    <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" MinHeight="35">
                         <TextBox x:Name="LogTextBox" Text="{Binding LogText}"
                                 IsReadOnly="True"
                                 FontFamily="Consolas"

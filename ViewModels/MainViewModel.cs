@@ -2192,6 +2192,7 @@ public class MainViewModel : INotifyPropertyChanged
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(WindowTitleWithProfile));
                 OnPropertyChanged(nameof(CanOpenInBrowser));
+                OnPropertyChanged(nameof(CanStartServer));
                 // Notify commands that depend on IsServerRunning
                 if (StopServerCommand is AsyncRelayCommand stopCmd)
                     stopCmd.RaiseCanExecuteChanged();
@@ -2201,6 +2202,8 @@ public class MainViewModel : INotifyPropertyChanged
                     unloadCmd.RaiseCanExecuteChanged();
                 if (OpenInBrowserCommand is AsyncRelayCommand openCmd)
                     openCmd.RaiseCanExecuteChanged();
+                if (StartServerCommand is AsyncRelayCommand startCmd)
+                    startCmd.RaiseCanExecuteChanged();
             }
         }
     }
