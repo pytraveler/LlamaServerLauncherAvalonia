@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -20,6 +22,8 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     private readonly List<string> _bodyCacheOrder;
     private CancellationTokenSource? _cts;
     private Timer? _debounceTimer;
+    private readonly List<ReleaseInfo> _releaseCache;
+    private DateTime _releaseCacheTimestamp;
 
     private const int MaxCachedDescriptions = 20;
 
@@ -130,15 +134,20 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     public bool ShowProgress => IsDownloading;
 
     public string? DownloadedReleaseTag { get; private set; }
+    public string? DownloadedExecutablePath { get; private set; }
+    public string? LastCustomDownloadPath { get; set; }
+    public bool DownloadSucceeded { get; private set; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event Action? RequestClose;
 
-    public DownloadDialogViewModel(LlamaCppDownloadService downloadService, Dictionary<string, string> bodyCache, List<string> bodyCacheOrder, string? preselectedTag = null)
+    public DownloadDialogViewModel(LlamaCppDownloadService downloadService, Dictionary<string, string> bodyCache, List<string> bodyCacheOrder, List<ReleaseInfo> releaseCache, DateTime releaseCacheTimestamp, string? preselectedTag = null)
     {
         _downloadService = downloadService;
         _bodyCache = bodyCache;
         _bodyCacheOrder = bodyCacheOrder;
+        _releaseCache = releaseCache;
+        _releaseCacheTimestamp = releaseCacheTimestamp;
         _ = LoadReleasesAsync(preselectedTag);
     }
 
@@ -148,9 +157,40 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         StatusMessage = LocalizedStrings.GetString("LoadingReleases");
         IsReleaseNotFound = false;
 
+        if (_releaseCache.Count > 0 && (DateTime.Now - _releaseCacheTimestamp) < TimeSpan.FromMinutes(30))
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                Releases.Clear();
+                foreach (var r in _releaseCache)
+                    Releases.Add(r);
+
+                if (!string.IsNullOrEmpty(preselectedTag))
+                {
+                    var match = Releases.FirstOrDefault(r => r.Tag == preselectedTag)
+                        ?? (Releases.Count > 0 ? Releases[0] : null);
+                    if (match != null)
+                        SelectedRelease = match;
+                }
+                else if (Releases.Count > 0)
+                {
+                    SelectedRelease = Releases[0];
+                }
+
+                IsLoading = false;
+                StatusMessage = "";
+            });
+            return;
+        }
+
         try
         {
             var releases = await _downloadService.GetLatestReleasesAsync(10);
+
+            _releaseCache.Clear();
+            foreach (var r in releases)
+                _releaseCache.Add(r);
+            _releaseCacheTimestamp = DateTime.Now;
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -318,9 +358,36 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     {
         if (SelectedAsset == null || IsDownloading) return;
 
+        await ExecuteDownloadAsync(_downloadService.InstallDirectory, promptForPath: true);
+    }
+
+    public async Task DownloadToFolderAsync()
+    {
+        if (SelectedAsset == null || IsDownloading) return;
+
+        var folder = await WindowsFileDialogs.OpenFolderDialogAsync(LocalizedStrings.GetString("SelectDownloadFolder"));
+        if (string.IsNullOrEmpty(folder)) return;
+
+        var tag = _selectedRelease?.Tag ?? "llama.cpp";
+        var targetDirectory = LlamaCppDownloadService.GetUniqueSubfolderPath(folder, tag);
+
+        await ExecuteDownloadAsync(targetDirectory, promptForPath: false);
+
+        if (DownloadSucceeded)
+        {
+            LastCustomDownloadPath = folder;
+            DownloadedExecutablePath = _downloadService.GetLlamaServerPath(targetDirectory);
+        }
+    }
+
+    private async Task ExecuteDownloadAsync(string targetDirectory, bool promptForPath)
+    {
+        if (SelectedAsset == null) return;
+
         IsDownloading = true;
         StatusMessage = LocalizedStrings.GetString("Downloading");
         _cts = new CancellationTokenSource();
+        DownloadSucceeded = false;
 
         var progress = new Progress<double>(p =>
         {
@@ -340,10 +407,10 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
             var asset = SelectedAsset;
             var allAssets = _selectedRelease?.Assets;
 
-            await _downloadService.DownloadAndExtractAsync(asset, progress, _cts.Token,
+            await _downloadService.DownloadAndExtractAsync(asset, targetDirectory, progress, _cts.Token,
                 _downloadService.FindMatchingCudaDllAsset(asset, allAssets));
 
-            if (!_downloadService.IsInPath(_downloadService.InstallDirectory))
+            if (promptForPath && !_downloadService.IsInPath(targetDirectory))
             {
                 var pathPrompt = LocalizedStrings.GetString("AddToPathPrompt");
                 var result = await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -359,11 +426,12 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
                 if (result == MessageBoxResult.Yes)
                 {
-                    await _downloadService.AddToPathIfNeededAsync(_downloadService.InstallDirectory);
+                    await _downloadService.AddToPathIfNeededAsync(targetDirectory);
                 }
             }
 
             DownloadedReleaseTag = _selectedRelease?.Tag;
+            DownloadSucceeded = true;
 
             Dispatcher.UIThread.Post(() =>
             {

@@ -41,6 +41,7 @@ public class LocalizedStrings : INotifyPropertyChanged
     public string WindowTitle => GetString("WindowTitle");
     public string ServerControl => GetString("ServerControl");
     public string StartServer => GetString("StartServer");
+    public string TrayNoServersRunning => GetString("TrayNoServersRunning");
     public string StopServer => GetString("StopServer");
     public string RestartServer => GetString("RestartServer");
     public string UnloadModel => GetString("UnloadModel");
@@ -48,6 +49,7 @@ public class LocalizedStrings : INotifyPropertyChanged
     public string Close => GetString("Close");
     public string AutoRestartOnCrash => GetString("AutoRestartOnCrash");
     public string StatusStopped => GetString("StatusStopped");
+    public string WindowTitleRunning => GetString("WindowTitleRunning");
     public string TabProfiles => GetString("TabProfiles");
     public string TabMain => GetString("TabMain");
     public string TabGeneration => GetString("TabGeneration");
@@ -100,6 +102,7 @@ public class LocalizedStrings : INotifyPropertyChanged
     public string LogFile => GetString("LogFile");
     public string VerboseLogging => GetString("VerboseLogging");
     public string CustomArguments => GetString("CustomArguments");
+    public string CustomArgumentToggleHint => GetString("CustomArgumentToggleHint");
     public string ServerLog => GetString("ServerLog");
     public string ClearLog => GetString("ClearLog");
     public string CopyLog => GetString("CopyLog");
@@ -205,6 +208,8 @@ public string English => GetString("English");
     public string UpdateLlama => GetString("UpdateLlama");
     public string ExecutablePathPlaceholder => GetString("ExecutablePathPlaceholder");
     public string DownloadDialogTitle => GetString("DownloadDialogTitle");
+    public string DownloadToFolder => GetString("DownloadToFolder");
+    public string SelectDownloadFolder => GetString("SelectDownloadFolder");
     public string SelectRelease => GetString("SelectRelease");
     public string SelectBuild => GetString("SelectBuild");
     public string DownloadButton => GetString("DownloadButton");
@@ -373,4 +378,25 @@ public string English => GetString("English");
     public string TooltipDockerUseAllGpus => GetString("TooltipDockerUseAllGpus");
     public string TooltipDockerImage => GetString("TooltipDockerImage");
     public string TooltipDockerContainerName => GetString("TooltipDockerContainerName");
+
+    public string ModelLoadModeStatusRouting => GetString("ModelLoadModeStatusRouting");
+    public string ModelLoadModeStatusSingleModel => GetString("ModelLoadModeStatusSingleModel");
+    public string ModelLoadModeStatusHfRepo => GetString("ModelLoadModeStatusHfRepo");
+    public string ModelLoadModeConflictToast => GetString("ModelLoadModeConflictToast");
+    public string ModelLoadModeConflictHfToast => GetString("ModelLoadModeConflictHfToast");
+
+    public string UpdateCheckIntervals => GetString("UpdateCheckIntervals");
+    public string AppUpdateCheckInterval => GetString("AppUpdateCheckInterval");
+    public string LlamaUpdateCheckInterval => GetString("LlamaUpdateCheckInterval");
+    public string TooltipAppUpdateCheckInterval => GetString("TooltipAppUpdateCheckInterval");
+    public string TooltipLlamaUpdateCheckInterval => GetString("TooltipLlamaUpdateCheckInterval");
+    public string UpdateIntervalWarning => GetString("UpdateIntervalWarning");
+
+    public string ConfirmStopInstance => GetString("ConfirmStopInstance");
+    public string PortCollisionToast => GetString("PortCollisionToast");
+    public string ConfirmStopServer => GetString("ConfirmStopServer");
+    public string TooltipConfirmStopServer => GetString("TooltipConfirmStopServer");
+    public string Behavior => GetString("Behavior");
+    public string TooltipInstanceSplitButton => GetString("TooltipInstanceSplitButton");
+    public string ServerStartFailedToast => GetString("ServerStartFailedToast");
 }

@@ -59,6 +59,9 @@
   <data name="StartServer" xml:space="preserve">
     <value>Запустить сервер</value>
   </data>
+  <data name="TrayNoServersRunning" xml:space="preserve">
+    <value>Нет запущенных серверов...</value>
+  </data>
   <data name="StopServer" xml:space="preserve">
     <value>Остановить сервер</value>
   </data>
@@ -76,6 +79,9 @@
   </data>
   <data name="StatusRunning" xml:space="preserve">
     <value>Запущен (PID: {0})</value>
+  </data>
+  <data name="WindowTitleRunning" xml:space="preserve">
+    <value>ЗАПУЩЕН</value>
   </data>
   <data name="TabProfiles" xml:space="preserve">
     <value>Профили</value>
@@ -232,6 +238,9 @@
   </data>
   <data name="CustomArguments" xml:space="preserve">
     <value>Пользовательские аргументы</value>
+  </data>
+  <data name="CustomArgumentToggleHint" xml:space="preserve">
+    <value>* ЛКМ — вкл./откл., ПКМ — удалить</value>
   </data>
   <data name="ServerLog" xml:space="preserve">
     <value>Лог сервера</value>
@@ -484,6 +493,12 @@
   </data>
   <data name="DownloadDialogTitle" xml:space="preserve">
     <value>Загрузка llama.cpp</value>
+  </data>
+  <data name="DownloadToFolder" xml:space="preserve">
+    <value>Загрузить в папку</value>
+  </data>
+  <data name="SelectDownloadFolder" xml:space="preserve">
+    <value>Выберите папку для загрузки</value>
   </data>
   <data name="SelectRelease" xml:space="preserve">
     <value>Выберите релиз:</value>
@@ -803,6 +818,9 @@
   <data name="InstalledVersionTooltip" xml:space="preserve">
     <value>Установленная версия: {0}</value>
   </data>
+  <data name="CurrentVersionTooltip" xml:space="preserve">
+    <value>Текущая версия: {0}</value>
+  </data>
   <data name="ThanksMethelina" xml:space="preserve">
     <value>Спасибо за вклад в проект и моральную поддержку:</value>
   </data>
@@ -988,5 +1006,59 @@
   </data>
   <data name="PlaceholderDockerContainerName" xml:space="preserve">
     <value>Необязательное имя контейнера</value>
+  </data>
+  <data name="ModelLoadModeStatusRouting" xml:space="preserve">
+    <value>Сервер запустится в режиме роутинга моделей</value>
+  </data>
+  <data name="ModelLoadModeStatusSingleModel" xml:space="preserve">
+    <value>Будет загружена модель '{0}'</value>
+  </data>
+  <data name="ModelLoadModeStatusHfRepo" xml:space="preserve">
+    <value>Модель будет загружена с Hugging Face</value>
+  </data>
+  <data name="ModelLoadModeConflictToast" xml:space="preserve">
+    <value>Указана модель '{0}', поэтому режим роутинга (--models-dir) будет проигнорирован. Очистите 'Модель (-m)' для роутинга.</value>
+  </data>
+  <data name="ModelLoadModeConflictHfToast" xml:space="preserve">
+    <value>Указана модель '{0}' вместе с аргументами Hugging Face. Оба аргумента (-m и --hf-repo) будут переданы llama-server.</value>
+  </data>
+  <data name="UpdateCheckIntervals" xml:space="preserve">
+    <value>Интервалы проверки обновлений</value>
+  </data>
+  <data name="AppUpdateCheckInterval" xml:space="preserve">
+    <value>Программа (мин):</value>
+  </data>
+  <data name="LlamaUpdateCheckInterval" xml:space="preserve">
+    <value>llama.cpp (мин):</value>
+  </data>
+  <data name="TooltipAppUpdateCheckInterval" xml:space="preserve">
+    <value>Как часто проверять обновления программы на GitHub (в минутах)</value>
+  </data>
+  <data name="TooltipLlamaUpdateCheckInterval" xml:space="preserve">
+    <value>Как часто проверять обновления llama.cpp на GitHub (в минутах)</value>
+  </data>
+  <data name="UpdateIntervalWarning" xml:space="preserve">
+    <value>Внимание: значения ниже 10 минут могут исчерпать лимиты подключения к GitHub API с вашего IP-адреса.</value>
+  </data>
+  <data name="ConfirmStopInstance" xml:space="preserve">
+    <value>Остановить сервер '{0}'?</value>
+  </data>
+  <data name="PortCollisionToast" xml:space="preserve">
+    <value>Порт {0}:{1} уже используется профилем '{2}'. Измените порт, чтобы запустить этот профиль.</value>
+  </data>
+  <data name="ConfirmStopServer" xml:space="preserve">
+    <value>Подтверждать остановку сервера</value>
+  </data>
+  <data name="TooltipConfirmStopServer" xml:space="preserve">
+    <value>Запрашивать подтверждение перед остановкой запущенного экземпляра сервера.</value>
+  </data>
+  <data name="Behavior" xml:space="preserve">
+    <value>Поведение</value>
+  </data>
+  <data name="TooltipInstanceSplitButton" xml:space="preserve">
+    <value>ЛКМ — загрузить запущенный профиль, ПКМ — остановить сервер</value>
+  </data>
+  <data name="ServerStartFailedToast" xml:space="preserve">
+    <value>Сервер '{0}' не удалось запустить. Подробности в логе.</value>
   </data>
 </root>

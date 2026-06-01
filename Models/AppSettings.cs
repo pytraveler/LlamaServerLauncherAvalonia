@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace LlamaServerLauncher.Models;
@@ -66,6 +67,7 @@ public class AppSettings
     public bool Offline { get; set; }
     public string HfRepoDraft { get; set; } = "";
     public bool AutoRestart { get; set; }
+    public bool ConfirmStopServer { get; set; } = true;
     public bool AutoScrollLog { get; set; } = true;
     public bool LogEnabled { get; set; } = true;
     public bool LogVisible { get; set; } = true;
@@ -79,6 +81,7 @@ public class AppSettings
     public bool TabPanelVisible { get; set; } = true;
     public double LogHeight { get; set; } = 200;
     public string LlamaCppInstalledTag { get; set; } = "";
+    public string LlamaCppCustomDownloadPath { get; set; } = "";
     public int SelectedTabIndex { get; set; }
     public Dictionary<string, List<string>> RecentValuesHistory { get; set; } = new();
     public Dictionary<string, string> ReleaseBodyCache { get; set; } = new();
@@ -91,4 +94,11 @@ public class AppSettings
     public bool DockerGpuAll { get; set; }
     public bool DockerRm { get; set; } = true;
     public string DockerContainerName { get; set; } = "";
+
+    public DateTime LastAppUpdateCheck { get; set; }
+    public DateTime LastLlamaUpdateCheck { get; set; }
+    public int AppUpdateCheckIntervalMinutes { get; set; } = 15;
+    public int LlamaUpdateCheckIntervalMinutes { get; set; } = 15;
+    public string CachedLlamaReleasesJson { get; set; } = "";
+    public DateTime CachedLlamaReleasesTimestamp { get; set; }
 }

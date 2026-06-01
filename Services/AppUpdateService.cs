@@ -25,10 +25,9 @@ public class AppUpdateService
     {
         Timeout = TimeSpan.FromMinutes(10)
     };
-
     private const string RepoApiUrl = "https://api.github.com/repos/pytraveler/LlamaServerLauncherAvalonia/releases";
 
-    public AppUpdateService()
+    static AppUpdateService()
     {
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("LlamaServerLauncher/1.0");
     }
@@ -41,48 +40,56 @@ public class AppUpdateService
             if (localHash == null) return null;
 
             var url = $"{RepoApiUrl}?per_page=1";
-            using var resp = await _http.GetAsync(url);
-            resp.EnsureSuccessStatusCode();
-
-            var json = await resp.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.GetArrayLength() == 0) return null;
-
-            var latestRelease = doc.RootElement[0];
-            var tag = latestRelease.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() ?? "" : "";
-            var body = latestRelease.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "" : "";
-            var publishedAt = DateTime.MinValue;
-            if (latestRelease.TryGetProperty("published_at", out var pubEl))
+            await LlamaCppDownloadService.SharedHttpLock.WaitAsync();
+            try
             {
-                var pubStr = pubEl.GetString();
-                if (pubStr != null && DateTime.TryParse(pubStr, out var dt))
-                    publishedAt = dt;
-            }
+                using var resp = await _http.GetAsync(url);
+                resp.EnsureSuccessStatusCode();
 
-            if (!latestRelease.TryGetProperty("assets", out var assetsEl)) return null;
+                var json = await resp.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.GetArrayLength() == 0) return null;
 
-            var targetAsset = FindAssetForCurrentOS(assetsEl);
-            if (targetAsset == null) return null;
-
-            var remoteHash = ExtractDigest(targetAsset.Value);
-            if (remoteHash == null) return null;
-
-            if (string.Equals(localHash, remoteHash, StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            var assetEl = targetAsset.Value;
-            return new AppUpdateInfo
-            {
-                Tag = tag,
-                PublishedAt = publishedAt,
-                Body = body,
-                Asset = new ReleaseAsset
+                var latestRelease = doc.RootElement[0];
+                var tag = latestRelease.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() ?? "" : "";
+                var body = latestRelease.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "" : "";
+                var publishedAt = DateTime.MinValue;
+                if (latestRelease.TryGetProperty("published_at", out var pubEl))
                 {
-                    Name = assetEl.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
-                    Size = assetEl.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0,
-                    DownloadUrl = assetEl.TryGetProperty("browser_download_url", out var dl) ? dl.GetString() ?? "" : ""
+                    var pubStr = pubEl.GetString();
+                    if (pubStr != null && DateTime.TryParse(pubStr, out var dt))
+                        publishedAt = dt;
                 }
-            };
+
+                if (!latestRelease.TryGetProperty("assets", out var assetsEl)) return null;
+
+                var targetAsset = FindAssetForCurrentOS(assetsEl);
+                if (targetAsset == null) return null;
+
+                var remoteHash = ExtractDigest(targetAsset.Value);
+                if (remoteHash == null) return null;
+
+                if (string.Equals(localHash, remoteHash, StringComparison.OrdinalIgnoreCase))
+                    return null;
+
+                var assetEl = targetAsset.Value;
+                return new AppUpdateInfo
+                {
+                    Tag = tag,
+                    PublishedAt = publishedAt,
+                    Body = body,
+                    Asset = new ReleaseAsset
+                    {
+                        Name = assetEl.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                        Size = assetEl.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0,
+                        DownloadUrl = assetEl.TryGetProperty("browser_download_url", out var dl) ? dl.GetString() ?? "" : ""
+                    }
+                };
+            }
+            finally
+            {
+                LlamaCppDownloadService.SharedHttpLock.Release();
+            }
         }
         catch
         {
@@ -96,23 +103,31 @@ public class AppUpdateService
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             tempFile += ".exe";
 
-        using var response = await _http.GetAsync(asset.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-        var totalBytes = response.Content.Headers.ContentLength ?? asset.Size;
-        var buffer = new byte[81920];
-        long bytesRead = 0;
-
-        using (var contentStream = await response.Content.ReadAsStreamAsync(ct))
-        using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length, true))
+        await LlamaCppDownloadService.SharedHttpLock.WaitAsync(ct);
+        try
         {
-            int read;
-            while ((read = await contentStream.ReadAsync(buffer, ct)) > 0)
+            using var response = await _http.GetAsync(asset.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+            var totalBytes = response.Content.Headers.ContentLength ?? asset.Size;
+            var buffer = new byte[81920];
+            long bytesRead = 0;
+
+            using (var contentStream = await response.Content.ReadAsStreamAsync(ct))
+            using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length, true))
             {
-                await fileStream.WriteAsync(buffer, 0, read, ct);
-                bytesRead += read;
-                if (totalBytes > 0)
-                    progress?.Report((double)bytesRead / totalBytes);
+                int read;
+                while ((read = await contentStream.ReadAsync(buffer, ct)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer, 0, read, ct);
+                    bytesRead += read;
+                    if (totalBytes > 0)
+                        progress?.Report((double)bytesRead / totalBytes);
+                }
             }
+        }
+        finally
+        {
+            LlamaCppDownloadService.SharedHttpLock.Release();
         }
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.OSX))

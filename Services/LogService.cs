@@ -23,6 +23,9 @@ public class LogService : IDisposable
     private int _maxLogFiles = 5;
     private long _maxLogSizeBytes = 10 * 1024 * 1024;
 
+    public int LauncherPid { get; } = Environment.ProcessId;
+    public string ProcessName { get; } = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+
     public event EventHandler<string>? LogReceived;
 
     public string LogFilePath => _logFilePath;
@@ -43,7 +46,7 @@ public class LogService : IDisposable
 
     private StreamWriter CreateWriter()
     {
-        var fileStream = new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.Read);
+        var fileStream = new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
         return new StreamWriter(fileStream, Encoding.UTF8);
     }
 
@@ -107,7 +110,7 @@ public class LogService : IDisposable
     public void Log(LogLevel level, string message)
     {
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-        var logEntry = $"[{timestamp}] [{level}] {message}";
+        var logEntry = $"[{timestamp}] [{level}] [{ProcessName}:{LauncherPid}] {message}";
 
         WriteLine(logEntry);
 
@@ -128,7 +131,7 @@ public class LogService : IDisposable
     public void AppLog(string message)
     {
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-        var logEntry = $"[APP] {timestamp} {message}";
+        var logEntry = $"[APP] [{ProcessName}:{LauncherPid}] {timestamp} {message}";
 
         WriteLine(logEntry);
 
@@ -144,6 +147,14 @@ public class LogService : IDisposable
     public void LogRaw(string line)
     {
         WriteLine(line);
+
+        try
+        {
+            LogReceived?.Invoke(this, line);
+        }
+        catch (TaskCanceledException)
+        {
+        }
     }
 
     public void Flush()

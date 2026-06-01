@@ -59,6 +59,9 @@
   <data name="StartServer" xml:space="preserve">
     <value>Start Server</value>
   </data>
+  <data name="TrayNoServersRunning" xml:space="preserve">
+    <value>No servers running...</value>
+  </data>
   <data name="StopServer" xml:space="preserve">
     <value>Stop Server</value>
   </data>
@@ -76,6 +79,9 @@
   </data>
   <data name="StatusRunning" xml:space="preserve">
     <value>Running (PID: {0})</value>
+  </data>
+  <data name="WindowTitleRunning" xml:space="preserve">
+    <value>RUNNING</value>
   </data>
   <data name="TabProfiles" xml:space="preserve">
     <value>Profiles</value>
@@ -232,6 +238,9 @@
   </data>
   <data name="CustomArguments" xml:space="preserve">
     <value>Custom Arguments</value>
+  </data>
+  <data name="CustomArgumentToggleHint" xml:space="preserve">
+    <value>* Left-click to toggle, Right-click to remove</value>
   </data>
   <data name="ServerLog" xml:space="preserve">
     <value>Server Log</value>
@@ -484,6 +493,12 @@
   </data>
   <data name="DownloadDialogTitle" xml:space="preserve">
     <value>Download llama.cpp</value>
+  </data>
+  <data name="DownloadToFolder" xml:space="preserve">
+    <value>Download to folder</value>
+  </data>
+  <data name="SelectDownloadFolder" xml:space="preserve">
+    <value>Select download folder</value>
   </data>
   <data name="SelectRelease" xml:space="preserve">
     <value>Select release:</value>
@@ -803,6 +818,9 @@
   <data name="InstalledVersionTooltip" xml:space="preserve">
     <value>Installed version: {0}</value>
   </data>
+  <data name="CurrentVersionTooltip" xml:space="preserve">
+    <value>Current version: {0}</value>
+  </data>
   <data name="ThanksMethelina" xml:space="preserve">
     <value>Thanks for contributions and moral support:</value>
   </data>
@@ -988,5 +1006,59 @@
   </data>
   <data name="PlaceholderDockerContainerName" xml:space="preserve">
     <value>Optional container name</value>
+  </data>
+  <data name="ModelLoadModeStatusRouting" xml:space="preserve">
+    <value>Server will start in model routing mode</value>
+  </data>
+  <data name="ModelLoadModeStatusSingleModel" xml:space="preserve">
+    <value>Model '{0}' will be loaded</value>
+  </data>
+  <data name="ModelLoadModeStatusHfRepo" xml:space="preserve">
+    <value>Model will be loaded from Hugging Face</value>
+  </data>
+  <data name="ModelLoadModeConflictToast" xml:space="preserve">
+    <value>Model '{0}' is set, so routing mode (--models-dir) will be ignored. Clear 'Model (-m)' to use routing.</value>
+  </data>
+  <data name="ModelLoadModeConflictHfToast" xml:space="preserve">
+    <value>Model '{0}' is set together with Hugging Face args. Both -m and --hf-repo will be passed to llama-server.</value>
+  </data>
+  <data name="UpdateCheckIntervals" xml:space="preserve">
+    <value>Update Check Intervals</value>
+  </data>
+  <data name="AppUpdateCheckInterval" xml:space="preserve">
+    <value>App (min):</value>
+  </data>
+  <data name="LlamaUpdateCheckInterval" xml:space="preserve">
+    <value>llama.cpp (min):</value>
+  </data>
+  <data name="TooltipAppUpdateCheckInterval" xml:space="preserve">
+    <value>How often to check for application updates on GitHub (in minutes)</value>
+  </data>
+  <data name="TooltipLlamaUpdateCheckInterval" xml:space="preserve">
+    <value>How often to check for llama.cpp updates on GitHub (in minutes)</value>
+  </data>
+  <data name="UpdateIntervalWarning" xml:space="preserve">
+    <value>Warning: values below 10 minutes may exhaust GitHub API rate limits from your IP address.</value>
+  </data>
+  <data name="ConfirmStopInstance" xml:space="preserve">
+    <value>Stop server '{0}'?</value>
+  </data>
+  <data name="PortCollisionToast" xml:space="preserve">
+    <value>Port {0}:{1} is already used by profile '{2}'. Change the port to start this profile.</value>
+  </data>
+  <data name="ConfirmStopServer" xml:space="preserve">
+    <value>Confirm server stop</value>
+  </data>
+  <data name="TooltipConfirmStopServer" xml:space="preserve">
+    <value>Ask for confirmation before stopping a running server instance.</value>
+  </data>
+  <data name="Behavior" xml:space="preserve">
+    <value>Behavior</value>
+  </data>
+  <data name="TooltipInstanceSplitButton" xml:space="preserve">
+    <value>LMB — load running profile, RMB — stop server</value>
+  </data>
+  <data name="ServerStartFailedToast" xml:space="preserve">
+    <value>Server '{0}' failed to start. Check the log for details.</value>
   </data>
 </root>

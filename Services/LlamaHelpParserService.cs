@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using LlamaServerLauncher.Models;
@@ -177,11 +178,18 @@ public static class LlamaHelpParserService
         var lines = helpText.Split('\n');
         HelpArgumentInfo? current = null;
         var descriptionLines = new List<string>();
+        string currentCategory = "other";
 
         for (int i = 0; i < lines.Length; i++)
         {
             var line = lines[i];
             var trimmed = line.TrimStart();
+
+            if (trimmed.StartsWith("-----") && trimmed.Contains("params"))
+            {
+                currentCategory = ParseCategoryFromSection(trimmed);
+                continue;
+            }
 
             if (trimmed.StartsWith("-"))
             {
@@ -231,7 +239,8 @@ public static class LlamaHelpParserService
                 current = new HelpArgumentInfo
                 {
                     PrimaryFlag = primaryFlag,
-                    AllFlags = allFlags
+                    AllFlags = allFlags,
+                    Category = currentCategory
                 };
                 descriptionLines.Clear();
                 if (!string.IsNullOrWhiteSpace(descPart))
@@ -261,7 +270,52 @@ public static class LlamaHelpParserService
             result.Add(current);
         }
 
+        EnrichFromRegistry(result);
+
         return result;
+    }
+
+    private static string ParseCategoryFromSection(string sectionLine)
+    {
+        var lower = sectionLine.ToLowerInvariant();
+        if (lower.Contains("common")) return "common";
+        if (lower.Contains("sampling")) return "sampling";
+        if (lower.Contains("speculative")) return "speculative";
+        if (lower.Contains("example-specific") || lower.Contains("server-specific")) return "server";
+        return "other";
+    }
+
+    private static void EnrichFromRegistry(List<HelpArgumentInfo> arguments)
+    {
+        foreach (var arg in arguments)
+        {
+            var def = LlamaArgumentRegistry.GetDefinition(arg.PrimaryFlag);
+            if (def == null)
+            {
+                foreach (var flag in arg.AllFlags)
+                {
+                    def = LlamaArgumentRegistry.GetDefinition(flag);
+                    if (def != null) break;
+                }
+            }
+
+            if (def == null) continue;
+
+            arg.Description = LlamaArgumentRegistry.GetLocalizedDescription(def);
+            arg.DefaultValue = def.DefaultValue ?? arg.DefaultValue;
+            arg.AllowedValues = def.AllowedValues;
+            arg.Category = def.Category;
+
+            var registryFlags = def.Aliases;
+            if (registryFlags.Count > arg.AllFlags.Count)
+            {
+                foreach (var f in registryFlags)
+                {
+                    if (!arg.AllFlags.Contains(f, StringComparer.OrdinalIgnoreCase))
+                        arg.AllFlags.Add(f);
+                }
+            }
+        }
     }
 
     private static int FindFlagsDescriptionBoundary(string line)

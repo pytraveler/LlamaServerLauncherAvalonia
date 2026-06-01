@@ -43,6 +43,12 @@ public partial class DownloadDialogWindow : Window
             await _viewModel.DownloadAsync();
     }
 
+    private async void DownloadToFolderClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.DownloadToFolderAsync();
+    }
+
     private void CancelClick(object? sender, RoutedEventArgs e)
     {
         _viewModel?.Close();

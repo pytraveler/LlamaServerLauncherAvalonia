@@ -832,6 +832,109 @@ public partial class MainWindow : Window
         _viewModel?.DismissServerStartError();
     }
 
+    private async void InstanceButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is SplitButton btn && btn.DataContext is ServerInstance instance)
+        {
+            await _viewModel!.SelectInstanceAsync(instance);
+        }
+    }
+
+    public static async Task ConfirmAndStopInstanceAsync(Window parent, ServerInstance instance, MainViewModel? viewModel)
+    {
+        if (viewModel?.ConfirmStopServer == true)
+        {
+            var msg = string.Format(LocalizedStrings.GetString("ConfirmStopInstance"), instance.ProfileName);
+            var result = await MessageBox.ShowAsync(parent,
+                msg,
+                LocalizedStrings.Instance.ConfirmTitle,
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question);
+            if (result != MessageBoxResult.Yes)
+                return;
+        }
+        await instance.StopAsync();
+    }
+
+    private ServerInstance? GetInstanceFromMenuItem(object? sender)
+    {
+        if (sender is MenuItem mi && mi.DataContext is ServerInstance inst)
+            return inst;
+        return null;
+    }
+
+    private async void InstanceStopClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (GetInstanceFromMenuItem(sender) is ServerInstance instance)
+            await ConfirmAndStopInstanceAsync(this, instance, _viewModel);
+    }
+
+    private async void InstanceButtonPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(sender as Avalonia.Visual).Properties.IsRightButtonPressed
+            && sender is Avalonia.Input.InputElement control
+            && control.DataContext is ServerInstance instance)
+        {
+            await ConfirmAndStopInstanceAsync(this, instance, _viewModel);
+            e.Handled = true;
+        }
+    }
+
+    private async void InstanceRestartClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (GetInstanceFromMenuItem(sender) is ServerInstance instance)
+            await instance.RestartAsync();
+    }
+
+    private void InstanceAutoRestartClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && GetInstanceFromMenuItem(sender) is ServerInstance instance)
+        {
+            var newVal = !instance.AutoRestart;
+            instance.AutoRestart = newVal;
+            mi.IsChecked = newVal;
+        }
+    }
+
+    private void InstanceLogEnabledClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && GetInstanceFromMenuItem(sender) is ServerInstance instance)
+        {
+            var newVal = !instance.LogEnabled;
+            instance.LogEnabled = newVal;
+            mi.IsChecked = newVal;
+        }
+    }
+
+    private async void InstanceUnloadClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (GetInstanceFromMenuItem(sender) is ServerInstance instance)
+            await instance.UnloadModelAsync();
+    }
+
+    private async void InstanceOpenInBrowserClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (GetInstanceFromMenuItem(sender) is ServerInstance instance)
+            await instance.OpenInBrowserAsync();
+    }
+
+    private void DismissToastClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Avalonia.Controls.Button btn && btn.DataContext is ToastItem toast)
+        {
+            _viewModel?.Toasts.Dismiss(toast);
+        }
+    }
+
+    private void ToastBorderTapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        if (sender is Avalonia.Controls.Border border && border.DataContext is ToastItem toast)
+        {
+            _viewModel?.Toasts.Dismiss(toast);
+            e.Handled = true;
+        }
+    }
+
     private void BrowseExecutableClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.BrowseExecutableCommand.Execute(null);
@@ -902,24 +1005,31 @@ public partial class MainWindow : Window
             _viewModel.DownloadService,
             _viewModel.ReleaseBodyCache,
             _viewModel.ReleaseBodyCacheOrder,
+            _viewModel.CachedLlamaReleases,
+            _viewModel.CachedLlamaReleasesTimestamp,
             null);
         dialog.SetViewModel(vm);
         await dialog.ShowDialog(this);
 
-        if (!dialog.DownloadCompleted)
+        if (!vm.DownloadSucceeded)
             return;
 
-        var defaultPath = _viewModel.DownloadService.GetDefaultLlamaServerPath();
-        if (defaultPath != null)
-        {
-            var downloadedTag = vm.DownloadedReleaseTag;
-            if (!string.IsNullOrEmpty(downloadedTag))
-                _viewModel.UpdateInstalledTag(downloadedTag);
+        var downloadedTag = vm.DownloadedReleaseTag;
+        if (!string.IsNullOrEmpty(downloadedTag))
+            _viewModel.UpdateInstalledTag(downloadedTag);
 
-            if (string.IsNullOrEmpty(_viewModel.ExecutablePath))
-            {
-                _viewModel.ExecutablePath = defaultPath;
-            }
+        if (!string.IsNullOrEmpty(vm.DownloadedExecutablePath))
+        {
+            _viewModel.ExecutablePath = vm.DownloadedExecutablePath;
+            if (!string.IsNullOrEmpty(vm.LastCustomDownloadPath))
+                _viewModel.LlamaCppCustomDownloadPath = vm.LastCustomDownloadPath;
+            return;
+        }
+
+        var defaultPath = _viewModel.DownloadService.GetDefaultLlamaServerPath();
+        if (defaultPath != null && string.IsNullOrEmpty(_viewModel.ExecutablePath))
+        {
+            _viewModel.ExecutablePath = defaultPath;
         }
     }
 

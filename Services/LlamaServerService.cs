@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using LlamaServerLauncher.Models;
@@ -19,6 +20,10 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     private bool _isStoppingIntentionally;
     private bool _isBusy;
     private string? _dockerContainerName;
+    private DateTime? _processStartTime;
+    private bool _serverStateChangedRaised;
+
+    public string LogPrefix { get; set; } = "";
 
     public bool IsRunning
     {
@@ -71,7 +76,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         _logService = logService;
     }
 
-    private static string? ResolveExecutablePath(string executableName)
+    public static string? ResolveExecutablePath(string executableName)
     {
         if (string.IsNullOrWhiteSpace(executableName))
             return null;
@@ -197,6 +202,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         _isBusy = true;
         _currentConfig = config;
         _isStoppingIntentionally = false;
+        _serverStateChangedRaised = false;
         IsSingleModelMode = !string.IsNullOrEmpty(config.ModelPath) || !string.IsNullOrEmpty(config.HfRepo) || !string.IsNullOrEmpty(config.HfFile);
 
         var startInfo = new ProcessStartInfo
@@ -222,10 +228,11 @@ public class LlamaServerService : ILlamaServerService, IDisposable
             _process.Exited += OnProcessExited;
 
             _process.Start();
+            _processStartTime = DateTime.Now;
             _process.BeginOutputReadLine();
             _process.BeginErrorReadLine();
 
-            _logService.Info($"Server started with PID: {_process.Id}");
+            _logService.Info($"Server started with PID: {_process.Id}, executable: {resolvedExecutable}");
             ServerStateChanged?.Invoke(this, true);
         }
         catch (Exception ex)
@@ -274,6 +281,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         _dockerService = dockerService;
         _currentConfig = config;
         _isStoppingIntentionally = false;
+        _serverStateChangedRaised = false;
         IsSingleModelMode = !string.IsNullOrEmpty(config.ModelPath) || !string.IsNullOrEmpty(config.HfRepo) || !string.IsNullOrEmpty(config.HfFile);
 
         try
@@ -350,7 +358,20 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     {
         if (!IsRunning)
         {
-            _logService.Warning("Server is not running");
+            // На macOS wrapper-скрипт мог выйти, но реальный сервер продолжает работать
+            if (OperatingSystem.IsMacOS() && string.IsNullOrEmpty(_dockerContainerName) && _currentConfig != null && await IsPortListeningAsync())
+            {
+                _logService.Warning("Process object shows not running, but port is still listening. Possible wrapper script. Killing by port...");
+                await KillProcessByPortAsync(_currentConfig.Port);
+                _processStartTime = null;
+                _dockerContainerName = null;
+                if (!_serverStateChangedRaised)
+                {
+                    _serverStateChangedRaised = true;
+                    ServerStateChanged?.Invoke(this, false);
+                }
+                return;
+            }
             return;
         }
 
@@ -389,7 +410,11 @@ public class LlamaServerService : ILlamaServerService, IDisposable
             }
 
             _logService.Info("Server stopped");
-            ServerStateChanged?.Invoke(this, false);
+            if (!_serverStateChangedRaised)
+            {
+                _serverStateChangedRaised = true;
+                ServerStateChanged?.Invoke(this, false);
+            }
         }
         catch (Exception ex)
         {
@@ -403,6 +428,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
                 _process = null;
             }
             _dockerContainerName = null;
+            _processStartTime = null;
         }
     }
 
@@ -532,7 +558,6 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     {
         if (!string.IsNullOrEmpty(e.Data))
         {
-            _logService.LogRaw(e.Data);
             OutputReceived?.Invoke(this, e.Data);
         }
     }
@@ -541,16 +566,123 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     {
         if (!string.IsNullOrEmpty(e.Data))
         {
-            _logService.LogRaw(e.Data);
             OutputReceived?.Invoke(this, e.Data);
         }
     }
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
-        _logService.Info("Server process exited");
-        _dockerContainerName = null;
-        ServerStateChanged?.Invoke(this, false);
+        if (_process == null) return;
+
+        int? exitCode = null;
+        try { exitCode = _process.ExitCode; } catch { }
+        _logService.Info($"Server process exited. PID={_process.Id}, ExitCode={exitCode}, HasExited={_process.HasExited}");
+
+        var lifetime = _processStartTime.HasValue ? (DateTime.Now - _processStartTime.Value).TotalSeconds : double.MaxValue;
+
+        // На macOS процесс может быть wrapper-скриптом (например, shell-скрипт из Homebrew),
+        // который форкает реальный сервер и сразу завершается. В этом случае .NET Process
+        // отслеживает PID скрипта, а реальный llama-server продолжает работать.
+        if (OperatingSystem.IsMacOS() && string.IsNullOrEmpty(_dockerContainerName) && lifetime < 5.0)
+        {
+            _logService.Warning($"Process exited after {lifetime:F1}s on macOS. Possible wrapper script. Checking port {_currentConfig?.Port}...");
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(1000); // дать время дочернему процессу открыть порт
+                if (_isStoppingIntentionally)
+                {
+                    _logService.Info("Stop was intentional. Ignoring port check result.");
+                    _processStartTime = null;
+                    _dockerContainerName = null;
+                    if (!_serverStateChangedRaised)
+                    {
+                        _serverStateChangedRaised = true;
+                        ServerStateChanged?.Invoke(this, false);
+                    }
+                    return;
+                }
+                if (await IsPortListeningAsync())
+                {
+                    _logService.Info("Port is still listening. Real server is running. Re-raising ServerStateChanged(true).");
+                    _serverStateChangedRaised = false; // reset so next stop can fire again
+                    ServerStateChanged?.Invoke(this, true);
+                    return;
+                }
+                _logService.Info("Port is not listening. Server is really stopped.");
+                _processStartTime = null;
+                _dockerContainerName = null;
+                if (!_serverStateChangedRaised)
+                {
+                    _serverStateChangedRaised = true;
+                    ServerStateChanged?.Invoke(this, false);
+                }
+            });
+        }
+        else
+        {
+            _processStartTime = null;
+            _dockerContainerName = null;
+            if (!_serverStateChangedRaised)
+            {
+                _serverStateChangedRaised = true;
+                ServerStateChanged?.Invoke(this, false);
+            }
+        }
+    }
+
+    private async Task<bool> IsPortListeningAsync()
+    {
+        if (_currentConfig == null) return false;
+        var host = _currentConfig.Host is "0.0.0.0" or "::" ? "127.0.0.1" : _currentConfig.Host;
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(host, _currentConfig.Port);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task KillProcessByPortAsync(int port)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "lsof",
+                Arguments = $"-ti :{port}",
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            };
+            using var proc = Process.Start(psi);
+            if (proc == null) return;
+            var output = await proc.StandardOutput.ReadToEndAsync();
+            await proc.WaitForExitAsync();
+
+            var pids = output.Split(new[] { '\n', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var pidStr in pids)
+            {
+                if (int.TryParse(pidStr, out var pid))
+                {
+                    _logService.Info($"Killing process {pid} listening on port {port}");
+                    try
+                    {
+                        Process.GetProcessById(pid).Kill(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logService.Warning($"Failed to kill process {pid}: {ex.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logService.Error($"Error killing process by port: {ex.Message}");
+        }
     }
 
     public void Dispose()

@@ -6,6 +6,7 @@
         xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
         xmlns:dd="using:Avalonia.Input"
         xmlns:ctrl="clr-namespace:LlamaServerLauncher.Controls"
+        xmlns:conv="clr-namespace:LlamaServerLauncher.Converters"
         mc:Ignorable="d"
         x:DataType="vm:MainViewModel"
         Title="{Binding WindowTitleWithProfile}"
@@ -25,6 +26,8 @@
     </Design.DataContext>
 
     <Window.Resources>
+        <conv:BoolToThicknessConverter x:Key="BoolToThicknessConverter"/>
+        <conv:IsErrorBrushConverter x:Key="IsErrorBrushConverter"/>
         <StreamGeometry x:Key="AboutIcon">M18.52,22.493 L16.257,22.493 L13.992,22.493 C13.992,22.493 13.998,21.149 13.992,20.228 C10.893,20.895 10.028,18.529 10.028,18.529 C9.462,17.397 8.896,16.83 8.896,16.83 C7.764,16.157 8.896,16.264 8.896,16.264 C10.028,16.264 10.595,17.396 10.595,17.396 C11.589,19.083 13.357,18.812 13.992,18.528 C13.992,17.962 14.24,17.106 14.558,16.829 C12.085,16.55 10.026,15.13 10.026,12.299 C10.026,9.468 10.594,8.902 11.161,8.335 C11.047,8.056 10.573,7.024 11.179,5.504 C11.179,5.504 12.292,5.504 13.424,7.203 C13.985,6.642 15.689,6.637 16.256,6.637 C16.821,6.637 18.525,6.642 19.086,7.203 C20.218,5.504 21.334,5.504 21.334,5.504 C21.939,7.024 21.466,8.056 21.351,8.335 C21.917,8.901 22.483,9.467 22.483,12.299 C22.483,15.131 20.427,16.55 17.953,16.829 C18.272,17.105 18.519,18.08 18.519,18.528 L18.519,22.493 Z</StreamGeometry>
 
         <DrawingImage x:Key="BackspaceIcon">
@@ -123,6 +126,53 @@
 
             <Border Grid.Row="2" Margin="5,5,5,0" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                 <StackPanel>
+                    <ItemsControl ItemsSource="{Binding RunningInstances}"
+                                  HorizontalAlignment="Center" Margin="0,0,0,5"
+                                  IsVisible="{Binding HasAnyRunningInstances}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource AccentForegroundBrush}"
+                                        BorderThickness="{Binding IsSelected, Converter={StaticResource BoolToThicknessConverter}}"
+                                        CornerRadius="4" Margin="2,0">
+                                    <SplitButton Content="{Binding ProfileName}"
+                                                  Click="InstanceButtonClick"
+                                                  PointerPressed="InstanceButtonPointerPressed"
+                                                  ToolTip.Tip="{Binding $parent[Window].DataContext.Localized.TooltipInstanceSplitButton}"
+                                                  Height="32" Padding="10,3">
+                                        <SplitButton.Flyout>
+                                            <MenuFlyout Placement="Bottom">
+                                                <MenuItem Header="{Binding $parent[Window].DataContext.Localized.StopServer}"
+                                                          Click="InstanceStopClick"/>
+                                                <MenuItem Header="{Binding $parent[Window].DataContext.Localized.RestartServer}"
+                                                          Click="InstanceRestartClick"/>
+                                                <Separator/>
+                                                <MenuItem Header="{Binding $parent[Window].DataContext.Localized.AutoRestartOnCrash}"
+                                                           IsChecked="{Binding AutoRestart}"
+                                                           ToggleType="CheckBox"
+                                                           StaysOpenOnClick="True"
+                                                           Click="InstanceAutoRestartClick"/>
+                                                <MenuItem Header="{Binding $parent[Window].DataContext.Localized.EnableLog}"
+                                                           IsChecked="{Binding LogEnabled}"
+                                                           ToggleType="CheckBox"
+                                                           StaysOpenOnClick="True"
+                                                           Click="InstanceLogEnabledClick"/>
+                                                <Separator/>
+                                                <MenuItem Header="{Binding $parent[Window].DataContext.Localized.UnloadModel}"
+                                                          Click="InstanceUnloadClick"/>
+                                                <MenuItem Header="{Binding $parent[Window].DataContext.Localized.OpenInBrowser}"
+                                                          Click="InstanceOpenInBrowserClick"/>
+                                            </MenuFlyout>
+                                        </SplitButton.Flyout>
+                                    </SplitButton>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
                         <SplitButton Content="{Binding Localized.StartServer}" Click="StartServerClick"
                                 Height="35" Margin="5" Padding="15,5">
@@ -149,11 +199,10 @@
                         <ToggleButton Content="{Binding ToggleLogButtonText}" IsChecked="{Binding LogVisible}" VerticalAlignment="Center"/>
                         <ToggleButton Content="{Binding ToggleTabPanelButtonText}" IsChecked="{Binding TabPanelVisible}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" IsVisible="{Binding !IsServerRunning}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" IsVisible="{Binding ShowServerStartError}">
                         <TextBlock Text="ERROR" 
                                    Margin="0,5,5,5" FontWeight="Bold"
-                                   Foreground="Red"
-                                   IsVisible="{Binding ShowServerStartError}">
+                                   Foreground="Red">
                             <TextBlock.Styles>
                                 <Style Selector="TextBlock">
                                     <Style.Animations>
@@ -172,13 +221,7 @@
                                 </Style>
                             </TextBlock.Styles>
                         </TextBlock>
-                        <TextBlock Text="{Binding ServerStatus}" 
-                                   Margin="5" FontWeight="Bold"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding ServerStatus}" 
-                                HorizontalAlignment="Center" Margin="5" FontWeight="Bold"
-                                Foreground="{DynamicResource AccentForegroundBrush}"
-                                IsVisible="{Binding IsServerRunning}"/>
                     <Border Background="{DynamicResource CommandBackgroundBrush}" CornerRadius="3" Padding="8" Margin="5"
                             Cursor="Hand"
                             ToolTip.Tip="{Binding Localized.TooltipCurrentCommand}"
@@ -220,6 +263,11 @@
                                             <Image Source="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                         </Button>
                                     </Grid>
+                                    <TextBlock Text="{Binding ModelLoadModeStatus}"
+                                               Foreground="{Binding ModelLoadModeStatusBrush}"
+                                               FontWeight="Bold" Margin="0,8,0,0"
+                                               TextWrapping="Wrap"
+                                               IsVisible="{Binding ShowModelLoadModeStatus}"/>
                                 </StackPanel>
                             </Border>
 
@@ -545,6 +593,11 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+                                    <TextBlock Text="{Binding Localized.CustomArgumentToggleHint}" 
+                                               FontSize="11" 
+                                               Opacity="0.6"
+                                               Margin="0,2,0,0"
+                                               IsVisible="{Binding HasCustomArgumentItems}"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -774,6 +827,19 @@
 
                                 <Border Background="{DynamicResource SeparatorBrush}" Height="1" Margin="0,0,0,10"/>
 
+                                <TextBlock Text="{Binding Localized.UpdateCheckIntervals}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <Grid ColumnDefinitions="140,*,Auto" RowDefinitions="Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.AppUpdateCheckInterval}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipAppUpdateCheckInterval}"/>
+                                    <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding AppUpdateCheckInterval}" Minimum="1" Maximum="180" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipAppUpdateCheckInterval}"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.LlamaUpdateCheckInterval}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipLlamaUpdateCheckInterval}"/>
+                                    <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding LlamaUpdateCheckInterval}" Minimum="1" Maximum="180" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipLlamaUpdateCheckInterval}"/>
+                                </Grid>
+
+                                <TextBlock Text="{Binding Localized.UpdateIntervalWarning}" FontSize="11" Foreground="Orange" Margin="0,8,0,0" TextWrapping="Wrap" IsVisible="{Binding ShowUpdateIntervalWarning}"/>
+
+                                <Border Background="{DynamicResource SeparatorBrush}" Height="1" Margin="0,10,0,10"/>
+
                                 <CheckBox Content="{Binding Localized.UseDefaultDataPath}" IsChecked="{Binding UseDefaultDataPath}"
                                           ToolTip.Tip="{Binding DataPathTooltip}"
                                           Click="UseDefaultDataPathClick"
@@ -783,6 +849,13 @@
                                            FontSize="11" Foreground="{DynamicResource DataPathForegroundBrush}" Margin="20,5,0,15" TextWrapping="Wrap"/>
 
                                 <CheckBox Content="{Binding Localized.AutoFitHeight}" IsChecked="{Binding AutoFitHeight}"/>
+
+                                <Border Background="{DynamicResource SeparatorBrush}" Height="1" Margin="0,10,0,10"/>
+
+                                <TextBlock Text="{Binding Localized.Behavior}" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                <CheckBox Content="{Binding Localized.ConfirmStopServer}" IsChecked="{Binding ConfirmStopServer}"
+                                          ToolTip.Tip="{Binding Localized.TooltipConfirmStopServer}"/>
                             </StackPanel>
                         </Border>
                     </ScrollViewer>
@@ -818,6 +891,42 @@
                 </Grid>
             </Border>
         </Grid>
+
+        <!-- Toast Notifications Overlay -->
+        <ItemsControl ItemsSource="{Binding Toasts.Toasts}"
+                      HorizontalAlignment="Right" VerticalAlignment="Top"
+                      Margin="16" MaxWidth="420" x:Name="ToastOverlay">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border CornerRadius="8" Padding="12,8"
+                            Margin="0,0,0,8"
+                            BorderThickness="2"
+                            Background="{DynamicResource PanelBackgroundBrush}"
+                            BoxShadow="0 2 8 0 #40000000"
+                            Tapped="ToastBorderTapped" Cursor="Hand">
+                        <Border.BorderBrush>
+                            <Binding Path="IsError" Converter="{StaticResource IsErrorBrushConverter}"/>
+                        </Border.BorderBrush>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{Binding Message}" TextWrapping="Wrap"
+                                       VerticalAlignment="Center" FontSize="13">
+                                <TextBlock.Foreground>
+                                    <Binding Path="IsError" Converter="{StaticResource IsErrorBrushConverter}"/>
+                                </TextBlock.Foreground>
+                            </TextBlock>
+                            <Button Grid.Column="1" Content="✕" FontSize="12"
+                                    Background="Transparent"
+                                    Padding="4,2" Margin="8,0,0,0"
+                                    Click="DismissToastClick">
+                                <Button.Foreground>
+                                    <Binding Path="IsError" Converter="{StaticResource IsErrorBrushConverter}"/>
+                                </Button.Foreground>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
         <!-- Drag and Drop Overlay -->
         <Border x:Name="DragDropOverlay" 

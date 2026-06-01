@@ -11,6 +11,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -40,8 +41,73 @@ public class MainViewModel : INotifyPropertyChanged
     private Dictionary<string, string> _releaseBodyCache = new();
     private List<string> _releaseBodyCacheOrder = new();
 
+    private DateTime _lastAppUpdateCheck;
+    private DateTime _lastLlamaUpdateCheck;
+    private int _appUpdateCheckInterval = 15;
+    private int _llamaUpdateCheckInterval = 30;
+    private List<ReleaseInfo> _cachedLlamaReleases = new();
+    private DateTime _cachedLlamaReleasesTimestamp;
+    private CancellationTokenSource? _periodicCheckCts;
+
+    public ObservableCollection<ServerInstance> RunningInstances { get; } = new();
+    private ServerInstance? _selectedInstance;
+
+    public ServerInstance? SelectedInstance
+    {
+        get => _selectedInstance;
+        set
+        {
+            if (_selectedInstance != value)
+            {
+                if (_selectedInstance != null)
+                    _selectedInstance.IsSelected = false;
+
+                _selectedInstance = value;
+
+                if (_selectedInstance != null)
+                    _selectedInstance.IsSelected = true;
+
+                OnPropertyChanged();
+                SyncPropertiesFromInstance();
+            }
+        }
+    }
+
+    private void SyncPropertiesFromInstance()
+    {
+        var inst = _selectedInstance;
+        IsServerRunning = inst?.IsRunning ?? false;
+        AutoRestart = inst?.AutoRestart ?? false;
+        LogEnabled = inst?.LogEnabled ?? true;
+        ShowServerStartError = inst?.ShowServerStartError ?? false;
+        ServerStatus = inst != null
+            ? (inst.IsRunning
+                ? string.Format(Resources.LocalizedStrings.GetString("StatusRunning"), inst.ProcessId)
+                : Localized.StatusStopped)
+            : Localized.StatusStopped;
+        UpdateCommandStates();
+    }
+
+    private void UpdateCommandStates()
+    {
+        OnPropertyChanged(nameof(CanStartServer));
+        OnPropertyChanged(nameof(CanOpenInBrowser));
+        if (StartServerCommand is AsyncRelayCommand startCmd)
+            startCmd.RaiseCanExecuteChanged();
+        if (StopServerCommand is AsyncRelayCommand stopCmd)
+            stopCmd.RaiseCanExecuteChanged();
+        if (RestartServerCommand is AsyncRelayCommand restartCmd)
+            restartCmd.RaiseCanExecuteChanged();
+        if (UnloadModelCommand is AsyncRelayCommand unloadCmd)
+            unloadCmd.RaiseCanExecuteChanged();
+        if (OpenInBrowserCommand is AsyncRelayCommand openCmd)
+            openCmd.RaiseCanExecuteChanged();
+    }
+
     public LogService LogService => _logService;
     public LocalizedStrings Localized { get; } = LocalizedStrings.Instance;
+
+    public ToastService Toasts { get; } = new();
     
     // Expose _loadedProfileName for tray menu updates
     public string LoadedProfileName => _loadedProfileName;
@@ -195,6 +261,45 @@ public class MainViewModel : INotifyPropertyChanged
     public FontFamily EffectiveFontFamily =>
         string.IsNullOrEmpty(_selectedFontFamily) ? FontFamily.Default : new FontFamily(_selectedFontFamily);
 
+    public int AppUpdateCheckInterval
+    {
+        get => _appUpdateCheckInterval;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 180);
+            if (_appUpdateCheckInterval != clamped)
+            {
+                _appUpdateCheckInterval = clamped;
+                _lastAppUpdateCheck = DateTime.Now;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ShowUpdateIntervalWarning));
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
+    public int LlamaUpdateCheckInterval
+    {
+        get => _llamaUpdateCheckInterval;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 180);
+            if (_llamaUpdateCheckInterval != clamped)
+            {
+                _llamaUpdateCheckInterval = clamped;
+                _lastLlamaUpdateCheck = DateTime.Now;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ShowUpdateIntervalWarning));
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
+    public bool ShowUpdateIntervalWarning => _appUpdateCheckInterval < 10 || _llamaUpdateCheckInterval < 10;
+
+    public List<ReleaseInfo> CachedLlamaReleases => _cachedLlamaReleases;
+    public DateTime CachedLlamaReleasesTimestamp => _cachedLlamaReleasesTimestamp;
+
     private void ApplyTheme()
     {
         if (!_isInitializing)
@@ -275,6 +380,7 @@ public class MainViewModel : INotifyPropertyChanged
     private string _executablePath = string.Empty;
     private string _modelPath = string.Empty;
     private string _modelsDir = string.Empty;
+    private string _llamaCppCustomDownloadPath = string.Empty;
     private string _host = "127.0.0.1";
     private string _port = "8080";
     private string _contextSize = string.Empty;
@@ -337,6 +443,7 @@ public class MainViewModel : INotifyPropertyChanged
     private List<string> _validSpecTypeValues = new(); // only values from help, for command line validation
     private bool _suppressSpecTypeChange; // prevents ComboBox from resetting SpecType during ItemsSource rebuild
     private bool _autoRestart;
+    private bool _confirmStopServer = true;
     private bool _autoScroll = true;
     private bool _logEnabled = true;
     private bool _logVisible = true;
@@ -354,14 +461,19 @@ public class MainViewModel : INotifyPropertyChanged
     private string _currentCommand = string.Empty;
     private bool _useDefaultDataPath = true;
     private bool _showServerStartError;
-    private DateTime? _serverStartTime;
     private CancellationTokenSource? _errorAnimationCts;
     private readonly List<string> _pendingLogs = new();
     private bool _logFlushScheduled;
 
     public Func<string, string, Task<bool>>? ConfirmActionFunc { get; set; }
+
     public Func<string, string, string, Task> ShowMessageFunc { get; set; } = (_, _, _) => Task.CompletedTask;
+
     public Func<string, Task<string?>>? BrowseFolderFunc { get; set; }
+
+    private readonly HashSet<string> _shownConflictToasts = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool _isLoadingConfig;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -377,8 +489,16 @@ public class MainViewModel : INotifyPropertyChanged
         _downloadService = new LlamaCppDownloadService(resolvedPath);
         _dockerService = new DockerCliService(_logService);
 
-        _serverService.OutputReceived += OnServerOutput;
-        _serverService.ServerStateChanged += OnServerStateChanged;
+        RunningInstances.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasAnyRunningInstances));
+            RequestTrayMenuRebuild?.Invoke();
+        };
+
+        CustomArgumentItems.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasCustomArgumentItems));
+        };
 
         Profiles = new ObservableCollection<string>();
 
@@ -392,8 +512,8 @@ public class MainViewModel : INotifyPropertyChanged
         BrowseDraftModelCommand = new AsyncRelayCommand(BrowseDraftModelAsync);
         StartServerCommand = new AsyncRelayCommand(StartServerAsync, () => CanStartServer);
         RestartServerCommand = new AsyncRelayCommand(RestartServerAsync, () => IsServerRunning);
-        StopServerCommand = new AsyncRelayCommand(StopServerAsync, () => IsServerRunning);
-        UnloadModelCommand = new AsyncRelayCommand(UnloadModelAsync, () => IsServerRunning && !_serverService.IsSingleModelMode);
+        StopServerCommand = new AsyncRelayCommand(StopServerAsync, () => IsServerRunning || (_selectedInstance?.IsRunning ?? false));
+        UnloadModelCommand = new AsyncRelayCommand(UnloadModelAsync, () => IsServerRunning && !(_selectedInstance?.IsSingleModelMode ?? true));
         OpenInBrowserCommand = new AsyncRelayCommand(OpenInBrowserAsync, () => CanOpenInBrowser);
         SaveProfileCommand = new AsyncRelayCommand(SaveProfileAsync);
         LoadProfileCommand = new AsyncRelayCommand(LoadProfileAsync);
@@ -423,8 +543,8 @@ public class MainViewModel : INotifyPropertyChanged
         var settings = await _configService.LoadAppSettingsAsync();
         ApplyAppSettings(settings);
         _logService.Configure(settings.MaxLogFiles, settings.MaxLogSizeBytes);
-        _ = CheckForLlamaUpdateAsync();
-        _ = CheckForAppUpdateAsync();
+        _ = CheckDefaultLlamaVersionAsync();
+        StartPeriodicUpdateChecks();
         _ = RefreshSupportedFlagsAsync();
         _ = CheckDockerAvailabilityAsync();
     }
@@ -459,6 +579,7 @@ public class MainViewModel : INotifyPropertyChanged
         ExecutablePath = settings.ExecutablePath;
         ModelPath = settings.ModelPath;
         ModelsDir = settings.ModelsDir;
+        LlamaCppCustomDownloadPath = settings.LlamaCppCustomDownloadPath ?? "";
         Host = settings.Host;
         Port = settings.Port.ToString();
         ContextSize = settings.ContextSize;
@@ -509,6 +630,7 @@ public class MainViewModel : INotifyPropertyChanged
         Offline = settings.Offline;
         HfRepoDraft = settings.HfRepoDraft;
         AutoRestart = settings.AutoRestart;
+        ConfirmStopServer = settings.ConfirmStopServer;
         AutoScroll = settings.AutoScrollLog;
         LogEnabled = settings.LogEnabled;
         LogVisible = settings.LogVisible;
@@ -541,6 +663,42 @@ public class MainViewModel : INotifyPropertyChanged
         _recentValues = settings.RecentValuesHistory ?? new Dictionary<string, List<string>>();
         _releaseBodyCache = settings.ReleaseBodyCache ?? new Dictionary<string, string>();
         _releaseBodyCacheOrder = settings.ReleaseBodyCacheOrder ?? new List<string>();
+
+        _lastAppUpdateCheck = settings.LastAppUpdateCheck;
+        _lastLlamaUpdateCheck = settings.LastLlamaUpdateCheck;
+        _appUpdateCheckInterval = Math.Clamp(settings.AppUpdateCheckIntervalMinutes, 1, 180);
+        _llamaUpdateCheckInterval = Math.Clamp(settings.LlamaUpdateCheckIntervalMinutes, 1, 180);
+        OnPropertyChanged(nameof(AppUpdateCheckInterval));
+        OnPropertyChanged(nameof(LlamaUpdateCheckInterval));
+        OnPropertyChanged(nameof(ShowUpdateIntervalWarning));
+        if (!string.IsNullOrEmpty(settings.CachedLlamaReleasesJson))
+        {
+            try
+            {
+                _cachedLlamaReleases = System.Text.Json.JsonSerializer.Deserialize<List<ReleaseInfo>>(settings.CachedLlamaReleasesJson) ?? new List<ReleaseInfo>();
+            }
+            catch { _cachedLlamaReleases = new List<ReleaseInfo>(); }
+        }
+        else
+        {
+            _cachedLlamaReleases = new List<ReleaseInfo>();
+        }
+        _cachedLlamaReleasesTimestamp = settings.CachedLlamaReleasesTimestamp;
+
+        if (_cachedLlamaReleases.Count > 0 && !string.IsNullOrEmpty(_llamaCppInstalledTag))
+        {
+            var latestCached = _cachedLlamaReleases[0];
+            if (latestCached.Tag != _llamaCppInstalledTag)
+            {
+                IsLlamaUpdateAvailable = true;
+                CacheReleaseBody(latestCached.Tag, latestCached.Body);
+                var cleaned = CleanReleaseBody(latestCached.Body);
+                var desc = cleaned.Length > 300 ? cleaned[..300] + "..." : cleaned;
+                var currentVersionStr = string.Format(LocalizedStrings.GetString("CurrentVersionTooltip"), _llamaCppInstalledTag);
+                LlamaUpdateTooltip = $"{currentVersionStr}\n\n{latestCached.Tag}\n{latestCached.PublishedAt:yyyy-MM-dd HH:mm}\n{desc}";
+            }
+        }
+
         ApplyTheme();
     }
 
@@ -783,6 +941,7 @@ public class MainViewModel : INotifyPropertyChanged
             ExecutablePath = ExecutablePath,
             ModelPath = ModelPath,
             ModelsDir = ModelsDir,
+            LlamaCppCustomDownloadPath = LlamaCppCustomDownloadPath,
             Host = Host,
             Port = ParseNullableInt(Port) ?? 8080,
             ContextSize = ContextSize,
@@ -833,6 +992,7 @@ public class MainViewModel : INotifyPropertyChanged
             Offline = Offline,
             HfRepoDraft = HfRepoDraft,
             AutoRestart = AutoRestart,
+            ConfirmStopServer = ConfirmStopServer,
             AutoScrollLog = AutoScroll,
             LogEnabled = LogEnabled,
             LogVisible = LogVisible,
@@ -856,7 +1016,13 @@ public class MainViewModel : INotifyPropertyChanged
             DockerImage = DockerImage,
             DockerGpuAll = DockerGpuAll,
             DockerRm = DockerRm,
-            DockerContainerName = DockerContainerName
+            DockerContainerName = DockerContainerName,
+            LastAppUpdateCheck = _lastAppUpdateCheck,
+            LastLlamaUpdateCheck = _lastLlamaUpdateCheck,
+            AppUpdateCheckIntervalMinutes = _appUpdateCheckInterval,
+            LlamaUpdateCheckIntervalMinutes = _llamaUpdateCheckInterval,
+            CachedLlamaReleasesJson = System.Text.Json.JsonSerializer.Serialize(_cachedLlamaReleases),
+            CachedLlamaReleasesTimestamp = _cachedLlamaReleasesTimestamp
         };
     }
 
@@ -891,7 +1057,7 @@ public class MainViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(CanStartServer));
                 OnPropertyChanged(nameof(HasUnsavedChanges));
                 UpdateCurrentCommand();
-                // Notify StartServerCommand that CanStartServer may have changed
+                UpdateModelLoadModeStatus();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
                     startCmd.RaiseCanExecuteChanged();
             }
@@ -910,9 +1076,23 @@ public class MainViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(CanStartServer));
                 OnPropertyChanged(nameof(HasUnsavedChanges));
                 UpdateCurrentCommand();
-                // Notify StartServerCommand that CanStartServer may have changed
+                UpdateModelLoadModeStatus();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
                     startCmd.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string LlamaCppCustomDownloadPath
+    {
+        get => _llamaCppCustomDownloadPath;
+        set
+        {
+            if (_llamaCppCustomDownloadPath != value)
+            {
+                _llamaCppCustomDownloadPath = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
             }
         }
     }
@@ -1314,6 +1494,7 @@ public class MainViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(HfRepoBorderBrush));
                 OnPropertyChanged(nameof(HfRepoToolTip));
                 UpdateCurrentCommand();
+                UpdateModelLoadModeStatus();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
                     startCmd.RaiseCanExecuteChanged();
             }
@@ -1335,6 +1516,7 @@ public class MainViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(HfFileBorderBrush));
                 OnPropertyChanged(nameof(HfFileToolTip));
                 UpdateCurrentCommand();
+                UpdateModelLoadModeStatus();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
                     startCmd.RaiseCanExecuteChanged();
             }
@@ -1481,7 +1663,19 @@ public class MainViewModel : INotifyPropertyChanged
     public bool AutoRestart
     {
         get => _autoRestart;
-        set { _autoRestart = value; OnPropertyChanged(); }
+        set
+        {
+            _autoRestart = value;
+            if (_selectedInstance != null && !_isLoadingConfig)
+                _selectedInstance.AutoRestart = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool ConfirmStopServer
+    {
+        get => _confirmStopServer;
+        set { _confirmStopServer = value; OnPropertyChanged(); }
     }
 
     public bool AutoScroll
@@ -1493,7 +1687,14 @@ public class MainViewModel : INotifyPropertyChanged
     public bool LogEnabled
     {
         get => _logEnabled;
-        set { _logEnabled = value; OnPropertyChanged(); OnPropertyChanged(nameof(ToggleLogButtonText)); }
+        set
+        {
+            _logEnabled = value;
+            if (_selectedInstance != null && !_isLoadingConfig)
+                _selectedInstance.LogEnabled = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ToggleLogButtonText));
+        }
     }
 
     public bool LogVisible
@@ -1672,6 +1873,74 @@ public class MainViewModel : INotifyPropertyChanged
         new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 165, 0)); // Orange
     private static readonly Avalonia.Media.IBrush _transparentBrush =
         new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(0, 0, 0, 0));
+
+    private static readonly Avalonia.Media.IBrush _accentBrush =
+        new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(0, 150, 136));
+
+    public bool ShowModelLoadModeStatus =>
+        !string.IsNullOrEmpty(ModelPath) || !string.IsNullOrEmpty(ModelsDir)
+        || !string.IsNullOrEmpty(HfRepo) || !string.IsNullOrEmpty(HfFile);
+
+    public string ModelLoadModeStatus
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(ModelPath))
+            {
+                var fileName = Path.GetFileName(ModelPath);
+                return string.Format(LocalizedStrings.Instance.ModelLoadModeStatusSingleModel, fileName);
+            }
+            if (!string.IsNullOrEmpty(ModelsDir))
+                return LocalizedStrings.Instance.ModelLoadModeStatusRouting;
+            if (!string.IsNullOrEmpty(HfRepo) || !string.IsNullOrEmpty(HfFile))
+                return LocalizedStrings.Instance.ModelLoadModeStatusHfRepo;
+            return string.Empty;
+        }
+    }
+
+    public Avalonia.Media.IBrush ModelLoadModeStatusBrush =>
+        (!string.IsNullOrEmpty(ModelPath) && !string.IsNullOrEmpty(ModelsDir))
+        || (!string.IsNullOrEmpty(ModelPath) && (!string.IsNullOrEmpty(HfRepo) || !string.IsNullOrEmpty(HfFile)))
+            ? _warningBrush
+            : _accentBrush;
+
+    private void UpdateModelLoadModeStatus()
+    {
+        OnPropertyChanged(nameof(ShowModelLoadModeStatus));
+        OnPropertyChanged(nameof(ModelLoadModeStatus));
+        OnPropertyChanged(nameof(ModelLoadModeStatusBrush));
+
+        if (_isLoadingConfig)
+            return;
+
+        bool hasModelPathConflict = !string.IsNullOrEmpty(ModelPath) && !string.IsNullOrEmpty(ModelsDir);
+        bool hasHfConflict = !string.IsNullOrEmpty(ModelPath) && (!string.IsNullOrEmpty(HfRepo) || !string.IsNullOrEmpty(HfFile));
+
+        if (hasModelPathConflict)
+        {
+            var conflictKey = "modelsdir";
+            if (_shownConflictToasts.Add(conflictKey))
+            {
+                var fileName = Path.GetFileName(ModelPath);
+                var toastText = string.Format(LocalizedStrings.Instance.ModelLoadModeConflictToast, fileName);
+                Toasts.Show(toastText);
+            }
+        }
+        else if (hasHfConflict)
+        {
+            var conflictKey = "hfrepo";
+            if (_shownConflictToasts.Add(conflictKey))
+            {
+                var fileName = Path.GetFileName(ModelPath);
+                var toastText = string.Format(LocalizedStrings.Instance.ModelLoadModeConflictHfToast, fileName);
+                Toasts.Show(toastText);
+            }
+        }
+        else
+        {
+            _shownConflictToasts.Clear();
+        }
+    }
 
     public Avalonia.Media.IBrush SpecTypeBorderBrush => HasUnsupportedSpecType ? _warningBrush : _transparentBrush;
 
@@ -2080,9 +2349,10 @@ public class MainViewModel : INotifyPropertyChanged
                 ? Localized.WindowTitle 
                 : $"{Localized.WindowTitle} [{profilePart}]";
             
-            if (IsServerRunning)
+            var loadedProfileRunning = RunningInstances.Any(i => i.ProfileName == _loadedProfileName && i.IsRunning);
+            if (loadedProfileRunning)
             {
-                title += " - RUNNING";
+                title += $" - {Localized.WindowTitleRunning}";
             }
             
             return title;
@@ -2292,12 +2562,30 @@ public class MainViewModel : INotifyPropertyChanged
     /// </summary>
     public Func<Task>? OpenDownloadDialogFunc { get; set; }
 
+    public bool HasAnyRunningInstances => RunningInstances.Any(i => i.IsRunning);
+    public bool HasCustomArgumentItems => CustomArgumentItems.Count > 0;
+
+    public event Action? RequestTrayMenuRebuild;
+
+    public async Task StopAllInstancesAsync()
+    {
+        var tasks = RunningInstances.ToList().Select(async i =>
+        {
+            try { await i.StopAsync(); }
+            catch (Exception ex)
+            {
+                _logService.Error($"Failed to stop instance '{i.ProfileName}': {ex.Message}");
+            }
+        });
+        await Task.WhenAll(tasks);
+    }
+
     public bool CanStartServer =>
-        !_serverService.IsBusy
+        !RunningInstances.Any(i => i.IsBusy && i.ProfileName == (_loadedProfileName ?? SelectedProfile))
         && (!string.IsNullOrEmpty(ModelPath) || !string.IsNullOrEmpty(ModelsDir) || !string.IsNullOrEmpty(HfRepo) || !string.IsNullOrEmpty(HfFile))
         && (RunInDocker ? IsDockerAvailable : true);
 
-    public bool CanOpenInBrowser => IsServerRunning && EnableWebUI != false;
+    public bool CanOpenInBrowser => (_selectedInstance?.IsRunning ?? false) && _selectedInstance.Configuration.EnableWebUI != false;
 
     private async Task BrowseExecutableAsync()
     {
@@ -2513,6 +2801,11 @@ public class MainViewModel : INotifyPropertyChanged
 
 private void LoadConfigToUI(ServerConfiguration config)
     {
+        _isLoadingConfig = true;
+        try
+        {
+            _shownConflictToasts.Clear();
+            Toasts.ClearAll();
         // Clear all fields except profile-related fields
         ExecutablePath = string.Empty;
         ModelPath = string.Empty;
@@ -2571,7 +2864,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         DockerRm = true;
         DockerContainerName = string.Empty;
         CustomArguments = string.Empty;
-        AutoRestart = false;
+        // Note: AutoRestart is runtime state per-instance; do NOT reset it here.
         // Note: ProfileNameInput and _loadedProfileName are NOT cleared here
         // They are preserved when loading a profile
         
@@ -2641,11 +2934,20 @@ private void LoadConfigToUI(ServerConfiguration config)
             ApplyToggleStates(config.CustomArgumentToggleStates);
         }
         RebuildCustomArgumentsFromToggles();
+        }
+        finally
+        {
+            _isLoadingConfig = false;
+            UpdateModelLoadModeStatus();
+        }
     }
 
     public void ClearAllFields()
     {
-        ExecutablePath = string.Empty;
+        _isLoadingConfig = true;
+        try
+        {
+            ExecutablePath = string.Empty;
         ModelPath = string.Empty;
         ModelsDir = string.Empty;
         Host = "127.0.0.1";
@@ -2709,7 +3011,14 @@ private void LoadConfigToUI(ServerConfiguration config)
         // ProfileNameInput = string.Empty;
         _loadedProfileName = string.Empty;
         _loadedProfileConfig = null;
+        _shownConflictToasts.Clear();
         OnPropertyChanged(nameof(HasUnsavedChanges));
+        }
+        finally
+        {
+            _isLoadingConfig = false;
+            UpdateModelLoadModeStatus();
+        }
     }
 
     private static int? ParseNullableInt(string value)
@@ -3304,18 +3613,299 @@ public void RebuildCustomArgumentsFromToggles()
                     throw new InvalidOperationException(LocalizedStrings.Instance.DockerNotInstalledError);
             }
 
+            var profileName = !string.IsNullOrWhiteSpace(_loadedProfileName)
+                ? _loadedProfileName
+                : (!string.IsNullOrWhiteSpace(ProfileNameInput) ? ProfileNameInput : "Unnamed");
+
+            if (RunningInstances.Any(i => i.ProfileName == profileName))
+            {
+                var existing = RunningInstances.First(i => i.ProfileName == profileName);
+                var existingJson = JsonSerializer.Serialize(existing.Configuration);
+                var newJson = JsonSerializer.Serialize(config);
+                if (existingJson != newJson)
+                {
+                    await ShowWarningAsync($"Profile '{profileName}' is already running with different settings. Stop it first to apply new configuration.");
+                    SelectedInstance = existing;
+                    return;
+                }
+                SelectedInstance = existing;
+                return;
+            }
+
+            var targetHost = string.IsNullOrWhiteSpace(config.Host) ? "127.0.0.1" : config.Host;
+            var targetPort = config.Port;
+            var collision = RunningInstances.FirstOrDefault(i => i.IsRunning
+                && i.Configuration.Host == targetHost
+                && i.Configuration.Port == targetPort);
+            if (collision != null)
+            {
+                var toastText = string.Format(LocalizedStrings.GetString("PortCollisionToast"), targetHost, targetPort, collision.ProfileName);
+                Toasts.Show(toastText);
+                return;
+            }
+
             RecordCurrentValuesToHistory();
             await RefreshSupportedFlagsAsync();
 
+            var exePath = config.ExecutablePath;
+            if (string.IsNullOrEmpty(exePath))
+                exePath = _downloadService.GetDefaultLlamaServerPath() ?? "";
+            var resolved = LlamaServerService.ResolveExecutablePath(exePath);
+            var version = !string.IsNullOrEmpty(resolved) && File.Exists(resolved)
+                ? (await _downloadService.GetLocalVersionTagAsync(resolved) ?? "unknown")
+                : (!string.IsNullOrEmpty(exePath) && File.Exists(exePath)
+                    ? (await _downloadService.GetLocalVersionTagAsync(exePath) ?? "unknown")
+                    : "unknown");
+            var logPrefix = $"[{profileName} | {version} | ";
+
+            var instance = new ServerInstance(
+                profileName,
+                config,
+                logPrefix,
+                _logService,
+                _autoRestart,
+                _logEnabled);
+
             if (config.RunInDocker)
-                await _serverService.StartDockerAsync(_dockerService, config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+                instance.SetDockerService(_dockerService);
+
+            instance.ServerStateChanged += OnInstanceServerStateChanged;
+            instance.RequestRemove += OnInstanceRequestRemove;
+            instance.PropertyChanged += OnInstancePropertyChanged;
+
+            await instance.StartAsync(_supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+
+            if (instance.IsRunning)
+            {
+                RunningInstances.Add(instance);
+                SelectedInstance = instance;
+            }
             else
-                await _serverService.StartAsync(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+            {
+                // Process exited immediately — clean up and notify
+                instance.ServerStateChanged -= OnInstanceServerStateChanged;
+                instance.RequestRemove -= OnInstanceRequestRemove;
+                instance.PropertyChanged -= OnInstancePropertyChanged;
+
+                if (instance.ShowServerStartError)
+                {
+                    var msg = string.Format(LocalizedStrings.GetString("ServerStartFailedToast"), profileName);
+                    Toasts.ShowError(msg);
+                }
+
+                instance.Dispose();
+            }
         }
         catch (Exception ex)
         {
             var message = string.Format(LocalizedStrings.Instance.FailedToStartServer, ex.Message);
             await ShowErrorAsync(message);
+        }
+    }
+
+    private void OnInstanceRequestRemove(ServerInstance instance)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!RunningInstances.Contains(instance))
+                return;
+            instance.ServerStateChanged -= OnInstanceServerStateChanged;
+            instance.RequestRemove -= OnInstanceRequestRemove;
+            instance.PropertyChanged -= OnInstancePropertyChanged;
+            RunningInstances.Remove(instance);
+            if (SelectedInstance == instance)
+            {
+                SelectedInstance = RunningInstances.LastOrDefault();
+                if (SelectedInstance != null)
+                {
+                    if (!HasUnsavedChanges)
+                    {
+                        LoadConfigToUI(SelectedInstance.Configuration);
+                        _loadedProfileName = SelectedInstance.ProfileName;
+                        _loadedProfileConfig = SelectedInstance.Configuration;
+                        SelectedProfile = SelectedInstance.ProfileName;
+                        OnPropertyChanged(nameof(HasUnsavedChanges));
+                        OnPropertyChanged(nameof(WindowTitleWithProfile));
+                    }
+                }
+                else
+                {
+                    ServerStatus = Localized.StatusStopped;
+                }
+            }
+            instance.Dispose();
+            RequestTrayMenuRebuild?.Invoke();
+        });
+    }
+
+    private async void OnInstanceServerStateChanged(object? sender, bool isRunning)
+    {
+        if (sender is not ServerInstance instance) return;
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!isRunning && instance.ShowServerStartError)
+                {
+                    var msg = string.Format(LocalizedStrings.GetString("ServerStartFailedToast"), instance.ProfileName);
+                    Toasts.ShowError(msg);
+                }
+
+                if (SelectedInstance == instance)
+                {
+                    IsServerRunning = isRunning;
+                    ServerStatus = isRunning
+                        ? string.Format(Resources.LocalizedStrings.GetString("StatusRunning"), instance.ProcessId)
+                        : Localized.StatusStopped;
+
+                    if (!isRunning && instance.ShowServerStartError)
+                        ShowServerStartError = true;
+                    else if (isRunning)
+                        DismissServerStartError();
+                }
+                OnPropertyChanged(nameof(HasAnyRunningInstances));
+            });
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private void OnInstancePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not ServerInstance instance) return;
+
+        if (e.PropertyName == nameof(ServerInstance.AutoRestart))
+        {
+            if (instance == _selectedInstance)
+            {
+                _autoRestart = instance.AutoRestart;
+                OnPropertyChanged(nameof(AutoRestart));
+            }
+            RequestTrayMenuRebuild?.Invoke();
+        }
+        else if (e.PropertyName == nameof(ServerInstance.LogEnabled))
+        {
+            if (instance == _selectedInstance)
+            {
+                _logEnabled = instance.LogEnabled;
+                OnPropertyChanged(nameof(LogEnabled));
+                OnPropertyChanged(nameof(ToggleLogButtonText));
+            }
+            RequestTrayMenuRebuild?.Invoke();
+        }
+        else if (e.PropertyName == nameof(ServerInstance.ShowServerStartError) && instance == _selectedInstance)
+        {
+            ShowServerStartError = instance.ShowServerStartError;
+        }
+    }
+
+    public async Task SelectInstanceAsync(ServerInstance instance)
+    {
+        if (_selectedInstance == instance)
+        {
+            // Even if already selected, check for unsaved changes before reloading
+            if (HasUnsavedChanges)
+            {
+                var result = await ShowConfirmAsync(
+                    LocalizedStrings.Instance.UnsavedChangesMessage,
+                    LocalizedStrings.Instance.UnsavedChangesTitle);
+
+                if (result == MessageBoxResult.Cancel)
+                    return;
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    var saveName = _loadedProfileName;
+                    if (string.IsNullOrWhiteSpace(saveName))
+                        saveName = ProfileNameInput;
+                    if (string.IsNullOrWhiteSpace(saveName))
+                    {
+                        await ShowWarningAsync(LocalizedStrings.Instance.PleaseEnterProfileName);
+                        return;
+                    }
+                    var saveConfig = GetCurrentConfig();
+                    await _configService.SaveProfileAsync(saveName, saveConfig);
+                    ProfileNameInput = string.Empty;
+                    LoadProfiles();
+                    SelectedProfile = saveName;
+                    _loadedProfileName = saveName;
+                    _loadedProfileConfig = saveConfig;
+
+                    var saveMatch = RunningInstances.FirstOrDefault(i => i.ProfileName == saveName);
+                    if (saveMatch != null)
+                    {
+                        var instanceConfig = GetCurrentConfig();
+                        if (!instanceConfig.RunInDocker && string.IsNullOrEmpty(instanceConfig.ExecutablePath))
+                        {
+                            var dp = _downloadService.GetDefaultLlamaServerPath();
+                            if (dp != null) instanceConfig.ExecutablePath = dp;
+                        }
+                        saveMatch.UpdateConfiguration(instanceConfig);
+                    }
+
+                    OnPropertyChanged(nameof(HasUnsavedChanges));
+                }
+            }
+
+            // Reload the cached configuration from the instance
+            if (instance != null)
+            {
+                LoadConfigToUI(instance.Configuration);
+                _loadedProfileName = instance.ProfileName;
+                _loadedProfileConfig = instance.Configuration;
+                SelectedProfile = instance.ProfileName;
+
+                // Sync runtime state (AutoRestart, LogEnabled) to control panel
+                _autoRestart = instance.AutoRestart;
+                _logEnabled = instance.LogEnabled;
+                OnPropertyChanged(nameof(AutoRestart));
+                OnPropertyChanged(nameof(LogEnabled));
+                OnPropertyChanged(nameof(ToggleLogButtonText));
+
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(WindowTitleWithProfile));
+            }
+            return;
+        }
+
+        if (HasUnsavedChanges)
+        {
+            var result = await ShowConfirmAsync(
+                LocalizedStrings.Instance.UnsavedChangesMessage,
+                LocalizedStrings.Instance.UnsavedChangesTitle);
+
+            if (result == MessageBoxResult.Cancel)
+                return;
+
+            if (result == MessageBoxResult.Yes)
+            {
+                var saveName = _loadedProfileName;
+                if (string.IsNullOrWhiteSpace(saveName))
+                    saveName = ProfileNameInput;
+                if (string.IsNullOrWhiteSpace(saveName))
+                {
+                    await ShowWarningAsync(LocalizedStrings.Instance.PleaseEnterProfileName);
+                    return;
+                }
+                var config = GetCurrentConfig();
+                await _configService.SaveProfileAsync(saveName, config);
+                ProfileNameInput = string.Empty;
+                LoadProfiles();
+                SelectedProfile = saveName;
+                _loadedProfileName = saveName;
+                _loadedProfileConfig = config;
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+            }
+        }
+
+        SelectedInstance = instance;
+        if (instance != null)
+        {
+            LoadConfigToUI(instance.Configuration);
+            _loadedProfileName = instance.ProfileName;
+            _loadedProfileConfig = instance.Configuration;
+            SelectedProfile = instance.ProfileName;
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            OnPropertyChanged(nameof(WindowTitleWithProfile));
         }
     }
 
@@ -3365,43 +3955,46 @@ public void RebuildCustomArgumentsFromToggles()
         _errorAnimationCts?.Cancel();
         _errorAnimationCts = null;
         ShowServerStartError = false;
+        _selectedInstance?.DismissError();
     }
 
     private async Task StopServerAsync()
     {
-        await _serverService.StopAsync();
+        if (_selectedInstance != null)
+            await _selectedInstance.StopAsync();
     }
 
     private async Task RestartServerAsync()
     {
-        await StopServerAsync();
-        await StartServerAsync();
+        if (_selectedInstance != null)
+        {
+            var config = GetCurrentConfig();
+            if (!config.RunInDocker && string.IsNullOrEmpty(config.ExecutablePath))
+            {
+                var defaultPath = _downloadService.GetDefaultLlamaServerPath();
+                if (defaultPath != null)
+                    config.ExecutablePath = defaultPath;
+            }
+            _selectedInstance.UpdateConfiguration(config);
+            await _selectedInstance.RestartAsync(_supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+        }
     }
 
     public async Task StopServerIfRunningAsync()
     {
-        if (_serverService.IsRunning)
-        {
-            await _serverService.StopAsync();
-        }
+        await StopAllInstancesAsync();
     }
 
     private async Task UnloadModelAsync()
     {
-        await _serverService.UnloadModelAsync();
+        if (_selectedInstance != null)
+            await _selectedInstance.UnloadModelAsync();
     }
 
     private async Task OpenInBrowserAsync()
     {
-        try
-        {
-            var url = _serverService.BaseUrl;
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            _logService.Error($"Failed to open browser: {ex.Message}");
-        }
+        if (_selectedInstance != null)
+            await _selectedInstance.OpenInBrowserAsync();
     }
 
     private void LoadProfiles()
@@ -3425,6 +4018,20 @@ public void RebuildCustomArgumentsFromToggles()
 
         var config = GetCurrentConfig();
         await _configService.SaveProfileAsync(name, config);
+
+        // Sync the running instance's cached config if it matches the saved profile
+        var matchingInstance = RunningInstances.FirstOrDefault(i => i.ProfileName == name);
+        if (matchingInstance != null)
+        {
+            var instanceConfig = GetCurrentConfig();
+            if (!instanceConfig.RunInDocker && string.IsNullOrEmpty(instanceConfig.ExecutablePath))
+            {
+                var defaultPath = _downloadService.GetDefaultLlamaServerPath();
+                if (defaultPath != null)
+                    instanceConfig.ExecutablePath = defaultPath;
+            }
+            matchingInstance.UpdateConfiguration(instanceConfig);
+        }
         
         ProfileNameInput = string.Empty;
         LoadProfiles();
@@ -3746,6 +4353,7 @@ public void RebuildCustomArgumentsFromToggles()
 
     public void LoadConfigFromCommandLine(ServerConfiguration config)
     {
+        _shownConflictToasts.Clear();
         ExecutablePath = string.Empty;
         ModelPath = string.Empty;
         ModelsDir = string.Empty;
@@ -3844,12 +4452,6 @@ public void RebuildCustomArgumentsFromToggles()
         EnqueueLogLine(logLine);
     }
 
-    private void OnServerOutput(object? sender, string output)
-    {
-        if (!LogEnabled) return;
-        EnqueueLogLine(output);
-    }
-
     private void EnqueueLogLine(string line)
     {
         lock (_pendingLogs)
@@ -3886,81 +4488,114 @@ public void RebuildCustomArgumentsFromToggles()
         }
     }
 
-    private bool _isAutoRestarting;
-
-    private async void OnServerStateChanged(object? sender, bool isRunning)
+    private async Task CheckDefaultLlamaVersionAsync()
     {
         try
         {
+            var exePath = ExecutablePath;
+            if (string.IsNullOrEmpty(exePath))
+                exePath = _downloadService.GetDefaultLlamaServerPath() ?? "";
+            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath)) return;
+
+            var tag = await _downloadService.GetLocalVersionTagAsync(exePath);
+            if (string.IsNullOrEmpty(tag)) return;
+
+            if (_llamaCppInstalledTag != tag)
+            {
+                _llamaCppInstalledTag = tag;
+                OnPropertyChanged(nameof(LlamaInstalledVersionTooltip));
+                OnPropertyChanged(nameof(ShowLlamaUpdateButton));
+                OnPropertyChanged(nameof(ShowLlamaDownloadButton));
+                OnPropertyChanged(nameof(ShowLlamaChangeVersionButton));
+                OnPropertyChanged(nameof(LlamaButtonText));
+                await SaveSettingsAsync();
+            }
+
+            if (_cachedLlamaReleases.Count > 0)
+            {
+                var latestCachedTag = _cachedLlamaReleases[0].Tag;
+                IsLlamaUpdateAvailable = latestCachedTag != _llamaCppInstalledTag;
+            }
+        }
+        catch { }
+    }
+
+    private void StartPeriodicUpdateChecks()
+    {
+        _periodicCheckCts = new CancellationTokenSource();
+        var ct = _periodicCheckCts.Token;
+        _ = Task.Run(async () =>
+        {
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                IsServerRunning = isRunning;
-                ServerStatus = isRunning
-                    ? string.Format(Resources.LocalizedStrings.GetString("StatusRunning"), _serverService.ProcessId)
-                    : Localized.StatusStopped;
-
-                if (isRunning)
-                {
-                    _serverStartTime = DateTime.Now;
-                    DismissServerStartError();
-                }
-                else
-                {
-                    if (_serverStartTime.HasValue && (DateTime.Now - _serverStartTime.Value).TotalSeconds < 5 && !_serverService.WasStoppedIntentionally)
-                    {
-                        ShowServerStartErrorAnimation();
-                    }
-                    _serverStartTime = null;
-                }
-
-                if (!isRunning && AutoRestart && !_isAutoRestarting && !_serverService.WasStoppedIntentionally)
-                {
-                    _logService.AppLog("Server exited unexpectedly. Auto-restarting...");
-                    _isAutoRestarting = true;
-                    await Task.Delay(1000);
-                    try
-                    {
-                        var config = GetCurrentConfig();
-                        await RefreshSupportedFlagsAsync();
-                        if (config.RunInDocker)
-                            await _serverService.StartDockerAsync(_dockerService, config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
-                        else
-                            await _serverService.StartAsync(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
-                    }
-                    catch (Exception ex)
-                    {
-                        await ShowErrorAsync(string.Format(LocalizedStrings.Instance.FailedToAutoRestart, ex.Message));
-                    }
-                    finally
-                    {
-                        _isAutoRestarting = false;
-                    }
-                }
+                await TryRunUpdateChecksAsync();
             });
-        }
-        catch (TaskCanceledException)
+
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(1), ct);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+                if (ct.IsCancellationRequested) break;
+                await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    await TryRunUpdateChecksAsync();
+                });
+            }
+        }, ct);
+    }
+
+    private async Task TryRunUpdateChecksAsync()
+    {
+        try
         {
-            // Ignore - dispatcher is shutting down
+            var now = DateTime.Now;
+            if (now - _lastAppUpdateCheck >= TimeSpan.FromMinutes(_appUpdateCheckInterval))
+                await CheckForAppUpdateAsync();
+            if (now - _lastLlamaUpdateCheck >= TimeSpan.FromMinutes(_llamaUpdateCheckInterval))
+                await CheckForLlamaUpdateAsync();
         }
+        catch { }
     }
 
     private async Task CheckForLlamaUpdateAsync()
     {
         try
         {
+            if (DateTime.Now - _lastLlamaUpdateCheck < TimeSpan.FromMinutes(_llamaUpdateCheckInterval)) return;
+            _lastLlamaUpdateCheck = DateTime.Now;
+
             if (!_downloadService.IsLlamaCppInstalled()) return;
 
-            var latestTag = await _downloadService.GetLatestReleaseTagAsync();
-            if (latestTag != null && latestTag != _llamaCppInstalledTag)
+            _logService.Log(LogLevel.Info, $"Checking for llama.cpp updates on GitHub (interval: {_llamaUpdateCheckInterval} min)...");
+            var releases = await _downloadService.GetLatestReleasesAsync(10);
+            bool cacheChanged = releases.Count != _cachedLlamaReleases.Count
+                || (releases.Count > 0 && _cachedLlamaReleases.Count > 0 && releases[0].Tag != _cachedLlamaReleases[0].Tag);
+
+            _cachedLlamaReleases.Clear();
+            foreach (var r in releases)
+                _cachedLlamaReleases.Add(r);
+            _cachedLlamaReleasesTimestamp = DateTime.Now;
+
+            if (cacheChanged)
+                await SaveSettingsAsync();
+
+            if (_cachedLlamaReleases.Count > 0)
             {
-                var release = await _downloadService.GetReleaseByTagAsync(latestTag);
-                if (release != null)
+                var release = _cachedLlamaReleases[0];
+                if (release.Tag != _llamaCppInstalledTag)
                 {
                     IsLlamaUpdateAvailable = true;
                     CacheReleaseBody(release.Tag, release.Body);
                     var cleaned = CleanReleaseBody(release.Body);
                     var desc = cleaned.Length > 300 ? cleaned[..300] + "..." : cleaned;
-                    LlamaUpdateTooltip = $"{release.Tag}\n{release.PublishedAt:yyyy-MM-dd HH:mm}\n{desc}";
+                    var currentVersionStr = string.Format(LocalizedStrings.GetString("CurrentVersionTooltip"), _llamaCppInstalledTag);
+                    LlamaUpdateTooltip = $"{currentVersionStr}\n\n{release.Tag}\n{release.PublishedAt:yyyy-MM-dd HH:mm}\n{desc}";
                 }
             }
         }
@@ -4022,6 +4657,10 @@ public void RebuildCustomArgumentsFromToggles()
     {
         try
         {
+            if (DateTime.Now - _lastAppUpdateCheck < TimeSpan.FromMinutes(_appUpdateCheckInterval)) return;
+            _lastAppUpdateCheck = DateTime.Now;
+
+            _logService.Log(LogLevel.Info, $"Checking for application updates on GitHub (interval: {_appUpdateCheckInterval} min)...");
             var updateInfo = await _appUpdateService.CheckForUpdateAsync();
             if (updateInfo != null)
             {
@@ -4041,6 +4680,18 @@ public void RebuildCustomArgumentsFromToggles()
 
         try
         {
+            if (string.IsNullOrEmpty(_pendingAppUpdate.Asset?.DownloadUrl))
+            {
+                var freshUpdate = await _appUpdateService.CheckForUpdateAsync();
+                if (freshUpdate == null)
+                {
+                    _isAppUpdateAvailable = false;
+                    OnPropertyChanged(nameof(ShowAppUpdateButton));
+                    return;
+                }
+                _pendingAppUpdate = freshUpdate;
+            }
+
             var confirm = await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 var result = await MessageBox.ShowAsync(
@@ -4064,7 +4715,7 @@ public void RebuildCustomArgumentsFromToggles()
             ServerStatus = LocalizedStrings.GetString("AppUpdateRestarting");
 
             await SaveSettingsAsync();
-            await _serverService.StopAsync();
+            await StopAllInstancesAsync();
 
             await Task.Delay(500);
 
@@ -4097,6 +4748,17 @@ public void RebuildCustomArgumentsFromToggles()
 
     public void Dispose()
     {
+        _periodicCheckCts?.Cancel();
+        _periodicCheckCts?.Dispose();
+        foreach (var instance in RunningInstances.ToList())
+        {
+            try { instance.Dispose(); }
+            catch (Exception ex)
+            {
+                _logService?.Error($"Failed to dispose instance: {ex.Message}");
+            }
+        }
+        RunningInstances.Clear();
         _logService?.Dispose();
         _serverService?.Dispose();
     }

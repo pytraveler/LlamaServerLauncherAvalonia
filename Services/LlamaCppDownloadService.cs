@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -36,14 +38,18 @@ public class LlamaCppDownloadService
     {
         Timeout = TimeSpan.FromMinutes(30)
     };
+    internal static readonly SemaphoreSlim SharedHttpLock = new(1, 1);
 
     private const string RepoApiUrl = "https://api.github.com/repos/ggml-org/llama.cpp/releases";
     private readonly string _installDir;
 
-    public LlamaCppDownloadService(string? appDataPath = null)
+    static LlamaCppDownloadService()
     {
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("LlamaServerLauncher/1.0");
+    }
 
+    public LlamaCppDownloadService(string? appDataPath = null)
+    {
         var basePath = appDataPath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "LlamaServerLauncherAvalonia"
@@ -56,23 +62,39 @@ public class LlamaCppDownloadService
     public async Task<List<ReleaseInfo>> GetLatestReleasesAsync(int count = 10)
     {
         var url = $"{RepoApiUrl}?per_page={count}";
-        using var resp = await _http.GetAsync(url);
-        resp.EnsureSuccessStatusCode();
+        await SharedHttpLock.WaitAsync();
+        try
+        {
+            using var resp = await _http.GetAsync(url);
+            resp.EnsureSuccessStatusCode();
 
-        var json = await resp.Content.ReadAsStringAsync();
-        return ParseReleases(json);
+            var json = await resp.Content.ReadAsStringAsync();
+            return ParseReleases(json);
+        }
+        finally
+        {
+                SharedHttpLock.Release();
+        }
     }
 
     public async Task<ReleaseInfo?> GetReleaseByTagAsync(string tag)
     {
         var url = $"{RepoApiUrl}/tags/{Uri.EscapeDataString(tag)}";
-        using var resp = await _http.GetAsync(url);
-        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
-            return null;
-        resp.EnsureSuccessStatusCode();
+        await SharedHttpLock.WaitAsync();
+        try
+        {
+            using var resp = await _http.GetAsync(url);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return null;
+            resp.EnsureSuccessStatusCode();
 
-        var json = await resp.Content.ReadAsStringAsync();
-        return ParseSingleRelease(json);
+            var json = await resp.Content.ReadAsStringAsync();
+            return ParseSingleRelease(json);
+        }
+        finally
+        {
+                SharedHttpLock.Release();
+        }
     }
 
     public List<ReleaseAsset> FilterAssetsForCurrentOS(List<ReleaseAsset> assets)
@@ -119,6 +141,11 @@ public class LlamaCppDownloadService
 
     public async Task DownloadAndExtractAsync(ReleaseAsset asset, IProgress<double>? progress, CancellationToken ct, ReleaseAsset? cudaDllAsset = null)
     {
+        await DownloadAndExtractAsync(asset, _installDir, progress, ct, cudaDllAsset);
+    }
+
+    public async Task DownloadAndExtractAsync(ReleaseAsset asset, string targetDirectory, IProgress<double>? progress, CancellationToken ct, ReleaseAsset? cudaDllAsset = null)
+    {
         var tempFile = Path.Combine(Path.GetTempPath(), asset.Name);
         string? tempDllFile = null;
 
@@ -135,24 +162,24 @@ public class LlamaCppDownloadService
 
             progress?.Report(-1);
 
-            if (Directory.Exists(_installDir) || File.Exists(_installDir))
+            if (Directory.Exists(targetDirectory) || File.Exists(targetDirectory))
             {
-                try { Directory.Delete(_installDir, true); } catch { }
+                Directory.Delete(targetDirectory, true);
             }
-            Directory.CreateDirectory(_installDir);
+            Directory.CreateDirectory(targetDirectory);
 
             if (asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
-                ExtractZipWithFlatten(tempFile, _installDir);
+                ExtractZipWithFlatten(tempFile, targetDirectory);
             }
             else if (asset.Name.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
             {
-                ExtractTarGzWithFlatten(tempFile, _installDir);
+                ExtractTarGzWithFlatten(tempFile, targetDirectory);
             }
 
             if (tempDllFile != null && File.Exists(tempDllFile))
             {
-                ExtractDllsFromZip(tempDllFile, _installDir);
+                ExtractDllsFromZip(tempDllFile, targetDirectory);
             }
         }
         finally
@@ -164,36 +191,83 @@ public class LlamaCppDownloadService
 
     private async Task DownloadFileAsync(string url, string destPath, long expectedSize, double progressStart, double progressEnd, IProgress<double>? progress, CancellationToken ct)
     {
-        using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-        var totalBytes = response.Content.Headers.ContentLength ?? expectedSize;
-        var buffer = new byte[81920];
-        long bytesRead = 0;
-
-        using (var contentStream = await response.Content.ReadAsStreamAsync(ct))
-        using (var fileStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length, true))
+        await SharedHttpLock.WaitAsync(ct);
+        try
         {
-            int read;
-            while ((read = await contentStream.ReadAsync(buffer, ct)) > 0)
+            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+            var totalBytes = response.Content.Headers.ContentLength ?? expectedSize;
+            var buffer = new byte[81920];
+            long bytesRead = 0;
+
+            using (var contentStream = await response.Content.ReadAsStreamAsync(ct))
+            using (var fileStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length, true))
             {
-                await fileStream.WriteAsync(buffer, 0, read, ct);
-                bytesRead += read;
-                if (totalBytes > 0)
-                    progress?.Report(progressStart + (double)bytesRead / totalBytes * (progressEnd - progressStart));
+                int read;
+                while ((read = await contentStream.ReadAsync(buffer, ct)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer, 0, read, ct);
+                    bytesRead += read;
+                    if (totalBytes > 0)
+                        progress?.Report(progressStart + (double)bytesRead / totalBytes * (progressEnd - progressStart));
+                }
             }
+        }
+        finally
+        {
+                SharedHttpLock.Release();
         }
     }
 
     public string? GetDefaultLlamaServerPath()
     {
-        if (!IsLlamaCppInstalled()) return null;
+        return GetLlamaServerPath(_installDir);
+    }
+
+    public string? GetLlamaServerPath(string directory)
+    {
+        if (!Directory.Exists(directory)) return null;
 
         var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? "llama-server.exe"
             : "llama-server";
 
-        var path = Path.Combine(_installDir, exeName);
+        var path = Path.Combine(directory, exeName);
         return File.Exists(path) ? path : null;
+    }
+
+    public static string GetUniqueSubfolderPath(string baseDirectory, string name)
+    {
+        var sanitized = SanitizeFolderName(name);
+        var target = Path.Combine(baseDirectory, sanitized);
+        if (!Directory.Exists(target) && !File.Exists(target))
+            return target;
+
+        int index = 1;
+        while (true)
+        {
+            var candidate = Path.Combine(baseDirectory, $"{sanitized}({index})");
+            if (!Directory.Exists(candidate) && !File.Exists(candidate))
+                return candidate;
+            index++;
+        }
+    }
+
+    private static string SanitizeFolderName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var sb = new System.Text.StringBuilder(name.Length);
+        foreach (var c in name)
+        {
+            if (Array.IndexOf(invalid, c) >= 0 || c == '.' || c == ' ')
+                sb.Append('_');
+            else
+                sb.Append(c);
+        }
+        var result = sb.ToString();
+        if (string.IsNullOrEmpty(result))
+            result = "llama.cpp";
+        return result;
     }
 
     public bool IsLlamaCppInstalled()
@@ -208,6 +282,43 @@ public class LlamaCppDownloadService
         {
             var releases = await GetLatestReleasesAsync(1);
             return releases.Count > 0 ? releases[0].Tag : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<string?> GetLocalVersionTagAsync(string exePath)
+    {
+        try
+        {
+            if (!File.Exists(exePath)) return null;
+
+            var psi = new ProcessStartInfo(exePath, "--version")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+            if (process == null) return null;
+
+            var stdout = await process.StandardOutput.ReadToEndAsync();
+            var stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            var output = stdout + "\n" + stderr;
+            var match = Regex.Match(output, @"version\s*:\s*(\d+)", RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                var number = match.Groups[1].Value;
+                return $"b{number}";
+            }
+
+            return null;
         }
         catch
         {

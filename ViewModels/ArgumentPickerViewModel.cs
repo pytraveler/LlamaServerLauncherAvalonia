@@ -14,7 +14,7 @@ public class ArgumentPickerViewModel : INotifyPropertyChanged
     public LocalizedStrings Localized { get; } = LocalizedStrings.Instance;
 
     private readonly List<HelpArgumentItem> _allArguments;
-    public ObservableCollection<HelpArgumentItem> FilteredArguments { get; } = new();
+    public ObservableCollection<ArgumentCategoryGroup> GroupedArguments { get; } = new();
 
     private string _filterText = "";
     public string FilterText
@@ -43,6 +43,8 @@ public class ArgumentPickerViewModel : INotifyPropertyChanged
             PrimaryFlag = a.PrimaryFlag,
             Description = a.Description,
             DefaultValue = a.DefaultValue,
+            AllowedValues = a.AllowedValues,
+            Category = a.Category,
             IsSelected = false
         }).ToList();
 
@@ -54,16 +56,29 @@ public class ArgumentPickerViewModel : INotifyPropertyChanged
 
     private void ApplyFilter()
     {
-        FilteredArguments.Clear();
+        GroupedArguments.Clear();
         var filter = _filterText.Trim();
-        foreach (var item in _allArguments)
-        {
-            if (string.IsNullOrEmpty(filter) ||
+
+        var filtered = string.IsNullOrEmpty(filter)
+            ? _allArguments
+            : _allArguments.Where(item =>
                 item.PrimaryFlag.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-                item.Description.Contains(filter, StringComparison.OrdinalIgnoreCase))
-            {
-                FilteredArguments.Add(item);
-            }
+                item.Description.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                (item.AllowedValues != null && item.AllowedValues.Any(v => v.Contains(filter, StringComparison.OrdinalIgnoreCase))));
+
+        var categoryOrder = new List<string> { "common", "sampling", "speculative", "server" };
+
+        var grouped = filtered
+            .GroupBy(item => item.Category)
+            .OrderBy(g => categoryOrder.IndexOf(g.Key) >= 0 ? categoryOrder.IndexOf(g.Key) : 999)
+            .ThenBy(g => g.Key);
+
+        foreach (var group in grouped)
+        {
+            var categoryGroup = new ArgumentCategoryGroup(
+                LlamaArgumentRegistry.GetCategoryDisplayName(group.Key),
+                group.OrderBy(item => item.PrimaryFlag, StringComparer.OrdinalIgnoreCase).ToList());
+            GroupedArguments.Add(categoryGroup);
         }
     }
 
@@ -78,6 +93,18 @@ public class ArgumentPickerViewModel : INotifyPropertyChanged
     }
 }
 
+public class ArgumentCategoryGroup
+{
+    public string CategoryName { get; }
+    public List<HelpArgumentItem> Items { get; }
+
+    public ArgumentCategoryGroup(string categoryName, List<HelpArgumentItem> items)
+    {
+        CategoryName = categoryName;
+        Items = items;
+    }
+}
+
 public class HelpArgumentItem : INotifyPropertyChanged
 {
     private bool _isSelected;
@@ -85,6 +112,12 @@ public class HelpArgumentItem : INotifyPropertyChanged
     public string PrimaryFlag { get; set; } = "";
     public string Description { get; set; } = "";
     public string? DefaultValue { get; set; }
+    public string Category { get; set; } = "common";
+    public List<string>? AllowedValues { get; set; }
+
+    public string AllowedValuesText => AllowedValues != null && AllowedValues.Count > 0
+        ? string.Join(", ", AllowedValues)
+        : "";
 
     public bool IsSelected
     {
