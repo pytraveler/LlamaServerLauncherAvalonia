@@ -80,6 +80,7 @@ public class AppSettings
     public bool Offline { get; set; }
     public string HfRepoDraft { get; set; } = "";
     public bool AutoRestart { get; set; }
+    public string CustomBrowserPath { get; set; } = "";
     public bool AutoStartWithSystem { get; set; }
     public bool ConfirmStopServer { get; set; } = true;
     public bool AutoScrollLog { get; set; } = true;
@@ -124,4 +125,9 @@ public class AppSettings
     public string SelectedScenario { get; set; } = "";
 
     public Dictionary<string, DialogGeometry> DialogGeometry { get; set; } = new();
+
+    public bool ExperimentalReposEnabled { get; set; }
+    public int ExperimentalUpdateCheckIntervalMinutes { get; set; } = 480;
+    public List<ExperimentalRepoInfo> ExperimentalRepos { get; set; } = new();
+    public DateTime LastExperimentalUpdateCheck { get; set; }
 }

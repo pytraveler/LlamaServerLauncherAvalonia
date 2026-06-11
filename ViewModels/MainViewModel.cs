@@ -54,6 +54,11 @@ public class MainViewModel : INotifyPropertyChanged
     private DateTime _cachedLlamaReleasesTimestamp;
     private CancellationTokenSource? _periodicCheckCts;
 
+    private bool _experimentalReposEnabled;
+    private int _experimentalUpdateCheckInterval = 480;
+    private DateTime _lastExperimentalUpdateCheck;
+    private readonly ExperimentalRepoService _experimentalRepoService = new();
+
     private bool _scenariosEnabled;
     private string _selectedScenario = "";
     private bool _selectedScenarioAutoStart;
@@ -61,6 +66,9 @@ public class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<ServerInstance> RunningInstances { get; } = new();
     private ServerInstance? _selectedInstance;
+
+    public ObservableCollection<Models.ExperimentalRepoInfo> ExperimentalRepos { get; } = new();
+    private Models.ExperimentalRepoInfo? _selectedExperimentalRepo;
 
     public ObservableCollection<string> Scenarios { get; } = new();
 
@@ -309,6 +317,48 @@ public class MainViewModel : INotifyPropertyChanged
 
     public bool ShowUpdateIntervalWarning => _appUpdateCheckInterval < 10 || _llamaUpdateCheckInterval < 10;
 
+    public bool ExperimentalReposEnabled
+    {
+        get => _experimentalReposEnabled;
+        set
+        {
+            if (_experimentalReposEnabled != value)
+            {
+                _experimentalReposEnabled = value;
+                OnPropertyChanged();
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
+    public int ExperimentalUpdateCheckInterval
+    {
+        get => _experimentalUpdateCheckInterval;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 1440);
+            if (_experimentalUpdateCheckInterval != clamped)
+            {
+                _experimentalUpdateCheckInterval = clamped;
+                OnPropertyChanged();
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
+    public Models.ExperimentalRepoInfo? SelectedExperimentalRepo
+    {
+        get => _selectedExperimentalRepo;
+        set
+        {
+            if (_selectedExperimentalRepo != value)
+            {
+                _selectedExperimentalRepo = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public List<ReleaseInfo> CachedLlamaReleases => _cachedLlamaReleases;
     public DateTime CachedLlamaReleasesTimestamp => _cachedLlamaReleasesTimestamp;
 
@@ -456,6 +506,7 @@ public class MainViewModel : INotifyPropertyChanged
     private bool _suppressSpecTypeChange; // prevents ComboBox from resetting SpecType during ItemsSource rebuild
     private bool _autoRestart;
     private bool _autoStartWithSystem;
+    private string _customBrowserPath = string.Empty;
     private bool _confirmStopServer = true;
     private bool _autoScroll = true;
     private bool _logEnabled = true;
@@ -464,6 +515,10 @@ public class MainViewModel : INotifyPropertyChanged
     private int _selectedTabIndex;
     private bool _autoFitHeight;
     private double _autoFitHeightSavedHeight = 650;
+    private double _windowWidth = 900;
+    private double _windowHeight = 650;
+    private double? _windowLeft;
+    private double? _windowTop;
     private string _selectedProfile = string.Empty;
     private string _profileNameInput = string.Empty;
     private bool _isServerRunning;
@@ -611,6 +666,8 @@ public class MainViewModel : INotifyPropertyChanged
 
     private readonly HashSet<string> _shownConflictToasts = new(StringComparer.OrdinalIgnoreCase);
 
+    private ToastItem? _autoFitHeightToast;
+
     private bool _isLoadingConfig;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -658,6 +715,7 @@ public class MainViewModel : INotifyPropertyChanged
         BrowseLogFileCommand = new AsyncRelayCommand(BrowseLogFileAsync);
         BrowseMmprojCommand = new AsyncRelayCommand(BrowseMmprojAsync);
         BrowseDraftModelCommand = new AsyncRelayCommand(BrowseDraftModelAsync);
+        BrowseBrowserCommand = new AsyncRelayCommand(BrowseBrowserAsync);
         StartServerCommand = new AsyncRelayCommand(StartServerAsync, () => CanStartServer);
         RestartServerCommand = new AsyncRelayCommand(RestartServerAsync, () => IsServerRunning);
         StopServerCommand = new AsyncRelayCommand(StopServerAsync, () => IsServerRunning || (_selectedInstance?.IsRunning ?? false));
@@ -697,6 +755,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         var settings = await _configService.LoadAppSettingsAsync();
         await ApplyAppSettingsAsync(settings);
+        _ = LoadDetectedBrowsersAsync();
         _logService.Configure(settings.MaxLogFiles, settings.MaxLogSizeBytes);
         _ = CheckDefaultLlamaVersionAsync();
         StartPeriodicUpdateChecks();
@@ -725,6 +784,11 @@ public class MainViewModel : INotifyPropertyChanged
 
     public async Task ApplyAppSettingsAsync(AppSettings settings)
     {
+        _windowWidth = settings.WindowWidth > 0 ? settings.WindowWidth : 900;
+        _windowHeight = settings.WindowHeight > 0 ? settings.WindowHeight : 650;
+        _windowLeft = settings.WindowLeft;
+        _windowTop = settings.WindowTop;
+
         var language = string.IsNullOrEmpty(settings.Language) ? "en" : settings.Language;
         
         _selectedLanguage = language;
@@ -788,6 +852,7 @@ public class MainViewModel : INotifyPropertyChanged
         AutoRestart = settings.AutoRestart;
         ConfirmStopServer = settings.ConfirmStopServer;
         AutoStartWithSystem = _autoStartService.IsAutoStartEnabled();
+        CustomBrowserPath = settings.CustomBrowserPath ?? "";
         AutoScroll = settings.AutoScrollLog;
         LogEnabled = settings.LogEnabled;
         LogVisible = settings.LogVisible;
@@ -873,6 +938,19 @@ public class MainViewModel : INotifyPropertyChanged
         {
             foreach (var kv in settings.DialogGeometry)
                 DialogGeometryDict[kv.Key] = kv.Value;
+        }
+
+        _experimentalReposEnabled = settings.ExperimentalReposEnabled;
+        _experimentalUpdateCheckInterval = Math.Clamp(settings.ExperimentalUpdateCheckIntervalMinutes, 1, 1440);
+        _lastExperimentalUpdateCheck = settings.LastExperimentalUpdateCheck;
+        OnPropertyChanged(nameof(ExperimentalReposEnabled));
+        OnPropertyChanged(nameof(ExperimentalUpdateCheckInterval));
+
+        ExperimentalRepos.Clear();
+        if (settings.ExperimentalRepos != null)
+        {
+            foreach (var repo in settings.ExperimentalRepos)
+                ExperimentalRepos.Add(repo);
         }
     }
 
@@ -1128,6 +1206,10 @@ public class MainViewModel : INotifyPropertyChanged
     {
         return new AppSettings
         {
+            WindowWidth = _windowWidth,
+            WindowHeight = _windowHeight,
+            WindowLeft = _windowLeft,
+            WindowTop = _windowTop,
             Language = SelectedLanguage,
             ProfileNameInput = ProfileNameInput,
             ExecutablePath = NormalizeExecutablePathForSaving(ExecutablePath),
@@ -1221,7 +1303,12 @@ public class MainViewModel : INotifyPropertyChanged
             ScenariosEnabled = _scenariosEnabled,
             SelectedScenario = _selectedScenario,
             AutoStartWithSystem = _autoStartWithSystem,
-            DialogGeometry = new Dictionary<string, DialogGeometry>(DialogGeometryDict)
+            CustomBrowserPath = _customBrowserPath,
+            DialogGeometry = new Dictionary<string, DialogGeometry>(DialogGeometryDict),
+            ExperimentalReposEnabled = _experimentalReposEnabled,
+            ExperimentalUpdateCheckIntervalMinutes = _experimentalUpdateCheckInterval,
+            LastExperimentalUpdateCheck = _lastExperimentalUpdateCheck,
+            ExperimentalRepos = ExperimentalRepos.ToList()
         };
     }
 
@@ -1299,7 +1386,38 @@ public class MainViewModel : INotifyPropertyChanged
     public string Host
     {
         get => _host;
-        set { _host = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+        set
+        {
+            _host = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            OnPropertyChanged(nameof(IsHostValid));
+            OnPropertyChanged(nameof(HostValidationMessage));
+            UpdateCurrentCommand();
+            UpdateCommandStates();
+        }
+    }
+
+    public bool IsHostValid
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_host)) return true; // empty -> default 127.0.0.1
+            return IsValidHost(_host.Trim());
+        }
+    }
+
+    public string HostValidationMessage =>
+        IsHostValid ? string.Empty : LocalizedStrings.Instance.HostValidationWarning;
+
+    private static bool IsValidHost(string host)
+    {
+        if (System.Net.IPAddress.TryParse(host, out _)) return true;
+        if (Uri.CheckHostName(host) != UriHostNameType.Dns) return false;
+        // A DNS name whose first label is all digits is almost always a mistyped IPv4
+        // address (e.g. "127.0.0.1dfgvbd" or "999.1.1.1"); require a real IP in that case.
+        var firstLabel = host.Split('.')[0];
+        return firstLabel.Length > 0 && !firstLabel.All(char.IsDigit);
     }
 
     public string Port
@@ -1313,6 +1431,7 @@ public class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(PortValidationMessage));
             OnPropertyChanged(nameof(IsPortValid));
             UpdateCurrentCommand();
+            UpdateCommandStates();
         }
     }
 
@@ -1321,20 +1440,14 @@ public class MainViewModel : INotifyPropertyChanged
         get
         {
             if (string.IsNullOrWhiteSpace(_port)) return true; // empty is ok, will use default
-            return int.TryParse(_port, out _);
+            return int.TryParse(_port, out var p) && p >= 1 && p <= 65535;
         }
     }
 
-    public string PortValidationMessage
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(_port)) return string.Empty;
-            if (!int.TryParse(_port, out _))
-                return LocalizedStrings.Instance.PortValidationWarning;
-            return string.Empty;
-        }
-    }
+    public string PortValidationMessage =>
+        string.IsNullOrWhiteSpace(_port) || IsPortValid
+            ? string.Empty
+            : LocalizedStrings.Instance.PortValidationWarning;
 
     public string ContextSize
     {
@@ -1892,6 +2005,61 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    public string CustomBrowserPath
+    {
+        get => _customBrowserPath;
+        set
+        {
+            if (_customBrowserPath != value)
+            {
+                _customBrowserPath = value ?? "";
+                ServerInstance.CustomBrowserPath = string.IsNullOrWhiteSpace(_customBrowserPath) ? null : _customBrowserPath;
+                OnPropertyChanged();
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
+    public ObservableCollection<Models.BrowserInfo> DetectedBrowsers { get; } = new();
+
+    public bool HasDetectedBrowsers => DetectedBrowsers.Count > 0;
+
+    private Models.BrowserInfo? _selectedBrowser;
+    public Models.BrowserInfo? SelectedBrowser
+    {
+        get => _selectedBrowser;
+        set
+        {
+            if (_selectedBrowser == value) return;
+            _selectedBrowser = value;
+            OnPropertyChanged();
+            if (value != null && !string.IsNullOrWhiteSpace(value.Path))
+                CustomBrowserPath = value.Path;
+        }
+    }
+
+    public async Task LoadDetectedBrowsersAsync()
+    {
+        try
+        {
+            var browsers = await Task.Run(BrowserDetectionService.DetectInstalledBrowsers);
+            DetectedBrowsers.Clear();
+            foreach (var b in browsers)
+                DetectedBrowsers.Add(b);
+
+            // Pre-select the entry matching the saved path (set the field directly so we
+            // don't overwrite a custom path the user typed manually).
+            _selectedBrowser = DetectedBrowsers.FirstOrDefault(
+                b => string.Equals(b.Path, _customBrowserPath, StringComparison.OrdinalIgnoreCase));
+            OnPropertyChanged(nameof(SelectedBrowser));
+            OnPropertyChanged(nameof(HasDetectedBrowsers));
+        }
+        catch
+        {
+            // Detection failures are non-fatal; the manual path field still works.
+        }
+    }
+
     public bool AutoScroll
     {
         get => _autoScroll;
@@ -1939,6 +2107,30 @@ public class MainViewModel : INotifyPropertyChanged
     {
         get => _autoFitHeightSavedHeight;
         set { _autoFitHeightSavedHeight = value; OnPropertyChanged(); }
+    }
+
+    public double WindowWidth
+    {
+        get => _windowWidth;
+        set { _windowWidth = value; }
+    }
+
+    public double WindowHeight
+    {
+        get => _windowHeight;
+        set { _windowHeight = value; }
+    }
+
+    public double? WindowLeft
+    {
+        get => _windowLeft;
+        set { _windowLeft = value; }
+    }
+
+    public double? WindowTop
+    {
+        get => _windowTop;
+        set { _windowTop = value; }
     }
 
     private double _logHeight = 200;
@@ -2157,6 +2349,49 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Checks if the tab panel is too short and shows a warning toast if auto-fit height is off.
+    /// Called from MainWindow after layout with the actual rendered height of the TabControl.
+    /// </summary>
+    public void CheckAutoFitHeightWarning(double tabControlActualHeight)
+    {
+        if (AutoFitHeight || !TabPanelVisible)
+            return;
+
+        // Only warn if the tab panel is clearly too short to show content properly
+        const double minHeightThreshold = 150;
+        if (tabControlActualHeight >= minHeightThreshold)
+            return;
+
+        // Dismiss existing toast if still showing
+        if (_autoFitHeightToast != null)
+        {
+            Toasts.Dismiss(_autoFitHeightToast);
+            _autoFitHeightToast = null;
+        }
+
+        var msg = LocalizedStrings.Instance.ToastAutoFitHeightDisabled;
+        _autoFitHeightToast = new ToastItem(msg, onClick: () =>
+        {
+            AutoFitHeight = true;
+            _autoFitHeightToast = null;
+        });
+
+        Toasts.Toasts.Add(_autoFitHeightToast);
+
+        // Auto-dismiss after 6 seconds
+        var capturedToast = _autoFitHeightToast;
+        _ = System.Threading.Tasks.Task.Delay(6000).ContinueWith(_ =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (_autoFitHeightToast == capturedToast)
+                    _autoFitHeightToast = null;
+                Toasts.Toasts.Remove(capturedToast);
+            });
+        });
+    }
+
     public Avalonia.Media.IBrush SpecTypeBorderBrush => HasUnsupportedSpecType ? _warningBrush : _transparentBrush;
 
     public string SpecTypeToolTip => HasUnsupportedSpecType
@@ -2291,7 +2526,7 @@ public class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsHelpAvailable));
     }
 
-    public async Task RefreshSupportedFlagsAsync()
+    public async Task RefreshSupportedFlagsAsync(bool force = false)
     {
         try
         {
@@ -2317,8 +2552,9 @@ public class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // Avoid re-parsing the same executable
-            if (exePath == _lastCheckedExePath && _supportedFlags != null)
+            // Avoid re-parsing the same executable, unless forced (e.g. binary was
+            // replaced in-place by an update, so the path string is unchanged).
+            if (!force && exePath == _lastCheckedExePath && _supportedFlags != null)
                 return;
 
             var result = await LlamaHelpParserService.GetSupportedFlagsWithHelpAsync(exePath);
@@ -2831,6 +3067,7 @@ public class MainViewModel : INotifyPropertyChanged
     public ICommand BrowseLogFileCommand { get; }
     public ICommand BrowseMmprojCommand { get; }
     public ICommand BrowseDraftModelCommand { get; }
+    public ICommand BrowseBrowserCommand { get; }
     public ICommand StartServerCommand { get; }
     public ICommand RestartServerCommand { get; }
     public ICommand StopServerCommand { get; }
@@ -2886,7 +3123,8 @@ public class MainViewModel : INotifyPropertyChanged
     public bool CanStartServer =>
         !RunningInstances.Any(i => i.IsBusy && i.ProfileName == (_loadedProfileName ?? SelectedProfile))
         && (!string.IsNullOrEmpty(ModelPath) || !string.IsNullOrEmpty(ModelsDir) || !string.IsNullOrEmpty(HfRepo) || !string.IsNullOrEmpty(HfFile))
-        && (RunInDocker ? IsDockerAvailable : true);
+        && (RunInDocker ? IsDockerAvailable : true)
+        && IsPortValid && IsHostValid;
 
     public bool CanOpenInBrowser => (_selectedInstance?.IsRunning ?? false) && _selectedInstance.Configuration.EnableWebUI != false;
 
@@ -2981,6 +3219,18 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    private async Task BrowseBrowserAsync()
+    {
+        var result = await WindowsFileDialogs.OpenFileDialogAsync(
+            "Select Browser Executable",
+            new[] { ("Executable files", new[] { "*.exe" }), ("All files", new[] { "*.*" }) },
+            false);
+        if (result != null && result.Length > 0)
+        {
+            CustomBrowserPath = result[0];
+        }
+    }
+
     public async Task OpenArgumentPickerAsync()
     {
         if (_supportedFlags == null || string.IsNullOrWhiteSpace(_lastHelpText))
@@ -3011,11 +3261,10 @@ public class MainViewModel : INotifyPropertyChanged
 
         var dialog = new ArgumentPickerWindow();
         var vm = new ArgumentPickerViewModel(filtered);
-        dialog.SetViewModel(vm, _configService);
+        dialog.SetViewModel(vm, _configService, DialogGeometryDict);
         await dialog.ShowDialog(MainWindow.Instance!);
 
-        await DialogPositionHelper.SaveCapturedGeometryAsync(dialog.CapturedGeometry, _configService, "ArgumentPicker");
-        if (dialog.CapturedGeometry != null) DialogGeometryDict["ArgumentPicker"] = dialog.CapturedGeometry;
+        if (dialog.CapturedGeometry != null) { DialogGeometryDict["ArgumentPicker"] = dialog.CapturedGeometry; await SaveSettingsAsync(); }
 
         if (!dialog.IsConfirmed) return;
 
@@ -3955,69 +4204,10 @@ public void RebuildCustomArgumentsFromToggles()
                 return;
             }
 
-            var targetHost = string.IsNullOrWhiteSpace(config.Host) ? "127.0.0.1" : config.Host;
-            var targetPort = config.Port;
-            var collision = RunningInstances.FirstOrDefault(i => i.IsRunning
-                && i.Configuration.Host == targetHost
-                && i.Configuration.Port == targetPort);
-            if (collision != null)
-            {
-                var toastText = string.Format(LocalizedStrings.GetString("PortCollisionToast"), targetHost, targetPort, collision.ProfileName);
-                Toasts.Show(toastText);
-                return;
-            }
-
             RecordCurrentValuesToHistory();
             await RefreshSupportedFlagsAsync();
 
-            var exePath = config.ExecutablePath;
-            if (string.IsNullOrEmpty(exePath))
-                exePath = _downloadService.GetDefaultLlamaServerPath() ?? "";
-            var resolved = LlamaServerService.ResolveExecutablePath(exePath);
-            var version = !string.IsNullOrEmpty(resolved) && File.Exists(resolved)
-                ? (await _downloadService.GetLocalVersionTagAsync(resolved) ?? "unknown")
-                : (!string.IsNullOrEmpty(exePath) && File.Exists(exePath)
-                    ? (await _downloadService.GetLocalVersionTagAsync(exePath) ?? "unknown")
-                    : "unknown");
-            var logPrefix = $"[{profileName} | {version} | ";
-
-            var instance = new ServerInstance(
-                profileName,
-                config,
-                logPrefix,
-                _logService,
-                _autoRestart,
-                _logEnabled);
-
-            if (config.RunInDocker)
-                instance.SetDockerService(_dockerService);
-
-            instance.ServerStateChanged += OnInstanceServerStateChanged;
-            instance.RequestRemove += OnInstanceRequestRemove;
-            instance.PropertyChanged += OnInstancePropertyChanged;
-
-            await instance.StartAsync(_supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
-
-            if (instance.IsRunning)
-            {
-                RunningInstances.Add(instance);
-                SelectedInstance = instance;
-            }
-            else
-            {
-                // Process exited immediately — clean up and notify
-                instance.ServerStateChanged -= OnInstanceServerStateChanged;
-                instance.RequestRemove -= OnInstanceRequestRemove;
-                instance.PropertyChanged -= OnInstancePropertyChanged;
-
-                if (instance.ShowServerStartError)
-                {
-                    var msg = string.Format(LocalizedStrings.GetString("ServerStartFailedToast"), profileName);
-                    Toasts.ShowError(msg);
-                }
-
-                instance.Dispose();
-            }
+            await LaunchInstanceAsync(profileName, config);
         }
         catch (Exception ex)
         {
@@ -4314,6 +4504,93 @@ public void RebuildCustomArgumentsFromToggles()
             await _selectedInstance.UnloadModelAsync();
     }
 
+    public async Task<bool> LaunchInstanceAsync(string profileName, ServerConfiguration config)
+    {
+        try
+        {
+            if (RunningInstances.Any(i => i.ProfileName == profileName))
+            {
+                var existing = RunningInstances.First(i => i.ProfileName == profileName);
+                SelectedInstance = existing;
+                return false;
+            }
+
+            if (!config.RunInDocker && string.IsNullOrEmpty(config.ExecutablePath))
+            {
+                var defaultPath = _downloadService.GetDefaultLlamaServerPath();
+                if (defaultPath != null)
+                    config.ExecutablePath = defaultPath;
+            }
+
+            var targetHost = string.IsNullOrWhiteSpace(config.Host) ? "127.0.0.1" : config.Host;
+            var targetPort = config.Port;
+            var collision = RunningInstances.FirstOrDefault(i => i.IsRunning
+                && i.Configuration.Host == targetHost
+                && i.Configuration.Port == targetPort);
+            if (collision != null)
+            {
+                var toastText = string.Format(LocalizedStrings.GetString("PortCollisionToast"), targetHost, targetPort, collision.ProfileName);
+                Toasts.Show(toastText);
+                return false;
+            }
+
+            var exePath = config.ExecutablePath;
+            if (string.IsNullOrEmpty(exePath))
+                exePath = _downloadService.GetDefaultLlamaServerPath() ?? "";
+            var resolved = LlamaServerService.ResolveExecutablePath(exePath);
+            var version = !string.IsNullOrEmpty(resolved) && File.Exists(resolved)
+                ? (await _downloadService.GetLocalVersionTagAsync(resolved) ?? "unknown")
+                : (!string.IsNullOrEmpty(exePath) && File.Exists(exePath)
+                    ? (await _downloadService.GetLocalVersionTagAsync(exePath) ?? "unknown")
+                    : "unknown");
+            var logPrefix = $"[{profileName} | {version} | ";
+
+            var instance = new ServerInstance(
+                profileName,
+                config,
+                logPrefix,
+                _logService,
+                _autoRestart,
+                _logEnabled);
+
+            if (config.RunInDocker)
+                instance.SetDockerService(_dockerService);
+
+            instance.ServerStateChanged += OnInstanceServerStateChanged;
+            instance.RequestRemove += OnInstanceRequestRemove;
+            instance.PropertyChanged += OnInstancePropertyChanged;
+
+            await instance.StartAsync(_supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+
+            if (instance.IsRunning)
+            {
+                RunningInstances.Add(instance);
+                SelectedInstance = instance;
+                return true;
+            }
+            else
+            {
+                instance.ServerStateChanged -= OnInstanceServerStateChanged;
+                instance.RequestRemove -= OnInstanceRequestRemove;
+                instance.PropertyChanged -= OnInstancePropertyChanged;
+
+                if (instance.ShowServerStartError)
+                {
+                    var msg = string.Format(LocalizedStrings.GetString("ServerStartFailedToast"), profileName);
+                    Toasts.ShowError(msg);
+                }
+
+                instance.Dispose();
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logService.Error($"Failed to start instance '{profileName}': {ex.Message}");
+            return false;
+        }
+    }
+
     private async Task OpenInBrowserAsync()
     {
         if (_selectedInstance != null)
@@ -4394,66 +4671,20 @@ public void RebuildCustomArgumentsFromToggles()
                     config.ExecutablePath = defaultPath;
             }
 
-            var logPrefix = $"[{profileName}] ";
-
             if (RunningInstances.Any(inst => inst.ProfileName == profileName))
             {
                 _logService.Warning($"Instance '{profileName}' already running, skipping");
                 continue;
             }
 
-            var targetHost = string.IsNullOrWhiteSpace(config.Host) ? "127.0.0.1" : config.Host;
-            var targetPort = config.Port;
-            var collision = RunningInstances.FirstOrDefault(inst => inst.IsRunning
-                && inst.Configuration.Host == targetHost
-                && inst.Configuration.Port == targetPort);
-            if (collision != null)
-            {
-                var toastText = string.Format(LocalizedStrings.GetString("PortCollisionToast"), targetHost, targetPort, collision.ProfileName);
-                Toasts.Show(toastText);
-                continue;
-            }
-
-            ServerInstance? instance = null;
             try
             {
-                instance = new ServerInstance(
-                    profileName,
-                    config,
-                    logPrefix,
-                    _logService,
-                    _autoRestart,
-                    _logEnabled);
-
-                if (config.RunInDocker)
-                    instance.SetDockerService(_dockerService);
-
-                instance.ServerStateChanged += OnInstanceServerStateChanged;
-                instance.RequestRemove += OnInstanceRequestRemove;
-                instance.PropertyChanged += OnInstancePropertyChanged;
-
-                await instance.StartAsync(_supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
-
-                if (instance.IsRunning)
-                {
-                    RunningInstances.Add(instance);
+                if (await LaunchInstanceAsync(profileName, config))
                     launched++;
-                    instance = null;
-                }
             }
             catch (Exception ex)
             {
                 _logService.Error($"Failed to start instance '{profileName}' from scenario: {ex.Message}");
-            }
-            finally
-            {
-                if (instance != null)
-                {
-                    instance.ServerStateChanged -= OnInstanceServerStateChanged;
-                    instance.RequestRemove -= OnInstanceRequestRemove;
-                    instance.PropertyChanged -= OnInstancePropertyChanged;
-                    instance.Dispose();
-                }
             }
 
             if (i < scenario.ProfileNames.Count - 1 && scenario.IntervalSeconds > 0)
@@ -4497,11 +4728,10 @@ public void RebuildCustomArgumentsFromToggles()
         var vm = new ScenarioDialogViewModel(allProfileNames, profileConfigs, existingNames, existing,
             (name, config) => _configService.SaveProfileAsync(name, config));
         var dialog = new ScenarioDialogWindow();
-        dialog.SetViewModel(vm, _configService);
+        dialog.SetViewModel(vm, _configService, DialogGeometryDict);
         await dialog.ShowDialog(MainWindow.Instance!);
 
-        await DialogPositionHelper.SaveCapturedGeometryAsync(dialog.CapturedGeometry, _configService, "ScenarioDialog");
-        if (dialog.CapturedGeometry != null) DialogGeometryDict["ScenarioDialog"] = dialog.CapturedGeometry;
+        if (dialog.CapturedGeometry != null) { DialogGeometryDict["ScenarioDialog"] = dialog.CapturedGeometry; await SaveSettingsAsync(); }
 
         if (vm.DialogResult)
             return vm.GetResult();
@@ -5256,9 +5486,7 @@ public void RebuildCustomArgumentsFromToggles()
     {
         try
         {
-            var exePath = ExecutablePath;
-            if (string.IsNullOrEmpty(exePath))
-                exePath = _downloadService.GetDefaultLlamaServerPath() ?? "";
+            var exePath = _downloadService.GetDefaultLlamaServerPath() ?? "";
             if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath)) return;
 
             var tag = await _downloadService.GetLocalVersionTagAsync(exePath);
@@ -5323,6 +5551,8 @@ public void RebuildCustomArgumentsFromToggles()
                 await CheckForAppUpdateAsync();
             if (now - _lastLlamaUpdateCheck >= TimeSpan.FromMinutes(_llamaUpdateCheckInterval))
                 await CheckForLlamaUpdateAsync();
+            if (_experimentalReposEnabled && now - _lastExperimentalUpdateCheck >= TimeSpan.FromMinutes(_experimentalUpdateCheckInterval))
+                await CheckForExperimentalUpdatesAsync();
         }
         catch { }
     }
@@ -5438,6 +5668,47 @@ public void RebuildCustomArgumentsFromToggles()
         catch { }
     }
 
+    private async Task CheckForExperimentalUpdatesAsync()
+    {
+        try
+        {
+            if (!_experimentalReposEnabled) return;
+            if (DateTime.Now - _lastExperimentalUpdateCheck < TimeSpan.FromMinutes(_experimentalUpdateCheckInterval)) return;
+            _lastExperimentalUpdateCheck = DateTime.Now;
+
+            var enabledRepos = ExperimentalRepos.Where(r => r.Enabled).ToList();
+            if (enabledRepos.Count == 0) return;
+
+            _logService.Log(LogLevel.Info, $"Checking for experimental repo updates ({enabledRepos.Count} repos)...");
+
+            foreach (var repo in enabledRepos)
+            {
+                try
+                {
+                    var releases = await _experimentalRepoService.FetchReleasesAsync(repo);
+                    if (releases.Count == 0) continue;
+
+                    var oldTopTag = repo.CachedReleases.Count > 0 ? repo.CachedReleases[0].Tag : "";
+                    var newTopTag = releases[0].Tag;
+
+                    repo.CachedReleases = releases;
+                    repo.CachedReleasesTimestamp = DateTime.Now;
+
+                    if (!string.IsNullOrEmpty(oldTopTag) && oldTopTag != newTopTag)
+                    {
+                        var name = !string.IsNullOrEmpty(repo.DisplayName) ? repo.DisplayName : repo.RepoUrl;
+                        var msg = string.Format(LocalizedStrings.GetString("ExperimentalUpdateToast"), name, newTopTag);
+                        Toasts.ShowNeutral(msg, 8000);
+                    }
+                }
+                catch { }
+            }
+
+            await SaveSettingsAsync();
+        }
+        catch { }
+    }
+
     public async Task UpdateAppAsync()
     {
         if (_pendingAppUpdate == null) return;
@@ -5508,6 +5779,38 @@ public void RebuildCustomArgumentsFromToggles()
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        if (propertyName != null)
+            DisableConflictingCustomArgs(propertyName);
+    }
+
+    private void DisableConflictingCustomArgs(string propertyName)
+    {
+        if (_isLoadingConfig || _isInitializing || _isUpdatingCustomArguments) return;
+        if (CustomArgumentItems.Count == 0) return;
+
+        var flags = ServerConfiguration.GetFlagsForProperty(propertyName);
+        if (flags.Count == 0) return;
+
+        // Only react to value (string) fields that currently hold a value.
+        if (GetType().GetProperty(propertyName)?.GetValue(this) is not string value
+            || string.IsNullOrWhiteSpace(value))
+            return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            bool changed = false;
+            foreach (var item in CustomArgumentItems)
+            {
+                if (item.IsEnabled && flags.Any(f => string.Equals(f, item.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    item.IsEnabled = false;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+                RebuildCustomArgumentsFromToggles();
+        });
     }
 
     public void Dispose()
@@ -5526,6 +5829,80 @@ public void RebuildCustomArgumentsFromToggles()
         _logStreamService.Dispose();
         _logService?.Dispose();
         _serverService?.Dispose();
+    }
+
+    public ExperimentalRepoInfo? CreateExperimentalRepoFromDialog(string repoUrl, string displayName, string filterTags)
+    {
+        if (string.IsNullOrWhiteSpace(repoUrl)) return null;
+        if (!ExperimentalRepoService.TryParseGitHubUrl(repoUrl, out _, out _)) return null;
+
+        if (ExperimentalRepos.Any(r => r.RepoUrl.Equals(repoUrl.Trim(), StringComparison.OrdinalIgnoreCase)))
+            return null;
+
+        var repo = new Models.ExperimentalRepoInfo
+        {
+            RepoUrl = repoUrl.Trim(),
+            DisplayName = displayName?.Trim() ?? "",
+            FilterTags = string.IsNullOrWhiteSpace(filterTags) ? ExperimentalRepoService.GetDefaultFilterTags() : filterTags.Trim(),
+            Enabled = true
+        };
+
+        if (string.IsNullOrEmpty(repo.DisplayName) && ExperimentalRepoService.TryParseGitHubUrl(repo.RepoUrl, out _, out var repoName))
+            repo.DisplayName = repoName;
+
+        ExperimentalRepos.Add(repo);
+        _ = SaveSettingsAsync();
+        return repo;
+    }
+
+    public bool UpdateExperimentalRepoFromDialog(Models.ExperimentalRepoInfo existing, string repoUrl, string displayName, string filterTags)
+    {
+        if (existing == null) return false;
+        if (string.IsNullOrWhiteSpace(repoUrl)) return false;
+        if (!ExperimentalRepoService.TryParseGitHubUrl(repoUrl, out _, out _)) return false;
+
+        var duplicate = ExperimentalRepos.FirstOrDefault(r =>
+            r.RepoUrl.Equals(repoUrl.Trim(), StringComparison.OrdinalIgnoreCase) && r != existing);
+        if (duplicate != null) return false;
+
+        existing.RepoUrl = repoUrl.Trim();
+        existing.DisplayName = displayName?.Trim() ?? "";
+        existing.FilterTags = string.IsNullOrWhiteSpace(filterTags) ? ExperimentalRepoService.GetDefaultFilterTags() : filterTags.Trim();
+
+        if (string.IsNullOrEmpty(existing.DisplayName) && ExperimentalRepoService.TryParseGitHubUrl(existing.RepoUrl, out _, out var repoName))
+            existing.DisplayName = repoName;
+
+        var idx = ExperimentalRepos.IndexOf(existing);
+        if (idx >= 0)
+        {
+            ExperimentalRepos[idx] = existing;
+            OnPropertyChanged(nameof(ExperimentalRepos));
+        }
+
+        _ = SaveSettingsAsync();
+        return true;
+    }
+
+    public void DeleteExperimentalRepo(Models.ExperimentalRepoInfo repo)
+    {
+        if (repo == null) return;
+        ExperimentalRepos.Remove(repo);
+        if (_selectedExperimentalRepo == repo)
+            SelectedExperimentalRepo = null;
+        _ = SaveSettingsAsync();
+    }
+
+    public void AddDefaultExperimentalRepos()
+    {
+        var defaults = ExperimentalRepoService.GetDefaultRepos();
+        foreach (var def in defaults)
+        {
+            if (!ExperimentalRepos.Any(r => r.RepoUrl.Equals(def.RepoUrl, StringComparison.OrdinalIgnoreCase)))
+            {
+                ExperimentalRepos.Add(def);
+            }
+        }
+        _ = SaveSettingsAsync();
     }
 }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using LlamaServerLauncher.Models;
@@ -20,13 +21,14 @@ public partial class ScenarioDialogWindow : Window
         InitializeComponent();
     }
 
-    public void SetViewModel(ScenarioDialogViewModel viewModel, ConfigurationService configService)
+    public void SetViewModel(ScenarioDialogViewModel viewModel, ConfigurationService configService, Dictionary<string, DialogGeometry>? dialogGeometryDict = null)
     {
         _viewModel = viewModel;
         _configService = configService;
         DataContext = _viewModel;
         _viewModel.RequestClose += OnRequestClose;
-        _ = DialogPositionHelper.ApplySavedGeometryAsync(this, _configService, "ScenarioDialog");
+        if (dialogGeometryDict != null)
+            DialogPositionHelper.ApplySavedGeometry(this, dialogGeometryDict, "ScenarioDialog");
     }
 
     private void OnRequestClose()

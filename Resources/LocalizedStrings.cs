@@ -249,6 +249,7 @@ public string English => GetString("English");
     public string PlaceholderMmprojPath => GetString("PlaceholderMmprojPath");
     public string PlaceholderCustomArguments => GetString("PlaceholderCustomArguments");
     public string PortValidationWarning => GetString("PortValidationWarning");
+    public string HostValidationWarning => GetString("HostValidationWarning");
 
     public string ParallelSlots => GetString("ParallelSlots");
     public string ContBatching => GetString("ContBatching");
@@ -456,4 +457,27 @@ public string English => GetString("English");
     public string CloneProfilePort => GetString("CloneProfilePort");
     public string CloneProfileContextSize => GetString("CloneProfileContextSize");
     public string CloneToScenario => GetString("CloneToScenario");
+    public string CustomBrowserPath => GetString("CustomBrowserPath");
+    public string TooltipCustomBrowserPath => GetString("TooltipCustomBrowserPath");
+    public string SelectInstalledBrowser => GetString("SelectInstalledBrowser");
+    public string ConfirmStopForUpdate => GetString("ConfirmStopForUpdate");
+    public string ToastAutoFitHeightDisabled => GetString("ToastAutoFitHeightDisabled");
+
+    public string ExperimentalRepos => GetString("ExperimentalRepos");
+    public string Add => GetString("Add");
+    public string Edit => GetString("Edit");
+    public string ExperimentalReposEnabled => GetString("ExperimentalReposEnabled");
+    public string ExperimentalUpdateInterval => GetString("ExperimentalUpdateInterval");
+    public string ExperimentalRepoList => GetString("ExperimentalRepoList");
+    public string AddDefaultRepos => GetString("AddDefaultRepos");
+    public string RepoUrl => GetString("RepoUrl");
+    public string DisplayName => GetString("DisplayName");
+    public string FilterTags => GetString("FilterTags");
+    public string ExperimentalRepoDialogTitle => GetString("ExperimentalRepoDialogTitle");
+    public string ExperimentalRepoEditTitle => GetString("ExperimentalRepoEditTitle");
+    public string RepoUrlInvalid => GetString("RepoUrlInvalid");
+    public string OfficialTab => GetString("OfficialTab");
+    public string ExperimentalTab => GetString("ExperimentalTab");
+    public string ExperimentalRepoSelect => GetString("ExperimentalRepoSelect");
+    public string ExperimentalUpdateToast => GetString("ExperimentalUpdateToast");
 }

@@ -3,9 +3,11 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using LlamaServerLauncher.Models;
 using LlamaServerLauncher.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace LlamaServerLauncher.Controls;
 
@@ -30,10 +32,14 @@ public partial class HistoryTextBox : UserControl
     }
 
     private IDisposable? _textBinding;
+    private ArgType? _filterType;
+    private string _lastValidText = "";
+    private bool _suppressValidation;
 
     public HistoryTextBox()
     {
         InitializeComponent();
+        InnerTextBox.TextChanged += OnInnerTextChanged;
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -59,11 +65,47 @@ public partial class HistoryTextBox : UserControl
         _textBinding?.Dispose();
         _textBinding = null;
 
+        // Determine the input filter from the argument type of the bound property.
+        _filterType = PropertyName != null ? ServerConfiguration.GetArgType(PropertyName) : null;
+        _lastValidText = InnerTextBox.Text ?? "";
+
         if (PropertyName != null && DataContext != null)
         {
             _textBinding = InnerTextBox.Bind(TextBox.TextProperty,
                 new Binding(PropertyName) { Mode = BindingMode.TwoWay });
         }
+    }
+
+    private void OnInnerTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_suppressValidation) return;
+        // Only Int/Double arguments are filtered; everything else accepts free text.
+        if (_filterType != ArgType.Int && _filterType != ArgType.Double) return;
+
+        var text = InnerTextBox.Text ?? "";
+        if (IsValidNumeric(text, _filterType.Value))
+        {
+            _lastValidText = text;
+            return;
+        }
+
+        // Reject the change: restore the last valid text and keep the caret sensible.
+        var caret = InnerTextBox.CaretIndex;
+        var removed = text.Length - _lastValidText.Length;
+        _suppressValidation = true;
+        InnerTextBox.Text = _lastValidText;
+        InnerTextBox.CaretIndex = Math.Clamp(caret - (removed > 0 ? removed : 0), 0, _lastValidText.Length);
+        _suppressValidation = false;
+    }
+
+    private static bool IsValidNumeric(string text, ArgType type)
+    {
+        if (text.Length == 0) return true; // empty means "not set"
+        // Allow partial input while typing: an optional leading minus, digits, and
+        // (for Double) a single decimal point. Final validity is enforced by parsing.
+        return type == ArgType.Int
+            ? Regex.IsMatch(text, @"^-?\d*$")
+            : Regex.IsMatch(text, @"^-?\d*\.?\d*$");
     }
 
     private void HistoryButton_Click(object? sender, RoutedEventArgs e)

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using LlamaServerLauncher.Models;
@@ -9,11 +8,9 @@ namespace LlamaServerLauncher.Services;
 
 public static class DialogPositionHelper
 {
-    public static async Task ApplySavedGeometryAsync(Window window, ConfigurationService configService, string dialogKey)
+    public static void ApplySavedGeometry(Window window, Dictionary<string, DialogGeometry> geometryDict, string dialogKey)
     {
-        var settings = await configService.LoadAppSettingsAsync();
-
-        if (!settings.DialogGeometry.TryGetValue(dialogKey, out var geo))
+        if (!geometryDict.TryGetValue(dialogKey, out var geo))
             return;
 
         if (geo.Width > 0)
@@ -31,18 +28,5 @@ public static class DialogPositionHelper
                 window.Position = new PixelPoint((int)left, (int)top);
             }
         }
-    }
-
-    /// <summary>
-    /// Save pre-captured dialog geometry asynchronously. Call from the caller
-    /// after ShowDialog returns, NOT from OnClosing (would deadlock on UI thread).
-    /// </summary>
-    public static async Task SaveCapturedGeometryAsync(DialogGeometry? geometry, ConfigurationService configService, string dialogKey)
-    {
-        if (geometry == null) return;
-
-        var settings = await configService.LoadAppSettingsAsync();
-        settings.DialogGeometry[dialogKey] = geometry;
-        await configService.SaveAppSettingsAsync(settings);
     }
 }

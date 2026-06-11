@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -18,7 +19,6 @@ public partial class DownloadDialogWindow : Window
 
     public bool DownloadCompleted { get; private set; }
 
-    /// <summary>Geometry captured in OnClosing for the caller to save asynchronously.</summary>
     public DialogGeometry? CapturedGeometry { get; private set; }
 
     public DownloadDialogWindow()
@@ -26,13 +26,14 @@ public partial class DownloadDialogWindow : Window
         InitializeComponent();
     }
 
-    public void SetViewModel(DownloadDialogViewModel viewModel, ConfigurationService configService)
+    public void SetViewModel(DownloadDialogViewModel viewModel, ConfigurationService configService, Dictionary<string, DialogGeometry>? dialogGeometryDict = null)
     {
         _viewModel = viewModel;
         _configService = configService;
         DataContext = _viewModel;
         _viewModel.RequestClose += OnRequestClose;
-        _ = DialogPositionHelper.ApplySavedGeometryAsync(this, _configService, "DownloadDialog");
+        if (dialogGeometryDict != null)
+            DialogPositionHelper.ApplySavedGeometry(this, dialogGeometryDict, "DownloadDialog");
     }
 
     private void OnRequestClose()
@@ -55,6 +56,12 @@ public partial class DownloadDialogWindow : Window
     {
         if (_viewModel != null)
             await _viewModel.DownloadToFolderAsync();
+    }
+
+    private async void DownloadExperimentalClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.DownloadExperimentalAsync();
     }
 
     private void CancelClick(object? sender, RoutedEventArgs e)

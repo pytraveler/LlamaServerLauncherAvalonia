@@ -160,6 +160,8 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
         await _service.UnloadSingleModelAsync(modelId);
     }
 
+    public static string? CustomBrowserPath { get; set; }
+
     public Task OpenInBrowserAsync()
     {
         try
@@ -171,7 +173,18 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
                 _logService.Error($"Invalid server URL: {url}");
                 return Task.CompletedTask;
             }
-            Process.Start(new ProcessStartInfo(uri.ToString()) { UseShellExecute = true });
+            var browserPath = CustomBrowserPath;
+            if (!string.IsNullOrWhiteSpace(browserPath))
+            {
+                Process.Start(new ProcessStartInfo(browserPath, uri.ToString())
+                {
+                    UseShellExecute = false
+                });
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo(uri.ToString()) { UseShellExecute = true });
+            }
         }
         catch (Exception ex)
         {

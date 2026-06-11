@@ -359,6 +359,27 @@ public class ServerConfiguration
         ["--hf-repo-draft"] = new("HfRepoDraft", ArgType.String),
     };
 
+    public static ArgType? GetArgType(string propertyName)
+    {
+        foreach (var mapping in KnownArguments.Values)
+        {
+            if (string.Equals(mapping.PropertyName, propertyName, StringComparison.Ordinal))
+                return mapping.Type;
+        }
+        return null;
+    } 
+
+    public static List<string> GetFlagsForProperty(string propertyName)
+    {
+        var flags = new List<string>();
+        foreach (var kv in KnownArguments)
+        {
+            if (string.Equals(kv.Value.PropertyName, propertyName, StringComparison.Ordinal))
+                flags.Add(kv.Key);
+        }
+        return flags;
+    }
+
     public static readonly Dictionary<string, string[]> MutuallyExclusiveGroups = new()
     {
         ["-fa"] = new[] { "-fa", "--flash-attn" },

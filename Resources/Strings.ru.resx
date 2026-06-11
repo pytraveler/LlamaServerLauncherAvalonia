@@ -612,7 +612,10 @@
     <value>напр. --special-flag value</value>
   </data>
   <data name="PortValidationWarning" xml:space="preserve">
-    <value>Некорректный номер порта</value>
+    <value>Порт должен быть числом от 1 до 65535</value>
+  </data>
+  <data name="HostValidationWarning" xml:space="preserve">
+    <value>Недопустимый хост: введите IP-адрес или имя хоста</value>
   </data>
   <data name="ParallelSlots" xml:space="preserve">
     <value>Параллельные слоты</value>
@@ -1222,5 +1225,78 @@
   </data>
   <data name="CloneToScenario" xml:space="preserve">
     <value>Клонировать &gt;</value>
+  </data>
+  <data name="CustomBrowserPath" xml:space="preserve">
+    <value>Путь к браузеру:</value>
+  </data>
+  <data name="TooltipCustomBrowserPath" xml:space="preserve">
+    <value>Оставьте пустым для использования браузера по умолчанию</value>
+  </data>
+  <data name="ConfirmStopForUpdate" xml:space="preserve">
+    <value>Для обновления необходимо остановить следующие запущенные серверы:
+
+{0}
+
+Остановить и продолжить?</value>
+  </data>
+  <data name="ToastAutoFitHeightDisabled" xml:space="preserve">
+    <value>Авторегулировка высоты окна отключена. Содержимое вкладки может быть обрезано. Растяните окно или нажмите, чтобы включить авторегулировку.</value>
+  </data>
+  <data name="SelectInstalledBrowser" xml:space="preserve">
+    <value>Выберите установленный браузер…</value>
+  </data>
+  <data name="Add" xml:space="preserve">
+    <value>Добавить</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Изменить</value>
+  </data>
+  <data name="ExperimentalRepos" xml:space="preserve">
+    <value>Экспериментальные репо</value>
+  </data>
+  <data name="ExperimentalReposEnabled" xml:space="preserve">
+    <value>Включить экспериментальные репозитории сборок</value>
+  </data>
+  <data name="ExperimentalUpdateInterval" xml:space="preserve">
+    <value>Интервал проверки (мин):</value>
+  </data>
+  <data name="ExperimentalRepoList" xml:space="preserve">
+    <value>Репозитории:</value>
+  </data>
+  <data name="AddDefaultRepos" xml:space="preserve">
+    <value>Добавить по умолчанию</value>
+  </data>
+  <data name="RepoUrl" xml:space="preserve">
+    <value>URL GitHub:</value>
+  </data>
+  <data name="DisplayName" xml:space="preserve">
+    <value>Отображаемое имя:</value>
+  </data>
+  <data name="FilterTags" xml:space="preserve">
+    <value>Теги фильтра:</value>
+  </data>
+  <data name="ExperimentalRepoDialogTitle" xml:space="preserve">
+    <value>Добавить экспериментальный репозиторий</value>
+  </data>
+  <data name="ExperimentalRepoEditTitle" xml:space="preserve">
+    <value>Изменить экспериментальный репозиторий</value>
+  </data>
+  <data name="ConfirmDeleteRepo" xml:space="preserve">
+    <value>Удалить репозиторий '{0}'?</value>
+  </data>
+  <data name="RepoUrlInvalid" xml:space="preserve">
+    <value>Неверный формат URL GitHub</value>
+  </data>
+  <data name="OfficialTab" xml:space="preserve">
+    <value>Официальные</value>
+  </data>
+  <data name="ExperimentalTab" xml:space="preserve">
+    <value>Экспериментальные</value>
+  </data>
+  <data name="ExperimentalRepoSelect" xml:space="preserve">
+    <value>Выберите репозиторий:</value>
+  </data>
+  <data name="ExperimentalUpdateToast" xml:space="preserve">
+    <value>Новый релиз {1} доступен в {0}</value>
   </data>
 </root>

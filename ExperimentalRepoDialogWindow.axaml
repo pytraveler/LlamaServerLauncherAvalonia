@@ -1,0 +1,38 @@
+<Window x:Class="LlamaServerLauncher.ExperimentalRepoDialogWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
+        Title="{Binding DialogTitle}"
+        Width="500" Height="280"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        MinWidth="400" MinHeight="260"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <Design.DataContext>
+        <vm:ExperimentalRepoDialogViewModel/>
+    </Design.DataContext>
+
+    <Grid Margin="15" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Width="460">
+        <TextBlock Grid.Row="0" Text="{Binding Localized.RepoUrl}" Margin="0,0,0,5"/>
+        <TextBox Grid.Row="1" Text="{Binding RepoUrl, UpdateSourceTrigger=PropertyChanged}"
+                 PlaceholderText="https://github.com/user/repo" Margin="0,0,0,8"/>
+        <TextBlock Grid.Row="2" Text="{Binding ValidationError}" Foreground="Red" FontSize="12" Margin="0,0,0,8"
+                   IsVisible="{Binding HasValidationError}"/>
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,12,*" Margin="0,0,0,10">
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="{Binding Localized.DisplayName}" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="{Binding Localized.FilterTags}" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding FilterTags}" PlaceholderText="windows,mswin,win"/>
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="{Binding Localized.OK}" Click="OkClick" Width="80" Margin="0,0,10,0" IsEnabled="{Binding CanSave}"/>
+            <Button Content="{Binding Localized.Cancel}" Click="CancelClick" Width="80"/>
+        </StackPanel>
+    </Grid>
+</Window>

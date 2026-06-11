@@ -326,9 +326,9 @@ public class LlamaCppDownloadService
 
             var output = stdout + "\n" + stderr;
             var match = Regex.Match(output, @"version\s*:\s*(\d+)", RegexOptions.IgnoreCase);
-            if (match.Success)
+            if (match.Success && long.TryParse(match.Groups[1].Value, out var number) && number > 0)
             {
-                var number = match.Groups[1].Value;
+                // "version: 0" means the binary has no embedded build number 
                 return $"b{number}";
             }
 

@@ -22,13 +22,14 @@ public partial class ArgumentPickerWindow : Window
         InitializeComponent();
     }
 
-    public void SetViewModel(ArgumentPickerViewModel vm, ConfigurationService configService)
+    public void SetViewModel(ArgumentPickerViewModel vm, ConfigurationService configService, Dictionary<string, DialogGeometry>? dialogGeometryDict = null)
     {
         _viewModel = vm;
         _configService = configService;
         DataContext = vm;
         vm.RequestClose += () => Close();
-        _ = DialogPositionHelper.ApplySavedGeometryAsync(this, _configService, "ArgumentPicker");
+        if (dialogGeometryDict != null)
+            DialogPositionHelper.ApplySavedGeometry(this, dialogGeometryDict, "ArgumentPicker");
     }
 
     public bool IsConfirmed { get; private set; }

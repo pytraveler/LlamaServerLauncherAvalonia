@@ -6,7 +6,8 @@
          Width="480" Height="280"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        SizeToContent="Height">
+        SizeToContent="Height"
+        Background="{DynamicResource WindowBackgroundBrush}">
     <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" HorizontalAlignment="Center">
         <TextBlock Grid.Row="0" Text="Llama Server Launcher" FontSize="20" FontWeight="Bold"
                    HorizontalAlignment="Center" Margin="0,0,0,10"/>

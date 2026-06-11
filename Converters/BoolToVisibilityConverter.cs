@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using LlamaServerLauncher.Services;
 using System;
 using System.Globalization;
 
@@ -84,9 +85,16 @@ public class IsErrorBrushConverter : IValueConverter
 {
     private static readonly IBrush ErrorBrush = Brushes.Red;
     private static readonly IBrush WarningBrush = Brushes.Orange;
+    private static readonly IBrush NeutralBrush = Brushes.CornflowerBlue;
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
+        if (value is ToastItem toast)
+        {
+            if (toast.IsError) return ErrorBrush;
+            if (toast.IsNeutral) return NeutralBrush;
+            return WarningBrush;
+        }
         if (value is bool isError && isError)
             return ErrorBrush;
         return WarningBrush;

@@ -153,8 +153,15 @@ public partial class MainWindow : Window
                 if (_viewModel.AutoFitHeight && !_isAutoFitActive)
                     EnableAutoFitHeight();
                 else if (!_viewModel.AutoFitHeight && _isAutoFitActive)
+                {
                     DisableAutoFitHeight();
+                    CheckTabContentHeightWarning();
+                }
             });
+        }
+        else if (e.PropertyName == nameof(MainViewModel.SelectedTabIndex))
+        {
+            Dispatcher.UIThread.Post(CheckTabContentHeightWarning);
         }
         else if (e.PropertyName == nameof(MainViewModel.LogVisible))
         {
@@ -217,6 +224,20 @@ public partial class MainWindow : Window
         _isAutoFitActive = false;
     }
 
+    private void CheckTabContentHeightWarning()
+    {
+        if (_viewModel == null) return;
+        if (_viewModel.AutoFitHeight) return;
+
+        // Double-post: wait for layout pass so ActualHeight is up to date
+        Dispatcher.UIThread.Post(() =>
+        {
+            var tabControl = this.FindControl<TabControl>("MainTabControl");
+            if (tabControl == null || _viewModel == null) return;
+            _viewModel.CheckAutoFitHeightWarning(tabControl.Bounds.Height);
+        });
+    }
+
     private void OnLogSplitterPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!_isAutoFitActive) return;
@@ -254,7 +275,7 @@ public partial class MainWindow : Window
 
     private async Task LoadWindowPositionAsync()
     {
-        if (_configService == null) return;
+        if (_configService == null || _viewModel == null) return;
         
         var settings = await _configService.LoadAppSettingsAsync();
         
@@ -275,6 +296,11 @@ public partial class MainWindow : Window
                 Position = new PixelPoint((int)left, (int)top);
             }
         }
+
+        _viewModel.WindowWidth = Width;
+        _viewModel.WindowHeight = Height;
+        _viewModel.WindowLeft = Position.X;
+        _viewModel.WindowTop = Position.Y;
 
         var mainGrid = this.FindControl<Grid>("MainGrid");
         if (mainGrid != null && mainGrid.RowDefinitions.Count > 6)
@@ -297,18 +323,17 @@ public partial class MainWindow : Window
                 _viewModel.LogHeight = logRow.Height.Value;
         }
         
-        var settings = _viewModel.GetAppSettings();
-        settings.WindowWidth = Width;
+        _viewModel.WindowWidth = Width;
         
         if (_viewModel.AutoFitHeight)
-            settings.WindowHeight = _viewModel.AutoFitHeightSavedHeight;
+            _viewModel.WindowHeight = _viewModel.AutoFitHeightSavedHeight;
         else
-            settings.WindowHeight = Height;
+            _viewModel.WindowHeight = Height;
         
-        settings.WindowLeft = Position.X;
-        settings.WindowTop = Position.Y;
+        _viewModel.WindowLeft = Position.X;
+        _viewModel.WindowTop = Position.Y;
 
-        await _configService.SaveAppSettingsAsync(settings);
+        await _viewModel.SaveSettingsAsync();
     }
 
     private void InitializeProfileComboBoxAutoComplete()
@@ -1065,6 +1090,11 @@ public partial class MainWindow : Window
             await instance.OpenInBrowserAsync();
     }
 
+    private void BrowseBrowserClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.BrowseBrowserCommand.Execute(null);
+    }
+
     private void DismissToastClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is Avalonia.Controls.Button btn && btn.DataContext is ToastItem toast)
@@ -1177,42 +1207,150 @@ public partial class MainWindow : Window
     private async Task OpenDownloadDialogAsync()
     {
         if (_viewModel == null) return;
+        var vm2 = _viewModel;
+
+        var installDir = vm2.DownloadService.InstallDirectory;
+        var affectedInstances = vm2.RunningInstances
+            .Where(i => i.IsRunning && IsUsingDefaultExecutable(i, installDir))
+            .ToList();
+        List<(string ProfileName, ServerConfiguration Configuration)>? wasRunning = null;
+
+        if (affectedInstances.Any())
+        {
+            var profileList = string.Join("\n", affectedInstances.Select(i => $"• {i.ProfileName}"));
+            var message = string.Format(LocalizedStrings.Instance.ConfirmStopForUpdate, profileList);
+            var confirm = await MessageBox.ShowAsync(this, message,
+                LocalizedStrings.Instance.ConfirmTitle,
+                MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            wasRunning = affectedInstances
+                .Select(i => (i.ProfileName, i.Configuration))
+                .ToList();
+            foreach (var instance in affectedInstances)
+            {
+                try { await instance.StopAsync(); }
+                catch (Exception ex) { vm2.LogService.Error($"Failed to stop instance '{instance.ProfileName}': {ex.Message}"); }
+            }
+        }
 
         var dialog = new DownloadDialogWindow();
         var vm = new DownloadDialogViewModel(
-            _viewModel.DownloadService,
-            _viewModel.ReleaseBodyCache,
-            _viewModel.ReleaseBodyCacheOrder,
-            _viewModel.CachedLlamaReleases,
-            _viewModel.CachedLlamaReleasesTimestamp,
+            vm2.DownloadService,
+            vm2.ReleaseBodyCache,
+            vm2.ReleaseBodyCacheOrder,
+            vm2.CachedLlamaReleases,
+            vm2.CachedLlamaReleasesTimestamp,
             null);
-        dialog.SetViewModel(vm, _configService!);
+        dialog.SetViewModel(vm, _configService!, vm2.DialogGeometryDict);
+        vm.SetExperimentalRepos(vm2.ExperimentalReposEnabled, vm2.ExperimentalRepos);
         await dialog.ShowDialog(this);
 
-        await DialogPositionHelper.SaveCapturedGeometryAsync(dialog.CapturedGeometry, _configService!, "DownloadDialog");
-        if (dialog.CapturedGeometry != null && _viewModel != null)
-            _viewModel.DialogGeometryDict["DownloadDialog"] = dialog.CapturedGeometry;
+        if (dialog.CapturedGeometry != null)
+        { vm2.DialogGeometryDict["DownloadDialog"] = dialog.CapturedGeometry; await vm2.SaveSettingsAsync(); }
 
-        if (!vm.DownloadSucceeded)
-            return;
-
-        var downloadedTag = vm.DownloadedReleaseTag;
-        if (!string.IsNullOrEmpty(downloadedTag))
-            _viewModel.UpdateInstalledTag(downloadedTag);
-
-        if (!string.IsNullOrEmpty(vm.DownloadedExecutablePath))
+        if (vm.DownloadSucceeded)
         {
-            _viewModel.ExecutablePath = vm.DownloadedExecutablePath;
-            if (!string.IsNullOrEmpty(vm.LastCustomDownloadPath))
-                _viewModel.LlamaCppCustomDownloadPath = vm.LastCustomDownloadPath;
-            return;
+            var downloadedTag = vm.DownloadedReleaseTag;
+            if (!string.IsNullOrEmpty(downloadedTag))
+                vm2.UpdateInstalledTag(downloadedTag);
+
+            if (!string.IsNullOrEmpty(vm.DownloadedExecutablePath))
+            {
+                vm2.ExecutablePath = vm.DownloadedExecutablePath;
+                if (!string.IsNullOrEmpty(vm.LastCustomDownloadPath))
+                    vm2.LlamaCppCustomDownloadPath = vm.LastCustomDownloadPath;
+            }
+            else
+            {
+                var defaultPath = vm2.DownloadService.GetDefaultLlamaServerPath();
+                if (defaultPath != null && string.IsNullOrEmpty(vm2.ExecutablePath))
+                    vm2.ExecutablePath = defaultPath;
+            }
         }
 
-        var defaultPath = _viewModel.DownloadService.GetDefaultLlamaServerPath();
-        if (defaultPath != null && string.IsNullOrEmpty(_viewModel.ExecutablePath))
+        if (wasRunning != null)
         {
-            _viewModel.ExecutablePath = defaultPath;
+            // The binary may have changed (new version), so re-detect supported flags
+            // before relaunching. Force bypasses the path-string cache, since an in-place
+            // update keeps the same executable path.
+            if (vm.DownloadSucceeded)
+                await vm2.RefreshSupportedFlagsAsync(force: true);
+
+            foreach (var (profileName, config) in wasRunning)
+            {
+                try
+                {
+                    await vm2.LaunchInstanceAsync(profileName, config);
+                }
+                catch (Exception ex)
+                {
+                    vm2.LogService.Error($"Failed to restart instance '{profileName}' after update: {ex.Message}");
+                }
+            }
         }
+    }
+
+    private static bool IsUsingDefaultExecutable(ServerInstance instance, string installDir)
+    {
+        var exePath = instance.Configuration.ExecutablePath;
+        if (string.IsNullOrEmpty(exePath)) return true;
+        var fullExe = Path.GetFullPath(exePath);
+        var fullInstall = Path.GetFullPath(installDir);
+        if (!fullInstall.EndsWith(Path.DirectorySeparatorChar))
+            fullInstall += Path.DirectorySeparatorChar;
+        return fullExe.StartsWith(fullInstall, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async void AddExperimentalRepoClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        var dialogVm = new ViewModels.ExperimentalRepoDialogViewModel(isEditMode: false);
+        var dialog = new ExperimentalRepoDialogWindow();
+        dialog.SetViewModel(dialogVm, _viewModel.DialogGeometryDict);
+        await dialog.ShowDialog(this);
+
+        if (dialog.CapturedGeometry != null)
+        { _viewModel.DialogGeometryDict["ExperimentalRepoDialog"] = dialog.CapturedGeometry; await _viewModel.SaveSettingsAsync(); }
+
+        if (dialogVm.Confirmed)
+            _viewModel.CreateExperimentalRepoFromDialog(dialogVm.RepoUrl, dialogVm.DisplayName, dialogVm.FilterTags);
+    }
+
+    private async void EditExperimentalRepoClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel == null || _viewModel.SelectedExperimentalRepo == null) return;
+        var repo = _viewModel.SelectedExperimentalRepo;
+        var dialogVm = new ViewModels.ExperimentalRepoDialogViewModel(
+            isEditMode: true, repo.RepoUrl, repo.DisplayName, repo.FilterTags);
+        var dialog = new ExperimentalRepoDialogWindow();
+        dialog.SetViewModel(dialogVm, _viewModel.DialogGeometryDict);
+        await dialog.ShowDialog(this);
+
+        if (dialog.CapturedGeometry != null)
+        { _viewModel.DialogGeometryDict["ExperimentalRepoDialog"] = dialog.CapturedGeometry; await _viewModel.SaveSettingsAsync(); }
+
+        if (dialogVm.Confirmed)
+            _viewModel.UpdateExperimentalRepoFromDialog(repo, dialogVm.RepoUrl, dialogVm.DisplayName, dialogVm.FilterTags);
+    }
+
+    private async void DeleteExperimentalRepoClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel == null || _viewModel.SelectedExperimentalRepo == null) return;
+        var repo = _viewModel.SelectedExperimentalRepo;
+        var msg = string.Format(LocalizedStrings.GetString("ConfirmDeleteRepo"), repo.DisplayName);
+        var result = await ViewModels.MessageBox.ShowAsync(this, msg,
+            LocalizedStrings.GetString("ConfirmTitle"),
+            ViewModels.MessageBoxButtons.YesNoCancel, ViewModels.MessageBoxIcon.Question);
+        if (result == ViewModels.MessageBoxResult.Yes)
+            _viewModel.DeleteExperimentalRepo(repo);
+    }
+
+    private void AddDefaultExperimentalReposClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.AddDefaultExperimentalRepos();
     }
 
     private void ClearLogClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

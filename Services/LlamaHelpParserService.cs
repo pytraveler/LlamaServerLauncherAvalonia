@@ -302,7 +302,7 @@ public static class LlamaHelpParserService
             if (def == null) continue;
 
             arg.Description = LlamaArgumentRegistry.GetLocalizedDescription(def);
-            arg.DefaultValue = def.DefaultValue ?? arg.DefaultValue;
+            arg.DefaultValue = CleanDefaultValue(def.DefaultValue) ?? arg.DefaultValue;
             arg.AllowedValues = def.AllowedValues;
             arg.Category = def.Category;
 

@@ -612,7 +612,10 @@
     <value>e.g. --special-flag value</value>
   </data>
   <data name="PortValidationWarning" xml:space="preserve">
-    <value>Invalid port number</value>
+    <value>Port must be a number between 1 and 65535</value>
+  </data>
+  <data name="HostValidationWarning" xml:space="preserve">
+    <value>Invalid host: enter an IP address or hostname</value>
   </data>
   <data name="ParallelSlots" xml:space="preserve">
     <value>Parallel Slots</value>
@@ -1222,5 +1225,78 @@
   </data>
   <data name="CloneToScenario" xml:space="preserve">
     <value>Clone &gt;</value>
+  </data>
+  <data name="CustomBrowserPath" xml:space="preserve">
+    <value>Custom browser path:</value>
+  </data>
+  <data name="TooltipCustomBrowserPath" xml:space="preserve">
+    <value>Leave empty to use the system default browser</value>
+  </data>
+  <data name="ConfirmStopForUpdate" xml:space="preserve">
+    <value>The following running server(s) must be stopped before updating:
+
+{0}
+
+Stop and continue?</value>
+  </data>
+  <data name="ToastAutoFitHeightDisabled" xml:space="preserve">
+    <value>Window auto-height is off. Tab content may be clipped. Stretch the window or click to enable auto-height.</value>
+  </data>
+  <data name="SelectInstalledBrowser" xml:space="preserve">
+    <value>Select an installed browser…</value>
+  </data>
+  <data name="Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="ExperimentalRepos" xml:space="preserve">
+    <value>Experimental Repos</value>
+  </data>
+  <data name="ExperimentalReposEnabled" xml:space="preserve">
+    <value>Enable experimental build repositories</value>
+  </data>
+  <data name="ExperimentalUpdateInterval" xml:space="preserve">
+    <value>Check interval (min):</value>
+  </data>
+  <data name="ExperimentalRepoList" xml:space="preserve">
+    <value>Repositories:</value>
+  </data>
+  <data name="AddDefaultRepos" xml:space="preserve">
+    <value>Add Defaults</value>
+  </data>
+  <data name="RepoUrl" xml:space="preserve">
+    <value>GitHub URL:</value>
+  </data>
+  <data name="DisplayName" xml:space="preserve">
+    <value>Display Name:</value>
+  </data>
+  <data name="FilterTags" xml:space="preserve">
+    <value>Filter Tags:</value>
+  </data>
+  <data name="ExperimentalRepoDialogTitle" xml:space="preserve">
+    <value>Add Experimental Repository</value>
+  </data>
+  <data name="ExperimentalRepoEditTitle" xml:space="preserve">
+    <value>Edit Experimental Repository</value>
+  </data>
+  <data name="ConfirmDeleteRepo" xml:space="preserve">
+    <value>Delete repository '{0}'?</value>
+  </data>
+  <data name="RepoUrlInvalid" xml:space="preserve">
+    <value>Invalid GitHub URL format</value>
+  </data>
+  <data name="OfficialTab" xml:space="preserve">
+    <value>Official</value>
+  </data>
+  <data name="ExperimentalTab" xml:space="preserve">
+    <value>Experimental</value>
+  </data>
+  <data name="ExperimentalRepoSelect" xml:space="preserve">
+    <value>Select repository:</value>
+  </data>
+  <data name="ExperimentalUpdateToast" xml:space="preserve">
+    <value>New release {1} available in {0}</value>
   </data>
 </root>

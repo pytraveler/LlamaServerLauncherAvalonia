@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
+using LlamaServerLauncher.Models;
 using LlamaServerLauncher.Resources;
 using LlamaServerLauncher.Services;
 
@@ -24,6 +25,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     private Timer? _debounceTimer;
     private readonly List<ReleaseInfo> _releaseCache;
     private DateTime _releaseCacheTimestamp;
+    private readonly ExperimentalRepoService _experimentalRepoService = new();
 
     private const int MaxCachedDescriptions = 20;
 
@@ -31,6 +33,37 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
     public ObservableCollection<ReleaseInfo> Releases { get; } = new();
     public ObservableCollection<ReleaseAsset> AvailableAssets { get; } = new();
+
+    public ObservableCollection<ExperimentalRepoInfo> ExperimentalRepos { get; } = new();
+    public ObservableCollection<ReleaseInfo> ExperimentalReleases { get; } = new();
+    public ObservableCollection<ReleaseAsset> ExperimentalAssets { get; } = new();
+
+    private bool _experimentalReposEnabled;
+    public bool ExperimentalReposEnabled
+    {
+        get => _experimentalReposEnabled;
+        set { _experimentalReposEnabled = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasExperimentalRepos)); }
+    }
+
+    public bool HasExperimentalRepos => _experimentalReposEnabled && ExperimentalRepos.Count > 0;
+
+    // 0 = Official, 1 = Experimental. Loading experimental releases is deferred until
+    // the user actually selects the Experimental tab.
+    private int _selectedTabIndex;
+    public int SelectedTabIndex
+    {
+        get => _selectedTabIndex;
+        set
+        {
+            if (_selectedTabIndex != value)
+            {
+                _selectedTabIndex = value;
+                OnPropertyChanged();
+                if (value == 1)
+                    EnsureExperimentalLoaded();
+            }
+        }
+    }
 
     private ReleaseInfo? _selectedRelease;
     public ReleaseInfo? SelectedRelease
@@ -65,6 +98,52 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         }
     }
 
+    private ExperimentalRepoInfo? _selectedExperimentalRepo;
+    public ExperimentalRepoInfo? SelectedExperimentalRepo
+    {
+        get => _selectedExperimentalRepo;
+        set
+        {
+            if (_selectedExperimentalRepo != value)
+            {
+                _selectedExperimentalRepo = value;
+                OnPropertyChanged();
+                _ = LoadExperimentalReleasesAsync();
+            }
+        }
+    }
+
+    private ReleaseInfo? _selectedExperimentalRelease;
+    public ReleaseInfo? SelectedExperimentalRelease
+    {
+        get => _selectedExperimentalRelease;
+        set
+        {
+            if (_selectedExperimentalRelease != value)
+            {
+                _selectedExperimentalRelease = value;
+                OnPropertyChanged();
+                PopulateExperimentalAssets();
+                OnPropertyChanged(nameof(CanDownloadExperimental));
+            }
+        }
+    }
+
+    private ReleaseAsset? _selectedExperimentalAsset;
+    public ReleaseAsset? SelectedExperimentalAsset
+    {
+        get => _selectedExperimentalAsset;
+        set
+        {
+            if (_selectedExperimentalAsset != value)
+            {
+                _selectedExperimentalAsset = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanDownloadExperimental));
+            }
+        }
+    }
+
     private bool _isLoading = true;
     public bool IsLoading
     {
@@ -76,7 +155,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     public bool IsDownloading
     {
         get => _isDownloading;
-        set { _isDownloading = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanDownload)); OnPropertyChanged(nameof(ShowProgress)); }
+        set { _isDownloading = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanDownload)); OnPropertyChanged(nameof(CanDownloadExperimental)); OnPropertyChanged(nameof(ShowProgress)); }
     }
 
     private double _downloadProgress;
@@ -131,6 +210,15 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool CanDownloadExperimental
+    {
+        get
+        {
+            if (IsDownloading) return false;
+            return SelectedExperimentalAsset != null;
+        }
+    }
+
     public bool ShowProgress => IsDownloading;
 
     public string? DownloadedReleaseTag { get; private set; }
@@ -151,6 +239,77 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         _ = LoadReleasesAsync(preselectedTag);
     }
 
+    public void SetExperimentalRepos(bool enabled, ObservableCollection<ExperimentalRepoInfo> repos)
+    {
+        ExperimentalReposEnabled = enabled;
+        ExperimentalRepos.Clear();
+        if (enabled)
+        {
+            foreach (var repo in repos.Where(r => r.Enabled))
+                ExperimentalRepos.Add(repo);
+        }
+        OnPropertyChanged(nameof(HasExperimentalRepos));
+    }
+
+    public void EnsureExperimentalLoaded()
+    {
+        if (_selectedExperimentalRepo == null && ExperimentalRepos.Count > 0)
+            SelectedExperimentalRepo = ExperimentalRepos[0];
+    }
+
+    private async Task LoadExperimentalReleasesAsync()
+    {
+        ExperimentalReleases.Clear();
+        ExperimentalAssets.Clear();
+        SelectedExperimentalRelease = null;
+        SelectedExperimentalAsset = null;
+
+        if (_selectedExperimentalRepo == null) return;
+
+        List<ReleaseInfo> releases;
+        if (_selectedExperimentalRepo.CachedReleases.Count > 0
+            && (DateTime.Now - _selectedExperimentalRepo.CachedReleasesTimestamp) < TimeSpan.FromMinutes(30))
+        {
+            releases = _selectedExperimentalRepo.CachedReleases;
+        }
+        else
+        {
+            try
+            {
+                releases = await _experimentalRepoService.FetchReleasesAsync(_selectedExperimentalRepo);
+                _selectedExperimentalRepo.CachedReleases = releases;
+                _selectedExperimentalRepo.CachedReleasesTimestamp = DateTime.Now;
+            }
+            catch
+            {
+                // Fetch failed (e.g. GitHub rate limit); fall back to the stale cache if any.
+                releases = _selectedExperimentalRepo.CachedReleases;
+            }
+        }
+
+        foreach (var r in releases)
+            ExperimentalReleases.Add(r);
+
+        if (ExperimentalReleases.Count > 0)
+            SelectedExperimentalRelease = ExperimentalReleases[0];
+    }
+
+    private void PopulateExperimentalAssets()
+    {
+        ExperimentalAssets.Clear();
+        SelectedExperimentalAsset = null;
+
+        if (_selectedExperimentalRelease == null || _selectedExperimentalRepo == null) return;
+
+        var filtered = ExperimentalRepoService.FilterAssetsByTags(
+            _selectedExperimentalRelease.Assets, _selectedExperimentalRepo.FilterTags);
+        foreach (var a in filtered)
+            ExperimentalAssets.Add(a);
+
+        if (ExperimentalAssets.Count > 0)
+            SelectedExperimentalAsset = ExperimentalAssets[0];
+    }
+
     private async Task LoadReleasesAsync(string? preselectedTag = null)
     {
         IsLoading = true;
@@ -161,22 +320,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         {
             Dispatcher.UIThread.Post(() =>
             {
-                Releases.Clear();
-                foreach (var r in _releaseCache)
-                    Releases.Add(r);
-
-                if (!string.IsNullOrEmpty(preselectedTag))
-                {
-                    var match = Releases.FirstOrDefault(r => r.Tag == preselectedTag)
-                        ?? (Releases.Count > 0 ? Releases[0] : null);
-                    if (match != null)
-                        SelectedRelease = match;
-                }
-                else if (Releases.Count > 0)
-                {
-                    SelectedRelease = Releases[0];
-                }
-
+                PopulateReleasesList(_releaseCache, preselectedTag);
                 IsLoading = false;
                 StatusMessage = "";
             });
@@ -218,8 +362,31 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
             Dispatcher.UIThread.Post(() =>
             {
                 IsLoading = false;
+                // Fall back to the cached releases (even if stale) instead of showing an
+                // empty list — typically when GitHub rate-limits the request (403).
+                if (_releaseCache.Count > 0)
+                    PopulateReleasesList(_releaseCache, preselectedTag);
                 StatusMessage = string.Format(LocalizedStrings.GetString("DownloadFailed"), ex.Message);
             });
+        }
+    }
+
+    private void PopulateReleasesList(IReadOnlyList<ReleaseInfo> releases, string? preselectedTag)
+    {
+        Releases.Clear();
+        foreach (var r in releases)
+            Releases.Add(r);
+
+        if (!string.IsNullOrEmpty(preselectedTag))
+        {
+            var match = Releases.FirstOrDefault(r => r.Tag == preselectedTag)
+                ?? (Releases.Count > 0 ? Releases[0] : null);
+            if (match != null)
+                SelectedRelease = match;
+        }
+        else if (Releases.Count > 0)
+        {
+            SelectedRelease = Releases[0];
         }
     }
 
@@ -380,9 +547,34 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task ExecuteDownloadAsync(string targetDirectory, bool promptForPath)
+    public async Task DownloadExperimentalAsync()
     {
-        if (SelectedAsset == null) return;
+        if (SelectedExperimentalAsset == null || IsDownloading || _selectedExperimentalRepo == null) return;
+
+        var folder = await WindowsFileDialogs.OpenFolderDialogAsync(LocalizedStrings.GetString("SelectDownloadFolder"));
+        if (string.IsNullOrEmpty(folder)) return;
+
+        var repoName = !string.IsNullOrEmpty(_selectedExperimentalRepo.DisplayName)
+            ? _selectedExperimentalRepo.DisplayName
+            : "experimental";
+        var tag = _selectedExperimentalRelease?.Tag ?? repoName;
+        var subFolder = Path.Combine(folder, "ExperimentalRepos", repoName);
+        var targetDirectory = LlamaCppDownloadService.GetUniqueSubfolderPath(subFolder, tag);
+
+        await ExecuteDownloadAsync(targetDirectory, promptForPath: false, asset: SelectedExperimentalAsset, allAssets: _selectedExperimentalRelease?.Assets);
+
+        if (DownloadSucceeded)
+        {
+            DownloadedExecutablePath = _downloadService.GetLlamaServerPath(targetDirectory);
+            LastCustomDownloadPath = folder;
+        }
+    }
+
+    private async Task ExecuteDownloadAsync(string targetDirectory, bool promptForPath, ReleaseAsset? asset = null, List<ReleaseAsset>? allAssets = null)
+    {
+        asset ??= SelectedAsset;
+        allAssets ??= _selectedRelease?.Assets;
+        if (asset == null) return;
 
         IsDownloading = true;
         StatusMessage = LocalizedStrings.GetString("Downloading");
@@ -404,9 +596,6 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
         try
         {
-            var asset = SelectedAsset;
-            var allAssets = _selectedRelease?.Assets;
-
             await _downloadService.DownloadAndExtractAsync(asset, targetDirectory, progress, _cts.Token,
                 _downloadService.FindMatchingCudaDllAsset(asset, allAssets));
 
