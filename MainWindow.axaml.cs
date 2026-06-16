@@ -33,6 +33,11 @@ public partial class MainWindow : Window
     private double _customLogDragStartHeight;
     private bool _isAutoCompleting;
     private bool _suppressAutoComplete;
+
+    // Width below which the nav pane auto-collapses. Hysteresis: a manual hamburger
+    // toggle sticks until the width crosses this threshold again.
+    private const double NavAutoCollapseWidth = 880;
+    private bool? _navWideState;
     private TextBox? _profileComboBoxTextBox;
     private System.Threading.CancellationTokenSource? _autoStartCts;
 
@@ -76,6 +81,9 @@ public partial class MainWindow : Window
             splitter.AddHandler(PointerReleasedEvent, OnLogSplitterPointerReleased, RoutingStrategies.Tunnel);
         }
         
+        // Collapse/expand the nav pane as the window gets narrower/wider.
+        SizeChanged += (s, e) => UpdateNavPaneForWidth();
+
         // AllowDrop is set in XAML via dd:DragDrop.AllowDrop="True"
         System.Diagnostics.Debug.WriteLine("MainWindow initialized");
     }
@@ -106,7 +114,10 @@ public partial class MainWindow : Window
 
             await vm.InitializeAsync();
             await LoadWindowPositionAsync();
-            
+
+            // Re-evaluate the nav-pane for the restored window width.
+            UpdateNavPaneForWidth();
+
             // Apply auto-fit after initial height is set
             if (_viewModel.AutoFitHeight)
                 EnableAutoFitHeight();
@@ -168,21 +179,88 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.Post(() =>
             {
                 var mainGrid = this.FindControl<Grid>("MainGrid");
-                if (mainGrid == null || _viewModel == null || mainGrid.RowDefinitions.Count <= 6) return;
+                if (mainGrid == null || _viewModel == null || mainGrid.RowDefinitions.Count <= 4) return;
+
+                // When maximized, ApplyLogMaximizedState owns the log row.
+                if (_viewModel.IsLogMaximized) return;
 
                 if (_viewModel.LogVisible)
                 {
                     var h = _viewModel.LogHeight > 0 ? _viewModel.LogHeight : 200;
-                    mainGrid.RowDefinitions[6].Height = new GridLength(h);
+                    mainGrid.RowDefinitions[4].Height = new GridLength(h);
                 }
                 else
                 {
-                    var currentHeight = mainGrid.RowDefinitions[6].Height;
+                    var currentHeight = mainGrid.RowDefinitions[4].Height;
                     if (currentHeight.IsAbsolute && currentHeight.Value > 0)
                         _viewModel.LogHeight = currentHeight.Value;
-                    mainGrid.RowDefinitions[6].Height = new GridLength(0);
+                    mainGrid.RowDefinitions[4].Height = new GridLength(0);
                 }
             });
+        }
+        else if (e.PropertyName == nameof(MainViewModel.IsLogMaximized))
+        {
+            Dispatcher.UIThread.Post(ApplyLogMaximizedState);
+        }
+    }
+
+    // Toggles a "maximized log" layout: settings panel hidden, control panel moves up,
+    // log takes the freed space.
+    private void ApplyLogMaximizedState()
+    {
+        var mainGrid = this.FindControl<Grid>("MainGrid");
+        var upperGrid = this.FindControl<Grid>("UpperGrid");
+        if (mainGrid == null || upperGrid == null || _viewModel == null) return;
+        if (mainGrid.RowDefinitions.Count <= 4 || upperGrid.RowDefinitions.Count < 2) return;
+
+        if (_viewModel.IsLogMaximized)
+        {
+            // Star-sized row needs a fixed window height, so drop auto-fit first.
+            if (_viewModel.AutoFitHeight)
+                _viewModel.AutoFitHeight = false;
+
+            // Save the current log height so we can restore it when un-maximizing.
+            var logRow = mainGrid.RowDefinitions[4].Height;
+            if (logRow.IsAbsolute && logRow.Value > 0)
+                _viewModel.LogHeight = logRow.Value;
+
+            upperGrid.RowDefinitions[0].Height = new GridLength(0);                       // collapse settings panel
+            mainGrid.RowDefinitions[2].Height = GridLength.Auto;                          // shrink to control panel
+            mainGrid.RowDefinitions[4].Height = new GridLength(1, GridUnitType.Star);     // log fills the rest
+        }
+        else
+        {
+            upperGrid.RowDefinitions[0].Height = new GridLength(1, GridUnitType.Star);    // restore settings panel
+            // Auto-fit keeps the settings row sized to content; otherwise it fills the window.
+            mainGrid.RowDefinitions[2].Height = _viewModel.AutoFitHeight
+                ? GridLength.Auto
+                : new GridLength(1, GridUnitType.Star);
+            var h = _viewModel.LogHeight > 0 ? _viewModel.LogHeight : 200;
+            mainGrid.RowDefinitions[4].Height = _viewModel.LogVisible ? new GridLength(h) : new GridLength(0);
+        }
+    }
+
+    private void ToggleLogMaximizeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.IsLogMaximized = !_viewModel.IsLogMaximized;
+    }
+
+    // Collapse the nav pane when narrow, expand it when wide. Only reacts when the
+    // width actually crosses the threshold, so a manual hamburger toggle within the
+    // same band is preserved.
+    private void UpdateNavPaneForWidth()
+    {
+        if (_viewModel == null || _isClosing) return;
+
+        var width = Width;
+        if (double.IsNaN(width) || width <= 0) return; // skip bad sizes during layout/teardown
+
+        bool wide = width >= NavAutoCollapseWidth;
+        if (_navWideState == null || wide != _navWideState)
+        {
+            _navWideState = wide;
+            _viewModel.IsNavPaneOpen = wide;
         }
     }
 
@@ -191,12 +269,16 @@ public partial class MainWindow : Window
         var mainGrid = this.FindControl<Grid>("MainGrid");
         if (mainGrid == null || _viewModel == null) return;
 
+        // Auto-fit and the maximized log both want to drive the settings row; drop one.
+        if (_viewModel.IsLogMaximized)
+            _viewModel.IsLogMaximized = false;
+
         // Save current height as LH before enabling auto-fit
         _viewModel.AutoFitHeightSavedHeight = Height;
 
         // Change TabControl row (row 3) from * to Auto so content drives height
-            if (mainGrid.RowDefinitions.Count > 4)
-                mainGrid.RowDefinitions[4].Height = GridLength.Auto;
+            if (mainGrid.RowDefinitions.Count > 2)
+                mainGrid.RowDefinitions[2].Height = GridLength.Auto;
 
         _originalMinHeight = MinHeight;
         MinHeight = 0;
@@ -214,8 +296,12 @@ public partial class MainWindow : Window
         MinHeight = _originalMinHeight;
         CanResize = true;
 
-            if (mainGrid != null && mainGrid.RowDefinitions.Count > 4)
-                mainGrid.RowDefinitions[4].Height = new GridLength(1, GridUnitType.Star);
+            // Keep the settings row collapsed while the log is maximized, otherwise
+            // it becomes a second star row and leaves a gap above the log.
+            if (mainGrid != null && mainGrid.RowDefinitions.Count > 2)
+                mainGrid.RowDefinitions[2].Height = _viewModel?.IsLogMaximized == true
+                    ? GridLength.Auto
+                    : new GridLength(1, GridUnitType.Star);
 
         // Restore height from LH
         if (_viewModel != null)
@@ -229,12 +315,23 @@ public partial class MainWindow : Window
         if (_viewModel == null) return;
         if (_viewModel.AutoFitHeight) return;
 
-        // Double-post: wait for layout pass so ActualHeight is up to date
+        // Wait one layout pass so the scroll viewport/extent are up to date.
         Dispatcher.UIThread.Post(() =>
         {
             var tabControl = this.FindControl<TabControl>("MainTabControl");
             if (tabControl == null || _viewModel == null) return;
-            _viewModel.CheckAutoFitHeightWarning(tabControl.Bounds.Height);
+
+            // The active tab wraps its content in a ScrollViewer; only warn when
+            // the content actually overflows the viewport.
+            var scrollViewer = tabControl.SelectedContent as ScrollViewer
+                ?? tabControl.GetVisualDescendants()
+                    .OfType<ScrollViewer>()
+                    .FirstOrDefault(sv => sv.IsEffectivelyVisible && sv.Bounds.Height > 0);
+
+            bool contentClipped = scrollViewer != null
+                && scrollViewer.Extent.Height > scrollViewer.Viewport.Height + 1;
+
+            _viewModel.CheckAutoFitHeightWarning(contentClipped);
         });
     }
 
@@ -243,11 +340,11 @@ public partial class MainWindow : Window
         if (!_isAutoFitActive) return;
 
         var mainGrid = this.FindControl<Grid>("MainGrid");
-        if (mainGrid == null || mainGrid.RowDefinitions.Count <= 6) return;
+        if (mainGrid == null || mainGrid.RowDefinitions.Count <= 4) return;
 
         _isCustomLogDrag = true;
         _customLogDragStartY = e.GetPosition(this).Y;
-        _customLogDragStartHeight = mainGrid.RowDefinitions[6].Height.Value;
+        _customLogDragStartHeight = mainGrid.RowDefinitions[4].Height.Value;
         e.Handled = true;
         e.Pointer.Capture((IInputElement)sender!);
     }
@@ -257,12 +354,12 @@ public partial class MainWindow : Window
         if (!_isCustomLogDrag) return;
 
         var mainGrid = this.FindControl<Grid>("MainGrid");
-        if (mainGrid == null || mainGrid.RowDefinitions.Count <= 6) return;
+        if (mainGrid == null || mainGrid.RowDefinitions.Count <= 4) return;
 
         var currentY = e.GetPosition(this).Y;
         var delta = currentY - _customLogDragStartY;
         var newHeight = Math.Max(50, _customLogDragStartHeight + delta);
-        mainGrid.RowDefinitions[6].Height = new GridLength(newHeight);
+        mainGrid.RowDefinitions[4].Height = new GridLength(newHeight);
         e.Handled = true;
     }
 
@@ -303,11 +400,11 @@ public partial class MainWindow : Window
         _viewModel.WindowTop = Position.Y;
 
         var mainGrid = this.FindControl<Grid>("MainGrid");
-        if (mainGrid != null && mainGrid.RowDefinitions.Count > 6)
+        if (mainGrid != null && mainGrid.RowDefinitions.Count > 4)
         {
             var logHeight = settings.LogHeight > 0 ? settings.LogHeight : 200;
-            mainGrid.RowDefinitions[6].Height = new GridLength(logHeight);
-            mainGrid.RowDefinitions[6].MinHeight = 50;
+            mainGrid.RowDefinitions[4].Height = new GridLength(logHeight);
+            mainGrid.RowDefinitions[4].MinHeight = 50;
         }
     }
 
@@ -316,9 +413,9 @@ public partial class MainWindow : Window
         if (_configService == null || _viewModel == null) return;
         
         var mainGrid = this.FindControl<Grid>("MainGrid");
-        if (mainGrid != null && mainGrid.RowDefinitions.Count > 6 && _viewModel.LogVisible)
+        if (mainGrid != null && mainGrid.RowDefinitions.Count > 4 && _viewModel.LogVisible)
         {
-            var logRow = mainGrid.RowDefinitions[6];
+            var logRow = mainGrid.RowDefinitions[4];
             if (logRow.Height.IsAbsolute && logRow.Height.Value > 0)
                 _viewModel.LogHeight = logRow.Height.Value;
         }
@@ -507,6 +604,11 @@ public partial class MainWindow : Window
     private void SaveClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.SaveProfileCommand.Execute(null);
+    }
+
+    private void ResetCustomColorsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.ResetCustomColorsCommand.Execute(null);
     }
 
     private void LoadClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -918,7 +1020,12 @@ public partial class MainWindow : Window
             && sender is Avalonia.Input.InputElement control
             && control.DataContext is ServerInstance instance)
         {
-            await ConfirmAndStopInstanceAsync(this, instance, _viewModel);
+            // A failed instance is kept just so the user can still load its profile;
+            // right-click should dismiss the error button, not try to stop a process.
+            if (!instance.IsRunning && instance.StartFailed)
+                _viewModel?.DismissInstance(instance);
+            else
+                await ConfirmAndStopInstanceAsync(this, instance, _viewModel);
             e.Handled = true;
         }
     }
@@ -2131,13 +2238,20 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         }
         else
         {
-            // Server not running - just save settings
+            // Server isn't running: save settings, then close. Defer the actual close
+            // (e.Cancel) so the process can't exit mid-write and corrupt app.json.
             if (_viewModel != null)
             {
+                e.Cancel = true;
+                _isClosing = true;
                 await SaveWindowPositionAsync();
                 _viewModel.Dispose();
+                Close();
             }
-            base.OnClosing(e);
+            else
+            {
+                base.OnClosing(e);
+            }
         }
     }
 }

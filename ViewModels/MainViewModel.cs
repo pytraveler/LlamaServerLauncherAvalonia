@@ -220,6 +220,9 @@ public class MainViewModel : INotifyPropertyChanged
             {
                 _themeVariant = value;
                 OnPropertyChanged();
+                // Default custom colors depend on the theme variant; refresh so the
+                // swatches don't show stale defaults.
+                RefreshCustomColorProperties();
                 ApplyTheme();
             }
         }
@@ -227,7 +230,33 @@ public class MainViewModel : INotifyPropertyChanged
 
     public List<string> ThemeOptions { get; } = new() { "Dark", "Light" };
 
+    public record ColorSchemeOption
+    {
+        public string Key { get; init; } = "";
+        public string DisplayName { get; init; } = "";
+    }
+
     private string _colorScheme = "Default";
+    private readonly Dictionary<string, string> _customColors = new();
+    private DispatcherTimer? _customColorSaveTimer;
+
+    private static readonly Dictionary<string, string> DarkCustomDefaults = new()
+    {
+        { "WindowBackgroundBrush", "#1E1E1E" },
+        { "PanelBackgroundBrush", "#252526" },
+        { "CommandBackgroundBrush", "#2D2D30" },
+        { "AccentForegroundBrush", "#4EC9B0" },
+        { "SeparatorBrush", "#333333" }
+    };
+    private static readonly Dictionary<string, string> LightCustomDefaults = new()
+    {
+        { "WindowBackgroundBrush", "#E8E8E8" },
+        { "PanelBackgroundBrush", "#F3F3F3" },
+        { "CommandBackgroundBrush", "#E5E5E5" },
+        { "AccentForegroundBrush", "#007ACC" },
+        { "SeparatorBrush", "#CCCCCC" }
+    };
+
     public string ColorScheme
     {
         get => _colorScheme;
@@ -236,13 +265,136 @@ public class MainViewModel : INotifyPropertyChanged
             if (_colorScheme != value && value != null)
             {
                 _colorScheme = value;
+                if (value == "Custom")
+                    EnsureCustomDefaultsSeeded();
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(IsCustomScheme));
+                RefreshCustomColorProperties();
                 ApplyTheme();
             }
         }
     }
 
-    public List<string> ColorSchemeOptions { get; } = new() { "Default", "Ubuntu", "Ocean", "Forest", "Sunset" };
+    public bool IsCustomScheme => _colorScheme == "Custom";
+
+    public List<ColorSchemeOption> ColorSchemeOptions { get; } = new();
+
+    public ICommand ResetCustomColorsCommand { get; }
+
+    public Color CustomWindowBackground
+    {
+        get => GetCustomColor("WindowBackgroundBrush");
+        set => SetCustomColor("WindowBackgroundBrush", nameof(CustomWindowBackground), value);
+    }
+    public Color CustomPanelBackground
+    {
+        get => GetCustomColor("PanelBackgroundBrush");
+        set => SetCustomColor("PanelBackgroundBrush", nameof(CustomPanelBackground), value);
+    }
+    public Color CustomCommandBackground
+    {
+        get => GetCustomColor("CommandBackgroundBrush");
+        set => SetCustomColor("CommandBackgroundBrush", nameof(CustomCommandBackground), value);
+    }
+    public Color CustomAccent
+    {
+        get => GetCustomColor("AccentForegroundBrush");
+        set => SetCustomColor("AccentForegroundBrush", nameof(CustomAccent), value);
+    }
+    public Color CustomSeparator
+    {
+        get => GetCustomColor("SeparatorBrush");
+        set => SetCustomColor("SeparatorBrush", nameof(CustomSeparator), value);
+    }
+
+    private void EnsureCustomDefaultsSeeded()
+    {
+        var defaults = _themeVariant == "Light" ? LightCustomDefaults : DarkCustomDefaults;
+        foreach (var kv in defaults)
+            _customColors.TryAdd(kv.Key, kv.Value);
+    }
+
+    private Color GetCustomColor(string key)
+    {
+        if (_customColors.TryGetValue(key, out var hex) && !string.IsNullOrWhiteSpace(hex)
+            && Color.TryParse(hex, out var parsed))
+            return parsed;
+        var defaults = _themeVariant == "Light" ? LightCustomDefaults : DarkCustomDefaults;
+        return defaults.TryGetValue(key, out var defHex) && Color.TryParse(defHex, out var defParsed)
+            ? defParsed
+            : Colors.Black;
+    }
+
+    private void SetCustomColor(string key, string propertyName, Color color)
+    {
+        var hex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        _customColors[key] = hex;
+        OnPropertyChanged(propertyName);
+        if (IsCustomScheme && !_isInitializing)
+            App.ApplyCustomColor(key, hex);
+        ScheduleCustomColorSave();
+    }
+
+    private void RefreshCustomColorProperties()
+    {
+        OnPropertyChanged(nameof(CustomWindowBackground));
+        OnPropertyChanged(nameof(CustomPanelBackground));
+        OnPropertyChanged(nameof(CustomCommandBackground));
+        OnPropertyChanged(nameof(CustomAccent));
+        OnPropertyChanged(nameof(CustomSeparator));
+    }
+
+    private void ResetCustomColors()
+    {
+        var defaults = _themeVariant == "Light" ? LightCustomDefaults : DarkCustomDefaults;
+        _customColors.Clear();
+        foreach (var kv in defaults)
+            _customColors[kv.Key] = kv.Value;
+        RefreshCustomColorProperties();
+        ApplyTheme();
+        ScheduleCustomColorSave();
+    }
+
+    private void ScheduleCustomColorSave()
+    {
+        if (_isInitializing) return;
+        if (_customColorSaveTimer == null)
+        {
+            _customColorSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+            _customColorSaveTimer.Tick += (_, _) =>
+            {
+                _customColorSaveTimer!.Stop();
+                _ = SaveSettingsAsync();
+            };
+        }
+        _customColorSaveTimer.Stop();
+        _customColorSaveTimer.Start();
+    }
+
+    private void RebuildColorSchemeOptions()
+    {
+        ColorSchemeOptions.Clear();
+        ColorSchemeOptions.Add(new ColorSchemeOption { Key = "Default", DisplayName = LocalizedStrings.Instance.ColorSchemeDefault });
+        ColorSchemeOptions.Add(new ColorSchemeOption { Key = "Ubuntu", DisplayName = LocalizedStrings.Instance.ColorSchemeUbuntu });
+        ColorSchemeOptions.Add(new ColorSchemeOption { Key = "Ocean", DisplayName = LocalizedStrings.Instance.ColorSchemeOcean });
+        ColorSchemeOptions.Add(new ColorSchemeOption { Key = "Forest", DisplayName = LocalizedStrings.Instance.ColorSchemeForest });
+        ColorSchemeOptions.Add(new ColorSchemeOption { Key = "Sunset", DisplayName = LocalizedStrings.Instance.ColorSchemeSunset });
+        ColorSchemeOptions.Add(new ColorSchemeOption { Key = "Custom", DisplayName = LocalizedStrings.Instance.ColorSchemeCustom });
+    }
+
+    private void OnCultureChanged()
+    {
+        RebuildColorSchemeOptions();
+        OnPropertyChanged(nameof(ColorSchemeOptions));
+        OnPropertyChanged(nameof(ColorScheme));
+    }
+
+    /// <summary>Unsubscribes from things the view model hooked into at startup.</summary>
+    public void Cleanup()
+    {
+        LocalizedStrings.CultureChanged -= OnCultureChanged;
+        _customColorSaveTimer?.Stop();
+    }
 
     public List<string> AvailableFonts { get; } = GetSystemFonts();
 
@@ -365,7 +517,7 @@ public class MainViewModel : INotifyPropertyChanged
     private void ApplyTheme()
     {
         if (!_isInitializing)
-            App.SwitchTheme(_themeVariant, _colorScheme);
+            App.SwitchTheme(_themeVariant, _colorScheme, _colorScheme == "Custom" ? _customColors : null);
     }
 
     private void ChangeLanguage(string? languageCode)
@@ -512,6 +664,7 @@ public class MainViewModel : INotifyPropertyChanged
     private bool _logEnabled = true;
     private bool _logVisible = true;
     private bool _tabPanelVisible = true;
+    private bool _isNavPaneOpen = true;
     private int _selectedTabIndex;
     private bool _autoFitHeight;
     private double _autoFitHeightSavedHeight = 650;
@@ -665,8 +818,12 @@ public class MainViewModel : INotifyPropertyChanged
     public Func<string, Task<string?>>? BrowseFolderFunc { get; set; }
 
     private readonly HashSet<string> _shownConflictToasts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _shownCorruptFileToasts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _pendingCorruptFileToasts = new();
 
     private ToastItem? _autoFitHeightToast;
+    // Show the auto-fit warning at most once per session.
+    private bool _autoFitHeightWarningShown;
 
     private bool _isLoadingConfig;
 
@@ -679,8 +836,11 @@ public class MainViewModel : INotifyPropertyChanged
 
         _logService = new LogService(resolvedPath);
         _logService.LogReceived += OnLogReceived;
+        if (_dataPathResolver.ConfiguredCustomPathMissing)
+            _logService.Warning("Configured custom data folder is unavailable; using the default folder. Settings may appear reset until the drive is reconnected.");
         _serverService = new LlamaServerService(_logService);
         _configService = new ConfigurationService(_logService, resolvedPath);
+        _configService.CorruptFileSkipped += OnCorruptFileSkipped;
         _downloadService = new LlamaCppDownloadService(resolvedPath);
         _dockerService = new DockerCliService(_logService);
         _autoStartService = new AutoStartService(_logService);
@@ -697,6 +857,7 @@ public class MainViewModel : INotifyPropertyChanged
         RunningInstances.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasAnyRunningInstances));
+            OnPropertyChanged(nameof(HasAnyInstances));
             RequestTrayMenuRebuild?.Invoke();
         };
 
@@ -706,6 +867,10 @@ public class MainViewModel : INotifyPropertyChanged
         };
 
         Profiles = new ObservableCollection<string>();
+
+        RebuildColorSchemeOptions();
+        ResetCustomColorsCommand = new RelayCommand(ResetCustomColors);
+        LocalizedStrings.CultureChanged += OnCultureChanged;
 
         ChangeLanguage(_selectedLanguage);
 
@@ -762,6 +927,19 @@ public class MainViewModel : INotifyPropertyChanged
         await RefreshSupportedFlagsAsync();
         _ = CheckDockerAvailabilityAsync();
         ApplyLogStreamFromSettings();
+
+        // Sticky warning when the configured data folder is unreachable - settings
+        // would otherwise look "reset" because we silently fall back to defaults.
+        if (_dataPathResolver.ConfiguredCustomPathMissing)
+            Toasts.ShowError(Localized.ToastCustomDataPathMissing, durationMs: 0);
+
+        // Flush the corrupt-file toasts queued during startup now that the language is set.
+        if (_pendingCorruptFileToasts.Count > 0)
+        {
+            foreach (var fullPath in _pendingCorruptFileToasts)
+                ShowCorruptFileToast(fullPath);
+            _pendingCorruptFileToasts.Clear();
+        }
     }
 
     public async Task CheckDockerAvailabilityAsync()
@@ -857,11 +1035,19 @@ public class MainViewModel : INotifyPropertyChanged
         LogEnabled = settings.LogEnabled;
         LogVisible = settings.LogVisible;
         TabPanelVisible = settings.TabPanelVisible;
+        IsNavPaneOpen = settings.IsNavPaneOpen;
         AutoFitHeight = settings.AutoFitHeight;
         AutoFitHeightSavedHeight = settings.AutoFitHeightSavedHeight > 0 ? settings.AutoFitHeightSavedHeight : 650;
         LogHeight = settings.LogHeight > 0 ? settings.LogHeight : 200;
         FontSizeLevel = string.IsNullOrEmpty(settings.FontSizeLevel) ? "Medium" : settings.FontSizeLevel;
         ThemeVariant = string.IsNullOrEmpty(settings.ThemeVariant) ? "Dark" : settings.ThemeVariant;
+        _customColors.Clear();
+        if (settings.CustomColors != null)
+        {
+            foreach (var kv in settings.CustomColors)
+                if (!string.IsNullOrWhiteSpace(kv.Value))
+                    _customColors[kv.Key] = kv.Value;
+        }
         ColorScheme = string.IsNullOrEmpty(settings.ColorScheme) ? "Default" : settings.ColorScheme;
         SelectedFontFamily = settings.FontFamily ?? "";
         _llamaCppInstalledTag = settings.LlamaCppInstalledTag ?? "";
@@ -1115,7 +1301,52 @@ public class MainViewModel : INotifyPropertyChanged
     private void ReinitializeServices(string appDataPath)
     {
         _configService = new ConfigurationService(_logService, appDataPath);
+        _configService.CorruptFileSkipped += OnCorruptFileSkipped;
         LoadProfiles();
+    }
+
+    private void OnCorruptFileSkipped(string fullPath)
+    {
+        // Don't re-toast the same file on every refresh.
+        if (!_shownCorruptFileToasts.Add(fullPath)) return;
+
+        // The language isn't applied yet during startup (LoadProfiles runs in the
+        // constructor), so queue toasts and show them once the UI is ready.
+        if (_isInitializing)
+            _pendingCorruptFileToasts.Add(fullPath);
+        else
+            ShowCorruptFileToast(fullPath);
+    }
+
+    private void ShowCorruptFileToast(string fullPath)
+    {
+        var fileName = System.IO.Path.GetFileName(fullPath);
+        // Sticky toast: click it to delete the damaged file.
+        Toasts.ShowError(
+            string.Format(Localized.ToastCorruptFileSkipped, fileName),
+            durationMs: 0,
+            onClick: () => _ = PromptDeleteCorruptFileAsync(fullPath));
+    }
+
+    private async Task PromptDeleteCorruptFileAsync(string fullPath)
+    {
+        var fileName = System.IO.Path.GetFileName(fullPath);
+        if (ConfirmActionFunc == null) return;
+
+        var confirmed = await ConfirmActionFunc(Localized.ConfirmTitle, string.Format(Localized.ConfirmDeleteCorruptFile, fileName));
+        if (!confirmed) return;
+
+        try
+        {
+            _configService.DeleteFile(fullPath);
+            _shownCorruptFileToasts.Remove(fullPath);
+            Toasts.ShowNeutral(string.Format(Localized.ToastCorruptFileDeleted, fileName));
+        }
+        catch (Exception ex)
+        {
+            _logService.Error($"Failed to delete corrupt file '{fileName}': {ex.Message}");
+            Toasts.ShowError(string.Format(Localized.ToastCorruptFileDeleteFailed, fileName));
+        }
     }
 
     private async Task<string?> MigrateDataAsync(string sourceDir, string targetDir)
@@ -1271,12 +1502,14 @@ public class MainViewModel : INotifyPropertyChanged
             LogEnabled = LogEnabled,
             LogVisible = LogVisible,
             TabPanelVisible = TabPanelVisible,
+            IsNavPaneOpen = IsNavPaneOpen,
             AutoFitHeight = AutoFitHeight,
             AutoFitHeightSavedHeight = AutoFitHeightSavedHeight,
             LogHeight = LogHeight,
             FontSizeLevel = FontSizeLevel,
             ThemeVariant = ThemeVariant,
             ColorScheme = ColorScheme,
+            CustomColors = new Dictionary<string, string>(_customColors),
             FontFamily = SelectedFontFamily ?? "",
             CustomArgumentToggleStates = GetToggleStates(),
             LlamaCppInstalledTag = _llamaCppInstalledTag,
@@ -2082,8 +2315,39 @@ public class MainViewModel : INotifyPropertyChanged
     public bool LogVisible
     {
         get => _logVisible;
-        set { _logVisible = value; OnPropertyChanged(); OnPropertyChanged(nameof(ToggleLogButtonText)); }
+        set
+        {
+            // Hiding the log also drops the maximized layout.
+            if (!value && _isLogMaximized)
+                IsLogMaximized = false;
+            _logVisible = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ToggleLogButtonText));
+            OnPropertyChanged(nameof(IsLogSplitterVisible));
+        }
     }
+
+    private bool _isLogMaximized;
+    /// <summary>
+    /// Hides the settings/tabs panel so the log can expand to fill the freed space;
+    /// the server control panel moves up directly above the log.
+    /// </summary>
+    public bool IsLogMaximized
+    {
+        get => _isLogMaximized;
+        set
+        {
+            if (_isLogMaximized != value)
+            {
+                _isLogMaximized = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsLogSplitterVisible));
+            }
+        }
+    }
+
+    // Splitter is only useful while the log is shown and not maximized.
+    public bool IsLogSplitterVisible => LogVisible && !IsLogMaximized;
 
     public bool TabPanelVisible
     {
@@ -2095,6 +2359,12 @@ public class MainViewModel : INotifyPropertyChanged
     {
         get => _selectedTabIndex;
         set { _selectedTabIndex = value; OnPropertyChanged(); }
+    }
+
+    public bool IsNavPaneOpen
+    {
+        get => _isNavPaneOpen;
+        set { _isNavPaneOpen = value; OnPropertyChanged(); }
     }
 
     public bool AutoFitHeight
@@ -2350,17 +2620,28 @@ public class MainViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Checks if the tab panel is too short and shows a warning toast if auto-fit height is off.
-    /// Called from MainWindow after layout with the actual rendered height of the TabControl.
+    /// Warns when auto-fit is off and the active tab's content overflows its viewport.
+    /// Called from MainWindow after layout.
     /// </summary>
-    public void CheckAutoFitHeightWarning(double tabControlActualHeight)
+    public void CheckAutoFitHeightWarning(bool tabContentClipped)
     {
         if (AutoFitHeight || !TabPanelVisible)
             return;
 
-        // Only warn if the tab panel is clearly too short to show content properly
-        const double minHeightThreshold = 150;
-        if (tabControlActualHeight >= minHeightThreshold)
+        // Only warn on real overflow; a tab that fits without scrolling shouldn't nag.
+        if (!tabContentClipped)
+        {
+            // Content now fits, so drop any stale warning.
+            if (_autoFitHeightToast != null)
+            {
+                Toasts.Dismiss(_autoFitHeightToast);
+                _autoFitHeightToast = null;
+            }
+            return;
+        }
+
+        // Only show the warning once per session.
+        if (_autoFitHeightWarningShown)
             return;
 
         // Dismiss existing toast if still showing
@@ -2369,6 +2650,8 @@ public class MainViewModel : INotifyPropertyChanged
             Toasts.Dismiss(_autoFitHeightToast);
             _autoFitHeightToast = null;
         }
+
+        _autoFitHeightWarningShown = true;
 
         var msg = LocalizedStrings.Instance.ToastAutoFitHeightDisabled;
         _autoFitHeightToast = new ToastItem(msg, onClick: () =>
@@ -2609,11 +2892,18 @@ public class MainViewModel : INotifyPropertyChanged
         if (string.IsNullOrEmpty(path))
             return path;
 
-        var defaultPath = _downloadService.GetDefaultLlamaServerPath();
-        if (!string.IsNullOrEmpty(defaultPath) &&
-            string.Equals(Path.GetFullPath(path), Path.GetFullPath(defaultPath), StringComparison.OrdinalIgnoreCase))
+        try
         {
-            return string.Empty;
+            var defaultPath = _downloadService.GetDefaultLlamaServerPath();
+            if (!string.IsNullOrEmpty(defaultPath) &&
+                string.Equals(Path.GetFullPath(path), Path.GetFullPath(defaultPath), StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Empty;
+            }
+        }
+        catch
+        {
+            // Bad/partial path (e.g. mid-typing) - just return it as-is.
         }
 
         return path;
@@ -2879,9 +3169,13 @@ public class MainViewModel : INotifyPropertyChanged
         return true;
     }
 
-    private static bool ConfigsEqual(ServerConfiguration a, ServerConfiguration b)
+    private bool ConfigsEqual(ServerConfiguration a, ServerConfiguration b)
     {
-        return a.ExecutablePath == b.ExecutablePath &&
+        // Explicit default path and empty path both mean "use default" (saving
+        // normalizes one to the other), so compare in normalized form; otherwise
+        // a typed-out default path would never clear the unsaved indicator.
+        return NormalizeExecutablePathForSaving(a.ExecutablePath ?? string.Empty)
+                    == NormalizeExecutablePathForSaving(b.ExecutablePath ?? string.Empty) &&
                 a.ModelPath == b.ModelPath &&
                 a.ModelsDir == b.ModelsDir &&
                 a.Host == b.Host &&
@@ -3103,6 +3397,8 @@ public class MainViewModel : INotifyPropertyChanged
     public Func<Task>? OpenDownloadDialogFunc { get; set; }
 
     public bool HasAnyRunningInstances => RunningInstances.Any(i => i.IsRunning);
+    // Includes failed (not running) instances too, so their toggle buttons stay visible.
+    public bool HasAnyInstances => RunningInstances.Count > 0;
     public bool HasCustomArgumentItems => CustomArgumentItems.Count > 0;
 
     public event Action? RequestTrayMenuRebuild;
@@ -3118,6 +3414,10 @@ public class MainViewModel : INotifyPropertyChanged
             }
         });
         await Task.WhenAll(tasks);
+
+        // Drop failed instances that stopping won't clear by itself.
+        foreach (var failed in RunningInstances.Where(i => i.StartFailed && !i.IsRunning).ToList())
+            RemoveInstance(failed);
     }
 
     public bool CanStartServer =>
@@ -4189,18 +4489,18 @@ public void RebuildCustomArgumentsFromToggles()
                 ? _loadedProfileName
                 : (!string.IsNullOrWhiteSpace(ProfileNameInput) ? ProfileNameInput : "Unnamed");
 
-            if (RunningInstances.Any(i => i.ProfileName == profileName))
+            var runningExisting = RunningInstances.FirstOrDefault(i => i.ProfileName == profileName && i.IsRunning);
+            if (runningExisting != null)
             {
-                var existing = RunningInstances.First(i => i.ProfileName == profileName);
-                var existingJson = JsonSerializer.Serialize(existing.Configuration);
+                var existingJson = JsonSerializer.Serialize(runningExisting.Configuration);
                 var newJson = JsonSerializer.Serialize(config);
                 if (existingJson != newJson)
                 {
                     await ShowWarningAsync($"Profile '{profileName}' is already running with different settings. Stop it first to apply new configuration.");
-                    SelectedInstance = existing;
+                    SelectedInstance = runningExisting;
                     return;
                 }
-                SelectedInstance = existing;
+                SelectedInstance = runningExisting;
                 return;
             }
 
@@ -4218,7 +4518,20 @@ public void RebuildCustomArgumentsFromToggles()
 
     private void OnInstanceRequestRemove(ServerInstance instance)
     {
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(() => RemoveInstance(instance));
+    }
+
+    /// <summary>
+    /// Removes a failed (not running) instance's toggle button from the panel.
+    /// Used when the user dismisses a server that failed to start.
+    /// </summary>
+    public void DismissInstance(ServerInstance instance)
+    {
+        Dispatcher.UIThread.Post(() => RemoveInstance(instance));
+    }
+
+    private void RemoveInstance(ServerInstance instance)
+    {
         {
             if (!RunningInstances.Contains(instance))
                 return;
@@ -4248,7 +4561,7 @@ public void RebuildCustomArgumentsFromToggles()
             }
             instance.Dispose();
             RequestTrayMenuRebuild?.Invoke();
-        });
+        }
     }
 
     private async void OnInstanceServerStateChanged(object? sender, bool isRunning)
@@ -4508,12 +4821,18 @@ public void RebuildCustomArgumentsFromToggles()
     {
         try
         {
-            if (RunningInstances.Any(i => i.ProfileName == profileName))
+            var existingRunning = RunningInstances.FirstOrDefault(i => i.ProfileName == profileName && i.IsRunning);
+            if (existingRunning != null)
             {
-                var existing = RunningInstances.First(i => i.ProfileName == profileName);
-                SelectedInstance = existing;
+                SelectedInstance = existingRunning;
                 return false;
             }
+
+            // A previous failed attempt may still be in the panel as an error button.
+            // Drop it so we can launch a fresh instance.
+            var existingFailed = RunningInstances.FirstOrDefault(i => i.ProfileName == profileName);
+            if (existingFailed != null)
+                RemoveInstance(existingFailed);
 
             if (!config.RunInDocker && string.IsNullOrEmpty(config.ExecutablePath))
             {
@@ -4570,17 +4889,16 @@ public void RebuildCustomArgumentsFromToggles()
             }
             else
             {
-                instance.ServerStateChanged -= OnInstanceServerStateChanged;
-                instance.RequestRemove -= OnInstanceRequestRemove;
-                instance.PropertyChanged -= OnInstancePropertyChanged;
+                // Process didn't start. Keep the instance in the panel (red toggle button)
+                // so the user can still click it to load the broken profile; handlers stay
+                // attached so a later restart updates the same button in place.
+                instance.StartFailed = true;
+                RunningInstances.Add(instance);
+                SelectedInstance = instance;
 
-                if (instance.ShowServerStartError)
-                {
-                    var msg = string.Format(LocalizedStrings.GetString("ServerStartFailedToast"), profileName);
-                    Toasts.ShowError(msg);
-                }
+                var msg = string.Format(LocalizedStrings.GetString("ServerStartFailedToast"), profileName);
+                Toasts.ShowError(msg);
 
-                instance.Dispose();
                 return false;
             }
         }
@@ -5772,6 +6090,14 @@ public void RebuildCustomArgumentsFromToggles()
 
     public async Task SaveSettingsAsync()
     {
+        // Skip during init: setters fired while loading would capture not-yet-loaded
+        // values (e.g. CustomBrowserPath) and overwrite app.json with them.
+        if (_isInitializing) return;
+
+        // If the existing file couldn't be read, don't replace it with the in-memory
+        // defaults we're running on - leave the original file for next launch.
+        if (_configService.LoadFailedKeepExisting) return;
+
         var settings = GetAppSettings();
         await _configService.SaveAppSettingsAsync(settings);
     }

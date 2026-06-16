@@ -19,6 +19,7 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
     private bool _logEnabled = true;
     private bool _isSelected;
     private bool _showServerStartError;
+    private bool _startFailed;
     private DateTime? _serverStartTime;
     private CancellationTokenSource? _errorAnimationCts;
     private int _isAutoRestarting;
@@ -73,6 +74,24 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
             if (_showServerStartError != value)
             {
                 _showServerStartError = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// True when the instance is shown as a failed (not running) server so the user can
+    /// still click it to load its profile. The button is highlighted in the error color
+    /// and its submenu actions are disabled. Stays set until restart or dismiss.
+    /// </summary>
+    public bool StartFailed
+    {
+        get => _startFailed;
+        set
+        {
+            if (_startFailed != value)
+            {
+                _startFailed = value;
                 OnPropertyChanged();
             }
         }
@@ -219,6 +238,7 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
                 {
                     _serverStartTime = DateTime.Now;
                     DismissError();
+                    StartFailed = false;
                 }
                 else
                 {
@@ -230,6 +250,9 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
                     }
                     _serverStartTime = null;
                 }
+
+                OnPropertyChanged(nameof(IsRunning));
+                OnPropertyChanged(nameof(IsBusy));
 
                 if (!isRunning && _service.WasStoppedIntentionally && !_isRestarting)
                 {
@@ -249,7 +272,8 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
                     catch (Exception ex)
                     {
                         _logService.Error($"Auto-restart failed for '{ProfileName}': {ex.Message}");
-                        RequestRemove?.Invoke(this);
+                        StartFailed = true;
+                        ServerStateChanged?.Invoke(this, false);
                     }
                     finally
                     {
@@ -260,7 +284,8 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
 
                 if (!isRunning && !_autoRestart && !_service.WasStoppedIntentionally)
                 {
-                    RequestRemove?.Invoke(this);
+                    // Keep the failed server in the panel so the profile is still loadable.
+                    StartFailed = true;
                 }
 
                 ServerStateChanged?.Invoke(this, isRunning);

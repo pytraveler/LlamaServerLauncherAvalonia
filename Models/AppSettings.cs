@@ -90,10 +90,12 @@ public class AppSettings
     public string FontSizeLevel { get; set; } = "Medium";
     public string ThemeVariant { get; set; } = "Dark";
     public string ColorScheme { get; set; } = "Default";
+    public Dictionary<string, string> CustomColors { get; set; } = new();
     public string FontFamily { get; set; } = "";
     public bool AutoFitHeight { get; set; }
     public double AutoFitHeightSavedHeight { get; set; } = 650;
     public bool TabPanelVisible { get; set; } = true;
+    public bool IsNavPaneOpen { get; set; } = true;
     public double LogHeight { get; set; } = 200;
     public string LlamaCppInstalledTag { get; set; } = "";
     public string LlamaCppCustomDownloadPath { get; set; } = "";

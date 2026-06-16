@@ -95,6 +95,9 @@
   <data name="TabMain" xml:space="preserve">
     <value>Main</value>
   </data>
+  <data name="TabCustom" xml:space="preserve">
+    <value>Custom args</value>
+  </data>
   <data name="TabGeneration" xml:space="preserve">
     <value>Generation</value>
   </data>
@@ -268,6 +271,9 @@
   </data>
   <data name="TooltipSaveLog" xml:space="preserve">
     <value>Save entire log to file</value>
+  </data>
+  <data name="TooltipToggleLogMaximize" xml:space="preserve">
+    <value>Maximize / restore the log window</value>
   </data>
   <data name="TooltipClearAllFields" xml:space="preserve">
     <value>Clear all fields</value>
@@ -487,6 +493,24 @@
   </data>
   <data name="TooltipCurrentCommand" xml:space="preserve">
     <value>Click to copy command to clipboard</value>
+  </data>
+  <data name="CommandPreview" xml:space="preserve">
+    <value>Command preview</value>
+  </data>
+  <data name="ToastCorruptFileSkipped" xml:space="preserve">
+    <value>Skipped a damaged file: {0}</value>
+  </data>
+  <data name="ToastCustomDataPathMissing" xml:space="preserve">
+    <value>Custom data folder is unavailable — using the default folder until it is reconnected.</value>
+  </data>
+  <data name="ConfirmDeleteCorruptFile" xml:space="preserve">
+    <value>Delete the damaged file '{0}'?</value>
+  </data>
+  <data name="ToastCorruptFileDeleted" xml:space="preserve">
+    <value>Damaged file deleted: {0}</value>
+  </data>
+  <data name="ToastCorruptFileDeleteFailed" xml:space="preserve">
+    <value>Could not delete '{0}'</value>
   </data>
   <data name="DownloadLlama" xml:space="preserve">
     <value>Download llama</value>
@@ -784,6 +808,30 @@
   </data>
   <data name="ColorSchemeUbuntu" xml:space="preserve">
     <value>Ubuntu</value>
+  </data>
+  <data name="ColorSchemeCustom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="CustomColorsHeader" xml:space="preserve">
+    <value>Custom colors</value>
+  </data>
+  <data name="CustomColorWindow" xml:space="preserve">
+    <value>Window background</value>
+  </data>
+  <data name="CustomColorPanel" xml:space="preserve">
+    <value>Panel background</value>
+  </data>
+  <data name="CustomColorCommand" xml:space="preserve">
+    <value>Command panel background</value>
+  </data>
+  <data name="CustomColorAccent" xml:space="preserve">
+    <value>Accent color</value>
+  </data>
+  <data name="CustomColorSeparator" xml:space="preserve">
+    <value>Separators</value>
+  </data>
+  <data name="ResetCustomColors" xml:space="preserve">
+    <value>Reset to theme defaults</value>
   </data>
   <data name="DropExeConfirmTitle" xml:space="preserve">
     <value>Set Executable Path</value>

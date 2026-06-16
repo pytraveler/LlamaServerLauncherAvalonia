@@ -1,5 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+
              x:Class="LlamaServerLauncher.App"
              RequestedThemeVariant="Dark">
     <Application.Resources>
@@ -7,10 +8,12 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="/Resources/Themes/Dark.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
     </Application.Styles>
     <TrayIcon.Icons>
         <TrayIcons>

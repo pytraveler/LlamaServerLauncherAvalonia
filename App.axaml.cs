@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using LlamaServerLauncher.Models;
@@ -23,7 +25,8 @@ public partial class App : Application
 
     public static SingleInstanceService? SingleInstance { get; set; }
 
-    public static void SwitchTheme(string variant, string? colorScheme = null)
+    public static void SwitchTheme(string variant, string? colorScheme = null,
+                                   Dictionary<string, string>? customColors = null)
     {
         if (Current == null) return;
 
@@ -43,7 +46,7 @@ public partial class App : Application
             resources[key] = themeDict[key];
         }
 
-        if (!string.IsNullOrEmpty(colorScheme) && colorScheme != "Default")
+        if (!string.IsNullOrEmpty(colorScheme) && colorScheme != "Default" && colorScheme != "Custom")
         {
             var schemeUri = new Uri($"avares://LlamaServerLauncher/Resources/Themes/Schemes/{colorScheme}.xaml");
             var schemeDict = (ResourceDictionary)AvaloniaXamlLoader.Load(schemeUri);
@@ -53,6 +56,24 @@ public partial class App : Application
                 resources[key] = schemeDict[key];
             }
         }
+
+        if (customColors != null)
+        {
+            foreach (var kv in customColors)
+                SetBrush(resources, kv.Key, kv.Value);
+        }
+    }
+
+    public static void ApplyCustomColor(string key, string hex)
+    {
+        if (Current == null) return;
+        SetBrush(Current.Resources, key, hex);
+    }
+
+    private static void SetBrush(IResourceDictionary resources, string key, string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex) || !Color.TryParse(hex, out var c)) return;
+        resources[key] = new SolidColorBrush(c);
     }
     
     public override void Initialize()
@@ -68,6 +89,8 @@ public partial class App : Application
             _viewModel = new MainViewModel();
             _mainWindow.DataContext = _viewModel;
             desktop.MainWindow = _mainWindow;
+
+            _mainWindow.Closed += (s, e) => _viewModel?.Cleanup();
 
             var showCmd = new RelayCommand(_ =>
             {
@@ -214,9 +237,10 @@ public partial class App : Application
         })) });
         _trayMenu.Items.Add(new NativeMenuItemSeparator());
 
-        if (_viewModel != null && _viewModel.RunningInstances.Count > 0)
+        var trayInstances = _viewModel?.RunningInstances.Where(i => i.IsRunning).ToList() ?? new();
+        if (trayInstances.Count > 0)
         {
-            foreach (var instance in _viewModel.RunningInstances.ToList())
+            foreach (var instance in trayInstances)
             {
                 var subMenu = new NativeMenu();
 

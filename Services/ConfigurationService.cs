@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using LlamaServerLauncher.Models;
 
@@ -15,6 +16,10 @@ public class ConfigurationService
     private readonly string _scenariosPath;
     private readonly string _appSettingsPath;
     private readonly LogService _logService;
+    private readonly SemaphoreSlim _appSettingsSaveLock = new(1, 1);
+
+    /// <summary>Raised with the full file path when a profile/scenario file is skipped because it can't be read.</summary>
+    public event Action<string>? CorruptFileSkipped;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -35,38 +40,157 @@ public class ConfigurationService
         Directory.CreateDirectory(_scenariosPath);
     }
 
+    /// <summary>True when app.json existed but couldn't be read this session (e.g. locked).</summary>
+    public bool LoadFailedKeepExisting { get; private set; }
+
     public async Task SaveAppSettingsAsync(AppSettings settings)
     {
+        // Serialized + atomic + .bak so a crash mid-write can never wipe all settings.
+        await _appSettingsSaveLock.WaitAsync();
         try
         {
-            var json = JsonSerializer.Serialize(settings, JsonOptions);
-            await File.WriteAllTextAsync(_appSettingsPath, json);
+            await WriteJsonAtomicAsync(_appSettingsPath, settings, keepBackup: true);
             _logService.Info("Application settings saved successfully");
         }
         catch (Exception ex)
         {
             _logService.Error($"Failed to save application settings: {ex.Message}");
         }
+        finally
+        {
+            _appSettingsSaveLock.Release();
+        }
     }
 
     public async Task<AppSettings> LoadAppSettingsAsync()
     {
+        LoadFailedKeepExisting = false;
+
+        // No file yet -> fresh install, defaults are fine.
+        if (!File.Exists(_appSettingsPath))
+            return new AppSettings();
+
+        var (settings, ioError) = await TryReadJsonAsync<AppSettings>(_appSettingsPath);
+        if (settings != null)
+        {
+            _logService.Info("Application settings loaded successfully");
+            return settings;
+        }
+
+        if (ioError)
+        {
+            // Locked/transient: leave the file alone, don't overwrite it with defaults.
+            _logService.Error("app.json could not be read; keeping the existing file and using defaults for this session");
+            LoadFailedKeepExisting = true;
+            return new AppSettings();
+        }
+
+        // Corrupt: quarantine and try the backup.
+        _logService.Error("app.json is corrupt; quarantining it and attempting recovery from backup");
+        QuarantineFile(_appSettingsPath);
+
+        var backupPath = _appSettingsPath + ".bak";
+        if (File.Exists(backupPath))
+        {
+            var (backup, _) = await TryReadJsonAsync<AppSettings>(backupPath);
+            if (backup != null)
+            {
+                _logService.Warning("Recovered application settings from backup (app.json.bak)");
+                return backup;
+            }
+        }
+
+        _logService.Error("No valid backup available; starting from default settings");
+        return new AppSettings();
+    }
+
+    /// <summary>
+    /// Atomic JSON write: dump to a unique temp file in the same directory, then rename
+    /// over the target. Optionally keeps a copy of the previous file as &lt;path&gt;.bak.
+    /// </summary>
+    private async Task WriteJsonAtomicAsync<T>(string path, T value, bool keepBackup = false)
+    {
+        var json = JsonSerializer.Serialize(value, JsonOptions);
+        var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            if (!File.Exists(_appSettingsPath))
-            {
-                return new AppSettings();
-            }
+            await File.WriteAllTextAsync(tempPath, json);
 
-            var json = await File.ReadAllTextAsync(_appSettingsPath);
-            var settings = JsonSerializer.Deserialize<AppSettings>(json);
-            _logService.Info("Application settings loaded successfully");
-            return settings ?? new AppSettings();
+            if (File.Exists(path))
+            {
+                if (keepBackup)
+                {
+                    try { File.Copy(path, path + ".bak", overwrite: true); }
+                    catch (Exception ex) { _logService.Warning($"Could not update backup for '{Path.GetFileName(path)}': {ex.Message}"); }
+                }
+                File.Move(tempPath, path, overwrite: true);
+            }
+            else
+            {
+                File.Move(tempPath, path);
+            }
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                try { File.Delete(tempPath); } catch { /* best-effort cleanup */ }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads JSON with a few quick retries for transient IO errors (antivirus locks etc.).
+    /// ioError is true only when the file exists but couldn't be read, so callers can tell
+    /// "locked" apart from "corrupt" and avoid clobbering a file they couldn't open.
+    /// </summary>
+    private async Task<(T? value, bool ioError)> TryReadJsonAsync<T>(string path) where T : class
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(path);
+                return (JsonSerializer.Deserialize<T>(json), false);
+            }
+            catch (IOException) when (attempt < 2)
+            {
+                await Task.Delay(120);
+            }
+            catch (IOException ex)
+            {
+                _logService.Error($"IO error reading '{Path.GetFileName(path)}': {ex.Message}");
+                return (null, true);
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"Failed to parse '{Path.GetFileName(path)}': {ex.Message}");
+                return (null, false);
+            }
+        }
+    }
+
+    private void QuarantineFile(string path)
+    {
+        try
+        {
+            var quarantinePath = $"{path}.corrupt-{DateTime.Now:yyyyMMdd-HHmmss}";
+            File.Copy(path, quarantinePath, overwrite: true);
+            _logService.Warning($"Saved a copy of the corrupt file as '{Path.GetFileName(quarantinePath)}'");
         }
         catch (Exception ex)
         {
-            _logService.Error($"Failed to load application settings: {ex.Message}");
-            return new AppSettings();
+            _logService.Error($"Failed to quarantine corrupt file '{Path.GetFileName(path)}': {ex.Message}");
+        }
+    }
+
+    /// <summary>Deletes a single file by full path (used to remove a damaged profile/scenario file).</summary>
+    public void DeleteFile(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+            _logService.Info($"Deleted file '{Path.GetFileName(path)}'");
         }
     }
 
@@ -82,9 +206,8 @@ public class ConfigurationService
                 Configuration = config
             };
 
-            var json = JsonSerializer.Serialize(profile, JsonOptions);
             var filePath = GetProfilePath(name);
-            await File.WriteAllTextAsync(filePath, json);
+            await WriteJsonAtomicAsync(filePath, profile);
             _logService.Info($"Profile '{name}' saved successfully");
         }
         catch (Exception ex)
@@ -170,8 +293,10 @@ public class ConfigurationService
                         profiles.Add(profile);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logService.Warning($"Skipped unreadable profile '{Path.GetFileName(file)}': {ex.Message}");
+                    CorruptFileSkipped?.Invoke(file);
                 }
             }
         }
@@ -230,9 +355,8 @@ public class ConfigurationService
                 profile.Name = newName;
                 profile.LastModified = DateTime.Now;
                 profile.FilePath = newFilePath;
-                
-                var newJson = JsonSerializer.Serialize(profile, JsonOptions);
-                await File.WriteAllTextAsync(newFilePath, newJson);
+
+                await WriteJsonAtomicAsync(newFilePath, profile);
                 File.Delete(oldFilePath);
                 _logService.Info($"Profile renamed from '{oldName}' to '{newName}'");
 
@@ -397,9 +521,8 @@ public class ConfigurationService
                     profile.LastModified = DateTime.Now;
                     profile.FilePath = GetProfilePath(newName);
 
-                    var newJson = JsonSerializer.Serialize(profile, JsonOptions);
-                    await File.WriteAllTextAsync(profile.FilePath, newJson);
-                    
+                    await WriteJsonAtomicAsync(profile.FilePath, profile);
+
                     existingProfiles.Add(newName.ToLowerInvariant());
                     result.ImportedCount++;
                     _logService.Info($"Imported profile '{newName}' from backup");
@@ -475,8 +598,10 @@ public class ConfigurationService
                     if (scenario != null)
                         scenarios.Add(scenario);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logService.Warning($"Skipped unreadable scenario '{Path.GetFileName(file)}': {ex.Message}");
+                    CorruptFileSkipped?.Invoke(file);
                 }
             }
         }
@@ -493,8 +618,7 @@ public class ConfigurationService
         try
         {
             var filePath = GetScenarioPath(scenario.Name);
-            var json = JsonSerializer.Serialize(scenario, JsonOptions);
-            await File.WriteAllTextAsync(filePath, json);
+            await WriteJsonAtomicAsync(filePath, scenario);
             _logService.Info($"Scenario '{scenario.Name}' saved successfully");
         }
         catch (Exception ex)

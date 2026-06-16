@@ -95,6 +95,9 @@
   <data name="TabMain" xml:space="preserve">
     <value>Основное</value>
   </data>
+  <data name="TabCustom" xml:space="preserve">
+    <value>Пользовательские</value>
+  </data>
   <data name="TabGeneration" xml:space="preserve">
     <value>Генерация</value>
   </data>
@@ -102,7 +105,7 @@
     <value>Параметры</value>
   </data>
   <data name="TabSettings" xml:space="preserve">
-    <value>Настройки программы</value>
+    <value>Настройки</value>
   </data>
   <data name="Profile" xml:space="preserve">
     <value>Профиль:</value>
@@ -268,6 +271,9 @@
   </data>
   <data name="TooltipSaveLog" xml:space="preserve">
     <value>Сохранить весь лог в файл</value>
+  </data>
+  <data name="TooltipToggleLogMaximize" xml:space="preserve">
+    <value>Развернуть / свернуть окно лога</value>
   </data>
   <data name="TooltipClearAllFields" xml:space="preserve">
     <value>Очистить все поля</value>
@@ -487,6 +493,24 @@
   </data>
   <data name="TooltipCurrentCommand" xml:space="preserve">
     <value>Нажмите, чтобы скопировать команду в буфер обмена</value>
+  </data>
+  <data name="CommandPreview" xml:space="preserve">
+    <value>Предпросмотр команды</value>
+  </data>
+  <data name="ToastCorruptFileSkipped" xml:space="preserve">
+    <value>Пропущен повреждённый файл: {0}</value>
+  </data>
+  <data name="ToastCustomDataPathMissing" xml:space="preserve">
+    <value>Папка данных недоступна — используется папка по умолчанию, пока она не будет переподключена.</value>
+  </data>
+  <data name="ConfirmDeleteCorruptFile" xml:space="preserve">
+    <value>Удалить повреждённый файл «{0}»?</value>
+  </data>
+  <data name="ToastCorruptFileDeleted" xml:space="preserve">
+    <value>Повреждённый файл удалён: {0}</value>
+  </data>
+  <data name="ToastCorruptFileDeleteFailed" xml:space="preserve">
+    <value>Не удалось удалить «{0}»</value>
   </data>
   <data name="DownloadLlama" xml:space="preserve">
     <value>Загрузить llama</value>
@@ -784,6 +808,30 @@
   </data>
   <data name="ColorSchemeUbuntu" xml:space="preserve">
     <value>Ubuntu</value>
+  </data>
+  <data name="ColorSchemeCustom" xml:space="preserve">
+    <value>Пользовательская</value>
+  </data>
+  <data name="CustomColorsHeader" xml:space="preserve">
+    <value>Пользовательские цвета</value>
+  </data>
+  <data name="CustomColorWindow" xml:space="preserve">
+    <value>Фон окна</value>
+  </data>
+  <data name="CustomColorPanel" xml:space="preserve">
+    <value>Фон панели</value>
+  </data>
+  <data name="CustomColorCommand" xml:space="preserve">
+    <value>Фон командной панели</value>
+  </data>
+  <data name="CustomColorAccent" xml:space="preserve">
+    <value>Акцентный цвет</value>
+  </data>
+  <data name="CustomColorSeparator" xml:space="preserve">
+    <value>Разделители</value>
+  </data>
+  <data name="ResetCustomColors" xml:space="preserve">
+    <value>Сбросить к значениям темы</value>
   </data>
   <data name="DropExeConfirmTitle" xml:space="preserve">
     <value>Установить путь к исполняемому файлу</value>

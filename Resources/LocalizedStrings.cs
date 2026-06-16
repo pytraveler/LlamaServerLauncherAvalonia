@@ -54,6 +54,7 @@ public class LocalizedStrings : INotifyPropertyChanged
     public string WindowTitleRunning => GetString("WindowTitleRunning");
     public string TabProfiles => GetString("TabProfiles");
     public string TabMain => GetString("TabMain");
+    public string TabCustom => GetString("TabCustom");
     public string TabGeneration => GetString("TabGeneration");
     public string TabOptions => GetString("TabOptions");
     public string TabSettings => GetString("TabSettings");
@@ -112,6 +113,7 @@ public class LocalizedStrings : INotifyPropertyChanged
     public string SaveLogDialogTitle => GetString("SaveLogDialogTitle");
     public string TooltipCopyLog => GetString("TooltipCopyLog");
     public string TooltipSaveLog => GetString("TooltipSaveLog");
+    public string TooltipToggleLogMaximize => GetString("TooltipToggleLogMaximize");
     public string AutoScrollLog => GetString("AutoScrollLog");
     public string Language => GetString("Language");
 public string English => GetString("English");
@@ -189,6 +191,12 @@ public string English => GetString("English");
 
     public string TooltipFontSize => GetString("TooltipFontSize");
     public string TooltipCurrentCommand => GetString("TooltipCurrentCommand");
+    public string CommandPreview => GetString("CommandPreview");
+    public string ToastCorruptFileSkipped => GetString("ToastCorruptFileSkipped");
+    public string ToastCustomDataPathMissing => GetString("ToastCustomDataPathMissing");
+    public string ConfirmDeleteCorruptFile => GetString("ConfirmDeleteCorruptFile");
+    public string ToastCorruptFileDeleted => GetString("ToastCorruptFileDeleted");
+    public string ToastCorruptFileDeleteFailed => GetString("ToastCorruptFileDeleteFailed");
 
     public string Appearance => GetString("Appearance");
     public string ThemeVariant => GetString("ThemeVariant");
@@ -203,6 +211,14 @@ public string English => GetString("English");
     public string ColorSchemeForest => GetString("ColorSchemeForest");
     public string ColorSchemeSunset => GetString("ColorSchemeSunset");
     public string ColorSchemeUbuntu => GetString("ColorSchemeUbuntu");
+    public string ColorSchemeCustom => GetString("ColorSchemeCustom");
+    public string CustomColorsHeader => GetString("CustomColorsHeader");
+    public string CustomColorWindow => GetString("CustomColorWindow");
+    public string CustomColorPanel => GetString("CustomColorPanel");
+    public string CustomColorCommand => GetString("CustomColorCommand");
+    public string CustomColorAccent => GetString("CustomColorAccent");
+    public string CustomColorSeparator => GetString("CustomColorSeparator");
+    public string ResetCustomColors => GetString("ResetCustomColors");
 
     public string AutoFitHeight => GetString("AutoFitHeight");
 
