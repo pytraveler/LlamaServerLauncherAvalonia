@@ -12,9 +12,11 @@ Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
 
 ### Server Configuration
 - **Executable Path** — Select the `llama-server` binary, or download llama.cpp directly from the app
-- **Model Selection** — Choose a specific model file (.gguf), set a models directory, or specify a HuggingFace repo
+- **Model Selection** — Choose a specific model file (.gguf), set a models directory, or specify a HuggingFace repo (`--hf-repo`) and file (`--hf-file`)
 - **Network Settings** — Configure host address (default: 127.0.0.1) and port (default: 8080)
 - **API Key** — Set authentication API key for the server
+- **Offline mode** — Force cache-only operation with no network access (`--offline`)
+- **Input history** — Path and value fields remember recently used entries for quick reuse
 
 ### Model Parameters
 - Context size (`-c`, `--ctx-size`)
@@ -40,6 +42,13 @@ Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
 - Frequency penalty (`--frequency-penalty`)
 - Reasoning mode (`-rea`, `--reasoning`)
 - Reasoning budget (`--reasoning-budget`)
+
+### Speculative Decoding
+- Speculative decoding type (`--spec-type`)
+- Draft model (`-md`, `--spec-draft-model`) or HuggingFace draft repo (`--hf-repo-draft`)
+- Draft GPU layers (`-ngld`)
+- Draft N-Max / N-Min (`--spec-draft-n-max`, `--spec-draft-n-min`)
+- Draft P-Split / P-Min (`--spec-draft-p-split`, `--spec-draft-p-min`)
 
 ### Advanced Options
 - Flash Attention (`-fa`, `--flash-attn`)
@@ -79,6 +88,7 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 - Real-time log viewer with auto-scroll
 - Server status display with process ID
 - Auto-restart on crash
+- Automatic log file rotation (configurable max file count and size)
 - **Built-in Log Stream Server** — WebSocket-based log streaming with HTTP API endpoints:
   - `/ws` — Real-time WebSocket log streaming with optional token authentication
   - `/api/logs/history` — JSON endpoint for log history
@@ -90,6 +100,7 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 - **Update notifications** — Automatically checks for new llama.cpp releases
 - **Version management** — Install and switch between different versions
 - **PATH integration** — Optionally add llama.cpp directory to PATH
+- **Experimental build repositories** — Add custom GitHub release sources (e.g. [llama-cpp-turboquant](https://github.com/pytraveler/llama-cpp-turboquant)) with tag filters and periodic update checks to download experimental builds
 
 ### App Updates
 - **Auto-update** — Automatically checks for new application releases and supports one-click update with restart
@@ -98,6 +109,7 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 - **Auto-start** — Register the app to start with the operating system (Windows registry, Linux autostart .desktop, macOS LaunchAgent)
 - **Single instance** — Enforces only one running instance; launching again activates the existing window
 - **Toast notifications** — In-app toast messages for important events and errors
+- **Browser selection** — Open the server WebUI in a chosen browser; installed browsers are auto-detected, or set a custom browser path
 
 ### Docker Support
 - Docker CLI integration for container-based workflows
@@ -154,6 +166,50 @@ Drop files onto the window to import configurations or set paths:
 2. Put executable file to your desired location
 3. Run `LlamaServerLauncher`
 
+## Verifying releases
+
+All release binaries are built by GitHub Actions and ship with a
+[build provenance attestation](https://docs.github.com/actions/security-guides/using-artifact-attestations)
+plus SHA-256 checksums (the checksum file is GPG-signed). The binaries themselves are
+**not** code-signed, so verifying provenance/checksums is the recommended way to trust a download.
+
+### 1. Verify provenance (proves the binary was built from this repository)
+
+Requires the [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh attestation verify LlamaServerLauncher_win_x64.exe \
+  --repo pytraveler/LlamaServerLauncherAvalonia
+```
+
+### 2. Verify integrity (checksums)
+
+```bash
+# Linux / macOS
+sha256sum -c SHA256SUMS
+
+# Windows PowerShell — compare against the value in SHA256SUMS
+(Get-FileHash LlamaServerLauncher_win_x64.exe -Algorithm SHA256).Hash
+```
+
+### 3. Verify the checksums signature (optional, GPG)
+
+The public key lives in this repository at
+[`LlamaServerLauncherAvalonia-public.asc`](LlamaServerLauncherAvalonia-public.asc)
+(also attached to each release). Fetching it from the repository over HTTPS is the
+stronger trust anchor.
+
+```bash
+gpg --import LlamaServerLauncherAvalonia-public.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS
+```
+
+Signing key fingerprint (verify it matches after import):
+
+```
+7CE2 D333 77DD 11F2 2748  DC40 2B4E E046 8C62 EBA1
+```
+
 ## Build from Source
 
 ### Prerequisites
@@ -171,8 +227,11 @@ dotnet publish LlamaServerLauncher.csproj -c Release -r linux-x64 -o ./publish/l
 # Windows
 dotnet publish LlamaServerLauncher.csproj -c Release -r win-x64 -o ./publish/win-x64
 
-# macOS
+# macOS (Intel)
 dotnet publish LlamaServerLauncher.csproj -c Release -r osx-x64 -o ./publish/osx-x64
+
+# macOS (Apple Silicon)
+dotnet publish LlamaServerLauncher.csproj -c Release -r osx-arm64 -o ./publish/osx-arm64
 ```
 
 ## Usage
@@ -239,10 +298,13 @@ LlamaServerLauncher/
 │   ├── ScenarioInfo                   # Scenario definition (profile sequence, interval, auto-start)
 │   ├── AppSettings                    # Persistent application settings (including dialog geometry)
 │   ├── ProfileInfo                    # Profile metadata
+│   ├── ExperimentalRepoInfo           # Experimental repository definition + cached releases
+│   ├── BrowserInfo                    # Detected browser (name + executable path)
 │   └── HelpArgumentInfo               # Help argument metadata for feature detection
 ├── ViewModels/                        # MVVM view models
 │   ├── MainViewModel                  # Main application logic and state (multi-instance, scenarios)
 │   ├── ScenarioDialogViewModel        # Scenario creation/editing logic
+│   ├── ExperimentalRepoDialogViewModel # Add/edit experimental repository dialog logic
 │   ├── DownloadDialogViewModel
 │   ├── ArgumentPickerViewModel
 │   └── RelayCommand / AsyncRelayCommand
@@ -259,6 +321,8 @@ LlamaServerLauncher/
 │   ├── SingleInstanceService          # Enforces single instance with IPC activation
 │   ├── DockerCliService               # Docker CLI integration
 │   ├── AppUpdateService               # Application auto-update via GitHub releases
+│   ├── ExperimentalRepoService        # Experimental build repositories (custom GitHub release sources)
+│   ├── BrowserDetectionService        # Detects installed browsers for WebUI launch
 │   ├── WindowsFileDialogs             # File/folder picker abstractions
 │   ├── DialogPositionHelper           # Dialog window position/size persistence
 │   └── DataPathResolver               # Data directory resolution and migration
@@ -281,6 +345,7 @@ LlamaServerLauncher/
 │   └── *.svg                          # Icon assets
 ├── MainWindow.axaml                   # Main window with drag-and-drop support
 ├── ScenarioDialogWindow.axaml         # Scenario creation and editing dialog
+├── ExperimentalRepoDialogWindow.axaml # Add/edit experimental repository dialog
 ├── DownloadDialogWindow.axaml
 ├── ArgumentPickerWindow.axaml
 ├── AboutDialogWindow.axaml

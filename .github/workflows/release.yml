@@ -74,7 +74,7 @@ jobs:
             ${GPG_PASSPHRASE:+--passphrase "$GPG_PASSPHRASE"} \
             --local-user "$KEYID" \
             --armor --detach-sign --output SHA256SUMS.asc SHA256SUMS
-          gpg --armor --export "$KEYID" > LlamaServerLauncher-public.asc
+          gpg --armor --export "$KEYID" > LlamaServerLauncherAvalonia-public.asc
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
@@ -92,7 +92,8 @@ jobs:
         run: |
           gh release create "${{ github.ref_name }}" dist/* \
             --title "${{ github.ref_name }}" \
-            --generate-notes
+            --generate-notes \
+            --draft
 
       - name: Upload artifacts (manual runs)
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}

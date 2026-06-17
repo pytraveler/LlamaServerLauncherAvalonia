@@ -12,9 +12,11 @@
 
 ### Настройка сервера
 - **Путь к исполняемому файлу** — Выберите бинарник `llama-server` или загрузите llama.cpp прямо из приложения
-- **Выбор модели** — Выберите конкретный файл модели (.gguf), укажите директорию с моделями или репозиторий HuggingFace
+- **Выбор модели** — Выберите конкретный файл модели (.gguf), укажите директорию с моделями или репозиторий HuggingFace (`--hf-repo`) и файл (`--hf-file`)
 - **Сетевые настройки** — Настройте адрес хоста (по умолчанию: 127.0.0.1) и порт (по умолчанию: 8080)
 - **API-ключ** — Установите API-ключ аутентификации для сервера
+- **Офлайн-режим** — Принудительная работа только из кэша, без обращений к сети (`--offline`)
+- **История ввода** — Поля путей и значений запоминают недавно введённые варианты для быстрого повторного использования
 
 ### Параметры модели
 - Размер контекста (`-c`, `--ctx-size`)
@@ -40,6 +42,13 @@
 - Штраф за частоту (`--frequency-penalty`)
 - Режим рассуждения (`-rea`, `--reasoning`)
 - Бюджет рассуждений (`--reasoning-budget`)
+
+### Спекулятивное декодирование
+- Тип спекулятивного декодирования (`--spec-type`)
+- Draft-модель (`-md`, `--spec-draft-model`) или draft-репозиторий HuggingFace (`--hf-repo-draft`)
+- GPU-слои draft-модели (`-ngld`)
+- Draft N-Max / N-Min (`--spec-draft-n-max`, `--spec-draft-n-min`)
+- Draft P-Split / P-Min (`--spec-draft-p-split`, `--spec-draft-p-min`)
 
 ### Дополнительные опции
 - Flash Attention (`-fa`, `--flash-attn`)
@@ -79,6 +88,7 @@
 - Просмотрщик логов в реальном времени с автоскроллом
 - Отображение статуса сервера с PID процесса
 - Автоперезапуск при падении
+- Автоматическая ротация лог-файлов (настраиваемые лимиты количества и размера)
 - **Встроенный сервер потоковой передачи логов** — WebSocket-поток логов с HTTP API:
   - `/ws` — Потоковая передача логов через WebSocket с опциональной токен-аутентификацией
   - `/api/logs/history` — JSON-эндпоинт истории логов
@@ -90,6 +100,7 @@
 - **Уведомления об обновлениях** — Автоматическая проверка новых релизов llama.cpp
 - **Управление версиями** — Установка и переключение между различными версиями
 - **Интеграция с PATH** — Возможность добавить директорию llama.cpp в переменную окружения PATH
+- **Экспериментальные репозитории сборок** — Добавление собственных GitHub-источников релизов (например, [llama-cpp-turboquant](https://github.com/pytraveler/llama-cpp-turboquant)) с фильтрами по тегам и периодической проверкой обновлений для загрузки экспериментальных сборок
 
 ### Обновление приложения
 - **Автообновление** — Автоматическая проверка новых релизов приложения и поддержка обновления в один клик с перезапуском
@@ -98,6 +109,7 @@
 - **Автозапуск** — Регистрация приложения для запуска вместе с ОС (реестр Windows, .desktop в Linux, LaunchAgent в macOS)
 - **Единственный экземпляр** — Обеспечивает запуск только одного экземпляра; повторный запуск активирует существующее окно
 - **Всплывающие уведомления** — Внутриприложенческие toast-уведомления о важных событиях и ошибках
+- **Выбор браузера** — Открытие WebUI сервера в выбранном браузере; установленные браузеры определяются автоматически, либо можно указать произвольный путь к браузеру
 
 ### Поддержка Docker
 - Интеграция с Docker CLI для контейнерных сценариев использования
@@ -154,6 +166,51 @@
 2. Поместите исполняемый файл в удобное место
 3. Запустите `LlamaServerLauncher`
 
+## Проверка релизов
+
+Все бинарники релизов собираются в GitHub Actions и сопровождаются
+[аттестацией происхождения сборки (provenance)](https://docs.github.com/actions/security-guides/using-artifact-attestations)
+и контрольными суммами SHA-256 (файл с суммами подписан GPG). Сами бинарники
+code-signing-подписи **не** имеют, поэтому проверка provenance/контрольных сумм —
+рекомендуемый способ доверять загрузке.
+
+### 1. Проверка происхождения (доказывает, что бинарник собран из этого репозитория)
+
+Требуется [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh attestation verify LlamaServerLauncher_win_x64.exe \
+  --repo pytraveler/LlamaServerLauncherAvalonia
+```
+
+### 2. Проверка целостности (контрольные суммы)
+
+```bash
+# Linux / macOS
+sha256sum -c SHA256SUMS
+
+# Windows PowerShell — сравните со значением в SHA256SUMS
+(Get-FileHash LlamaServerLauncher_win_x64.exe -Algorithm SHA256).Hash
+```
+
+### 3. Проверка подписи контрольных сумм (опционально, GPG)
+
+Публичный ключ лежит в этом репозитории —
+[`LlamaServerLauncherAvalonia-public.asc`](LlamaServerLauncherAvalonia-public.asc)
+(а также приложен к каждому релизу). Брать ключ из репозитория по HTTPS —
+более надёжный якорь доверия.
+
+```bash
+gpg --import LlamaServerLauncherAvalonia-public.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS
+```
+
+Отпечаток ключа подписи (сверьте после импорта):
+
+```
+7CE2 D333 77DD 11F2 2748  DC40 2B4E E046 8C62 EBA1
+```
+
 ## Сборка из исходников
 
 ### Необходимые компоненты
@@ -171,8 +228,11 @@ dotnet publish LlamaServerLauncher.csproj -c Release -r linux-x64 -o ./publish/l
 # Windows
 dotnet publish LlamaServerLauncher.csproj -c Release -r win-x64 -o ./publish/win-x64
 
-# macOS
+# macOS (Intel)
 dotnet publish LlamaServerLauncher.csproj -c Release -r osx-x64 -o ./publish/osx-x64
+
+# macOS (Apple Silicon)
+dotnet publish LlamaServerLauncher.csproj -c Release -r osx-arm64 -o ./publish/osx-arm64
 ```
 
 ## Использование
@@ -239,10 +299,13 @@ LlamaServerLauncher/
 │   ├── ScenarioInfo                   # Определение сценария (последовательность профилей, интервал, автозапуск)
 │   ├── AppSettings                    # Постоянные настройки приложения (включая геометрию диалогов)
 │   ├── ProfileInfo                    # Метаданные профиля
+│   ├── ExperimentalRepoInfo           # Описание экспериментального репозитория + кэш релизов
+│   ├── BrowserInfo                    # Обнаруженный браузер (имя + путь к исполняемому файлу)
 │   └── HelpArgumentInfo               # Метаданные аргументов справки для определения возможностей
 ├── ViewModels/                        # MVVM ViewModel'и
 │   ├── MainViewModel                  # Основная логика и состояние (множественные инстансы, сценарии)
 │   ├── ScenarioDialogViewModel        # Логика создания и редактирования сценариев
+│   ├── ExperimentalRepoDialogViewModel # Логика диалога добавления/редактирования экспериментального репозитория
 │   ├── DownloadDialogViewModel
 │   ├── ArgumentPickerViewModel
 │   └── RelayCommand / AsyncRelayCommand
@@ -259,6 +322,8 @@ LlamaServerLauncher/
 │   ├── SingleInstanceService          # Обеспечение единственного экземпляра с IPC-активацией
 │   ├── DockerCliService               # Интеграция с Docker CLI
 │   ├── AppUpdateService               # Автообновление приложения через GitHub-релизы
+│   ├── ExperimentalRepoService        # Экспериментальные репозитории сборок (свои GitHub-источники релизов)
+│   ├── BrowserDetectionService        # Определение установленных браузеров для запуска WebUI
 │   ├── WindowsFileDialogs             # Абстракции выбора файлов/папок
 │   ├── DialogPositionHelper           # Сохранение позиции и размера диалоговых окон
 │   └── DataPathResolver               # Разрешение путей и миграция директории данных
@@ -281,6 +346,7 @@ LlamaServerLauncher/
 │   └── *.svg                          # Иконки
 ├── MainWindow.axaml                   # Главное окно с поддержкой drag-and-drop
 ├── ScenarioDialogWindow.axaml         # Диалог создания и редактирования сценариев
+├── ExperimentalRepoDialogWindow.axaml # Диалог добавления/редактирования экспериментального репозитория
 ├── DownloadDialogWindow.axaml
 ├── ArgumentPickerWindow.axaml
 ├── AboutDialogWindow.axaml
