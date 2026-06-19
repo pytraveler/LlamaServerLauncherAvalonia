@@ -179,6 +179,9 @@
   <data name="GpuLayers" xml:space="preserve">
     <value>Слои GPU:</value>
   </data>
+  <data name="CpuMoe" xml:space="preserve">
+    <value>Слои MoE на CPU:</value>
+  </data>
   <data name="GenerationParameters" xml:space="preserve">
     <value>Параметры генерации</value>
   </data>
@@ -358,6 +361,9 @@
   </data>
   <data name="TooltipGpuLayers" xml:space="preserve">
     <value>Количество слоёв модели для выгрузки на GPU (-ngl). 0 = только CPU, -1 = все слои. По умолчанию: 0</value>
+  </data>
+  <data name="TooltipCpuMoe" xml:space="preserve">
+    <value>Сколько слоёв держать экспертами MoE на CPU (--n-cpu-moe). Ключевой параметр для больших MoE-моделей, не влезающих в VRAM целиком.</value>
   </data>
   <data name="TooltipTemperature" xml:space="preserve">
     <value>Управляет случайностью вывода (-temp). Выше = креативнее, ниже = точнее. По умолчанию: 0.8</value>
@@ -596,6 +602,9 @@
   <data name="PlaceholderGpuLayers" xml:space="preserve">
     <value>По умолчанию: 0 (только CPU)</value>
   </data>
+  <data name="PlaceholderCpuMoe" xml:space="preserve">
+    <value>выкл / N слоёв</value>
+  </data>
   <data name="PlaceholderTemperature" xml:space="preserve">
     <value>По умолчанию: 0.8</value>
   </data>
@@ -736,6 +745,9 @@
   </data>
   <data name="AboutTitle" xml:space="preserve">
     <value>О программе</value>
+  </data>
+  <data name="MarkdownViewerTitle" xml:space="preserve">
+    <value>Просмотр Markdown</value>
   </data>
   <data name="Developer" xml:space="preserve">
     <value>Разработчик</value>
@@ -880,6 +892,9 @@
   </data>
   <data name="ThanksMethelina" xml:space="preserve">
     <value>Спасибо за вклад в проект и моральную поддержку:</value>
+  </data>
+  <data name="OptimizationAttribution" xml:space="preserve">
+    <value>Движок оптимизации (подбора гиперпараметров) — это адаптированный порт на C# из:</value>
   </data>
   <data name="PickArguments" xml:space="preserve">
     <value>Добавить из справки</value>
@@ -1346,5 +1361,218 @@
   </data>
   <data name="ExperimentalUpdateToast" xml:space="preserve">
     <value>Новый релиз {1} доступен в {0}</value>
+  </data>
+  <data name="OptTitle" xml:space="preserve">
+    <value>Оптимизация параметров (llama-bench)</value>
+  </data>
+  <data name="OptGuideTitle" xml:space="preserve">
+    <value>Оптимизация параметров — памятка</value>
+  </data>
+  <data name="OptGuideTooltip" xml:space="preserve">
+    <value>Как работает оптимизация параметров</value>
+  </data>
+  <data name="OptOpen" xml:space="preserve">
+    <value>Оптимизировать…</value>
+  </data>
+  <data name="OptSettings" xml:space="preserve">
+    <value>Настройки</value>
+  </data>
+  <data name="OptLlamaBenchPath" xml:space="preserve">
+    <value>Путь к llama-bench</value>
+  </data>
+  <data name="OptMetric" xml:space="preserve">
+    <value>Метрика</value>
+  </data>
+  <data name="OptMetricTg" xml:space="preserve">
+    <value>tg (генерация)</value>
+  </data>
+  <data name="OptMetricPp" xml:space="preserve">
+    <value>pp (промпт)</value>
+  </data>
+  <data name="OptMetricMean" xml:space="preserve">
+    <value>среднее (tg+pp)/2</value>
+  </data>
+  <data name="OptOverrideMode" xml:space="preserve">
+    <value>Override-tensor</value>
+  </data>
+  <data name="OptOverrideModeNone" xml:space="preserve">
+    <value>нет</value>
+  </data>
+  <data name="OptOverrideModeScan" xml:space="preserve">
+    <value>скан</value>
+  </data>
+  <data name="OptTrials" xml:space="preserve">
+    <value>Трайлы</value>
+  </data>
+  <data name="OptRepeat" xml:space="preserve">
+    <value>Повторы (-r)</value>
+  </data>
+  <data name="OptNTokens" xml:space="preserve">
+    <value>Токены</value>
+  </data>
+  <data name="OptWarmupRuns" xml:space="preserve">
+    <value>Прогревы</value>
+  </data>
+  <data name="OptNglMax" xml:space="preserve">
+    <value>Макс. ngl</value>
+  </data>
+  <data name="OptRanges" xml:space="preserve">
+    <value>Диапазоны поиска</value>
+  </data>
+  <data name="OptLow" xml:space="preserve">
+    <value>мин</value>
+  </data>
+  <data name="OptHigh" xml:space="preserve">
+    <value>макс</value>
+  </data>
+  <data name="OptNoWarmup" xml:space="preserve">
+    <value>Пропустить прогрев</value>
+  </data>
+  <data name="OptUseFit" xml:space="preserve">
+    <value>Авто-подбор слоёв GPU (--fit)</value>
+  </data>
+  <data name="OptUseFitHint" xml:space="preserve">
+    <value>llama-bench сам подберёт -ngl под VRAM, зарезервировав место под указанный выше размер контекста (как --fit у сервера). Нужен размер контекста и сборка с --fit-target. При включении диапазон слоёв GPU игнорируется.</value>
+  </data>
+  <data name="OptFitMargin" xml:space="preserve">
+    <value>Запас для fit (МиБ)</value>
+  </data>
+  <data name="OptEstimateContext" xml:space="preserve">
+    <value>Оценить макс. контекст (медленнее)</value>
+  </data>
+  <data name="OptPruneBatchLtUbatch" xml:space="preserve">
+    <value>Отсекать trials где batch &lt; ubatch</value>
+  </data>
+  <data name="OptUseHttpBenchmark" xml:space="preserve">
+    <value>HTTP-бенчмарк (экспериментально)</value>
+  </data>
+  <data name="OptNoMmap" xml:space="preserve">
+    <value>--no-mmap (сервер, HTTP-режим)</value>
+  </data>
+  <data name="OptNoImprovementApply" xml:space="preserve">
+    <value>Оптимизация не превзошла базовый конфиг — параметры не изменены.</value>
+  </data>
+  <data name="OptBenchPathPlaceholder" xml:space="preserve">
+    <value>авто (рядом с llama-server / в PATH)</value>
+  </data>
+  <data name="OptNglMaxPlaceholder" xml:space="preserve">
+    <value>авто</value>
+  </data>
+  <data name="OptCtxPlaceholder" xml:space="preserve">
+    <value>дефолт бенча</value>
+  </data>
+  <data name="OptProgEstimatingNgl" xml:space="preserve">
+    <value>Оценка макс. слоёв GPU…</value>
+  </data>
+  <data name="OptProgProbingNgl" xml:space="preserve">
+    <value>Проба -ngl {0}…</value>
+  </data>
+  <data name="OptProgWarmup" xml:space="preserve">
+    <value>Прогрев…</value>
+  </data>
+  <data name="OptProgWarmupResult" xml:space="preserve">
+    <value>Прогрев {0}/{1}: {2} ток/с</value>
+  </data>
+  <data name="OptProgComparison" xml:space="preserve">
+    <value>Сравнение оптимизированного с базовым…</value>
+  </data>
+  <data name="OptProgEstimatingCtx" xml:space="preserve">
+    <value>Оценка макс. контекста…</value>
+  </data>
+  <data name="OptProgProbingCtx" xml:space="preserve">
+    <value>Проба контекста {0}…</value>
+  </data>
+  <data name="OptProgBenchmarking" xml:space="preserve">
+    <value>Стадия {0}, трайл {1}/{2}: замер…</value>
+  </data>
+  <data name="OptWarnFitNoCtx" xml:space="preserve">
+    <value>Внимание: для fit-режима нужен размер контекста — fit отключён, тюнингуется -ngl.</value>
+  </data>
+  <data name="OptWarnNoFitFlag" xml:space="preserve">
+    <value>Внимание: у этого llama-bench нет --fit-target/--fit-ctx — fit отключён, тюнингуется -ngl.</value>
+  </data>
+  <data name="OptWarnNoCtxFlag" xml:space="preserve">
+    <value>Внимание: у этого llama-bench нет флага контекста — размер контекста НЕ будет применён (результаты могут не совпасть с реальным запуском).</value>
+  </data>
+  <data name="OptWarnNoCacheFlag" xml:space="preserve">
+    <value>Внимание: у этого llama-bench нет флага типа кэша — тип KV-кэша НЕ будет применён.</value>
+  </data>
+  <data name="OptErrServerNotFound" xml:space="preserve">
+    <value>llama-server не найден для HTTP-бенчмарка. Укажите путь к исполняемому файлу сервера.</value>
+  </data>
+  <data name="OptErrBenchNotFound" xml:space="preserve">
+    <value>llama-bench не найден. Укажите путь к нему или поместите рядом с llama-server / в PATH.</value>
+  </data>
+  <data name="OptTuneNCpuMoe" xml:space="preserve">
+    <value>Тюнить --n-cpu-moe</value>
+  </data>
+  <data name="OptTuneNCpuMoeHint" xml:space="preserve">
+    <value>Перебирать, сколько слоёв экспертов MoE держать на CPU — главный рычаг для MoE-моделей, не влезающих в VRAM целиком.</value>
+  </data>
+  <data name="OptCpuMoe" xml:space="preserve">
+    <value>MoE на CPU</value>
+  </data>
+  <data name="OptRun" xml:space="preserve">
+    <value>Запуск</value>
+  </data>
+  <data name="OptStop" xml:space="preserve">
+    <value>Стоп</value>
+  </data>
+  <data name="OptColStage" xml:space="preserve">
+    <value>Ст</value>
+  </data>
+  <data name="OptColTokensPerSec" xml:space="preserve">
+    <value>ток/с</value>
+  </data>
+  <data name="OptColCommand" xml:space="preserve">
+    <value>Команда</value>
+  </data>
+  <data name="OptResult" xml:space="preserve">
+    <value>Результат</value>
+  </data>
+  <data name="OptImprovement" xml:space="preserve">
+    <value>Прирост</value>
+  </data>
+  <data name="OptRecommendedCtx" xml:space="preserve">
+    <value>Рекомендуемый контекст</value>
+  </data>
+  <data name="OptServerCommand" xml:space="preserve">
+    <value>Оптимизированная команда llama-server</value>
+  </data>
+  <data name="OptApplyToConfig" xml:space="preserve">
+    <value>Применить к текущей конфигурации</value>
+  </data>
+  <data name="OptApplied" xml:space="preserve">
+    <value>Оптимизированные параметры применены</value>
+  </data>
+  <data name="OptDone" xml:space="preserve">
+    <value>Готово</value>
+  </data>
+  <data name="OptStopped" xml:space="preserve">
+    <value>Остановлено</value>
+  </data>
+  <data name="OptError" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="OptErrorNoModel" xml:space="preserve">
+    <value>Сначала укажите путь к модели</value>
+  </data>
+  <data name="OptStageProgressFormat" xml:space="preserve">
+    <value>Стадия {0}/{1} — {2}/{3}</value>
+  </data>
+  <data name="OptRuntime" xml:space="preserve">
+    <value>Условия запуска (как на сервере)</value>
+  </data>
+  <data name="OptRuntimeHint" xml:space="preserve">
+    <value>Передаётся в llama-bench, чтобы расход VRAM совпадал с реальным запуском. Пусто — дефолты бенча.</value>
+  </data>
+  <data name="OptCacheTypeK" xml:space="preserve">
+    <value>Тип кэша K</value>
+  </data>
+  <data name="OptCacheTypeV" xml:space="preserve">
+    <value>Тип кэша V</value>
+  </data>
+  <data name="OptMmproj" xml:space="preserve">
+    <value>mmproj</value>
   </data>
 </root>

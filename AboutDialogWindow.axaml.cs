@@ -31,6 +31,16 @@ public partial class AboutDialogWindow : Window
         OpenUrl("https://github.com/Methelina");
     }
 
+    private void OpenLlamaOptimusRepo(object? sender, RoutedEventArgs e)
+    {
+        OpenUrl("https://github.com/BrunoArsioli/llama-optimus");
+    }
+
+    private void OpenOptunaRepo(object? sender, RoutedEventArgs e)
+    {
+        OpenUrl("https://github.com/optuna/optuna");
+    }
+
     private static void OpenUrl(string url)
     {
         try

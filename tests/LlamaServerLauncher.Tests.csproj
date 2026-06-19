@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Models\CommandLineParser.cs" />
+    <Compile Include="..\Models\CommandLineBuilder.cs" />
+    <Compile Include="..\Models\ServerConfiguration.cs" />
+    <Compile Include="..\Optimization\**\*.cs" />
+    <Compile Include="..\Models\Optimization\BenchmarkResult.cs" />
+    <Compile Include="..\Models\Optimization\BenchMetric.cs" />
+    <Compile Include="..\Models\Optimization\BenchArgs.cs" />
+    <Compile Include="..\Models\Optimization\OptimizationConstants.cs" />
+    <Compile Include="..\Services\Optimization\BenchCsvParser.cs" />
+    <Compile Include="..\Services\Optimization\FlashAttnStyle.cs" />
+    <Compile Include="..\Services\Optimization\BenchCommandBuilder.cs" />
+    <Compile Include="..\Services\Optimization\ServerArgvBuilder.cs" />
+    <Compile Include="CommandLineTests.cs" />
+    <Compile Include="OptimizationTests.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

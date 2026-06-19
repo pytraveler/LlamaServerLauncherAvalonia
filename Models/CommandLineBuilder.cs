@@ -207,6 +207,7 @@ public static class CommandLineBuilder
         AddIfNotOverridden(args, "-c", config.ContextSize?.ToString());
         AddIfNotOverridden(args, "-t", config.Threads?.ToString());
         AddIfNotOverridden(args, "-ngl", config.GpuLayers?.ToString());
+        AddIfNotOverridden(args, "--n-cpu-moe", config.CpuMoe?.ToString());
         AddIfNotOverridden(args, "--temp", config.Temperature?.ToString(CultureInfo.InvariantCulture));
         AddIfNotOverridden(args, "-n", config.MaxTokens?.ToString());
         AddIfNotOverridden(args, "-b", config.BatchSize?.ToString());

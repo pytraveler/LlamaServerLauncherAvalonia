@@ -30,6 +30,9 @@ public class ServerConfiguration
     [JsonPropertyName("gpuLayers")]
     public int? GpuLayers { get; set; }
 
+    [JsonPropertyName("cpuMoe")]
+    public int? CpuMoe { get; set; }
+
     [JsonPropertyName("temperature")]
     public double? Temperature { get; set; }
 
@@ -192,6 +195,7 @@ public class ServerConfiguration
             ContextSize = ContextSize,
             Threads = Threads,
             GpuLayers = GpuLayers,
+            CpuMoe = CpuMoe,
             Temperature = Temperature,
             MaxTokens = MaxTokens,
             BatchSize = BatchSize,
@@ -259,6 +263,8 @@ public class ServerConfiguration
         ["-ngl"] = new("GpuLayers", ArgType.Int),
         ["--gpu-layers"] = new("GpuLayers", ArgType.Int),
         ["--n-gpu-layers"] = new("GpuLayers", ArgType.Int),
+        ["-ncmoe"] = new("CpuMoe", ArgType.Int),
+        ["--n-cpu-moe"] = new("CpuMoe", ArgType.Int),
         ["--temp"] = new("Temperature", ArgType.Double),
         ["--temperature"] = new("Temperature", ArgType.Double),
         ["-n"] = new("MaxTokens", ArgType.Int),

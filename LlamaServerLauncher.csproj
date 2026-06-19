@@ -16,8 +16,7 @@
     
     <!-- Define all platform symbols - the actual platform detection happens at runtime -->
     <DefineConstants>WINDOWS;LINUX;OSX</DefineConstants>
-    <DefaultItemExcludes>$(DefaultItemExcludes);__original_git\**</DefaultItemExcludes>
-    <DefaultItemExcludes>$(DefaultItemExcludes);target\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,5 +38,6 @@
   <ItemGroup>
     <AvaloniaResource Include="Resources\Themes\*.xaml" />
     <AvaloniaResource Include="Resources\Themes\Schemes\*.xaml" />
+    <AvaloniaResource Include="Resources\Docs\*.md" />
   </ItemGroup>
 </Project>

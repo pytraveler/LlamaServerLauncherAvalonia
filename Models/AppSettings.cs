@@ -35,6 +35,7 @@ public class AppSettings
     public string ContextSize { get; set; } = "";
     public string Threads { get; set; } = "";
     public string GpuLayers { get; set; } = "";
+    public string CpuMoe { get; set; } = "";
     public string Temperature { get; set; } = "";
     public string MaxTokens { get; set; } = "";
     public string BatchSize { get; set; } = "";

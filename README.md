@@ -234,6 +234,17 @@ dotnet publish LlamaServerLauncher.csproj -c Release -r osx-x64 -o ./publish/osx
 dotnet publish LlamaServerLauncher.csproj -c Release -r osx-arm64 -o ./publish/osx-arm64
 ```
 
+## Tests
+
+The project uses lightweight, standalone console test harnesses rather than a test framework — no xUnit/NUnit, in keeping with the project's no-third-party-dependencies policy. Each harness links the relevant app sources directly, is excluded from the main application build, and returns exit code `0` when every check passes.
+
+```bash
+cd tests
+dotnet run -c Release   # exit code 0 = all checks passed
+```
+
+Current coverage includes the command-line layer (`CommandLineParser`, `CommandLineBuilder`, `ServerConfiguration`) and the optimization (HPO) engine. Each area is a separate `*Tests.cs` file wired into `Program.cs`, so coverage grows incrementally.
+
 ## Usage
 
 1. Click **Download llama.cpp** to download the binary, or click **Browse** next to **Executable** and select your `llama-server`

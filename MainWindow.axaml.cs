@@ -774,6 +774,12 @@ public partial class MainWindow : Window
             _viewModel.GpuLayers = string.Empty;
     }
 
+    private void ClearCpuMoeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.CpuMoe = string.Empty;
+    }
+
     private void ClearParallelSlotsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (_viewModel != null)
@@ -908,6 +914,11 @@ public partial class MainWindow : Window
     {
         if (_viewModel == null) return;
         await _viewModel.OpenArgumentPickerAsync();
+    }
+
+    private void OpenOptimizerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.OpenOptimizer();
     }
 
     private void CustomArgumentToggleTapped(object? sender, Avalonia.Input.TappedEventArgs e)

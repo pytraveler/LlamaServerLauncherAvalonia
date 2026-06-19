@@ -8,7 +8,7 @@
         CanResize="False"
         SizeToContent="Height"
         Background="{DynamicResource WindowBackgroundBrush}">
-    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" HorizontalAlignment="Center">
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" HorizontalAlignment="Center">
         <TextBlock Grid.Row="0" Text="Llama Server Launcher" FontSize="20" FontWeight="Bold"
                    HorizontalAlignment="Center" Margin="0,0,0,10"/>
 
@@ -43,7 +43,26 @@
                     Padding="0" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <Button Grid.Row="6" Content="{Binding Localized.OK}" Click="CloseClick"
+        <Border Grid.Row="6" Background="{DynamicResource SeparatorBrush}" Height="1" Margin="0,0,0,10" HorizontalAlignment="Stretch"/>
+
+        <TextBlock Grid.Row="7" Text="{Binding Localized.OptimizationAttribution}" TextWrapping="Wrap"
+                   HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="420" Margin="0,0,0,8"/>
+
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,5">
+            <TextBlock Text="• " VerticalAlignment="Center"/>
+            <Button Content="BrunoArsioli/llama-optimus" Click="OpenLlamaOptimusRepo" Cursor="Hand"
+                    Foreground="{DynamicResource LinkForegroundBrush}" Background="Transparent" BorderThickness="0"
+                    Padding="0" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,15">
+            <TextBlock Text="• " VerticalAlignment="Center"/>
+            <Button Content="optuna/optuna" Click="OpenOptunaRepo" Cursor="Hand"
+                    Foreground="{DynamicResource LinkForegroundBrush}" Background="Transparent" BorderThickness="0"
+                    Padding="0" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <Button Grid.Row="10" Content="{Binding Localized.OK}" Click="CloseClick"
                 HorizontalAlignment="Center" Padding="30,8" MinWidth="80"/>
     </Grid>
 </Window>

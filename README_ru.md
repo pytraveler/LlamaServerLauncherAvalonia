@@ -235,6 +235,17 @@ dotnet publish LlamaServerLauncher.csproj -c Release -r osx-x64 -o ./publish/osx
 dotnet publish LlamaServerLauncher.csproj -c Release -r osx-arm64 -o ./publish/osx-arm64
 ```
 
+## Тесты
+
+В проекте используются лёгкие самостоятельные консольные наборы тестов вместо тестового фреймворка — без xUnit/NUnit, в соответствии с политикой проекта «без сторонних зависимостей». Каждый набор напрямую подключает нужные исходники приложения, исключён из основной сборки и возвращает код выхода `0`, если все проверки прошли.
+
+```bash
+cd tests
+dotnet run -c Release   # код выхода 0 = все проверки пройдены
+```
+
+Текущее покрытие включает слой командной строки (`CommandLineParser`, `CommandLineBuilder`, `ServerConfiguration`) и движок оптимизации (HPO). Каждая область — отдельный файл `*Tests.cs`, подключаемый в `Program.cs`, поэтому покрытие растёт постепенно.
+
 ## Использование
 
 1. Нажмите **Download llama.cpp**, чтобы скачать бинарник, или нажмите **Browse** рядом с **Executable** и выберите ваш `llama-server`

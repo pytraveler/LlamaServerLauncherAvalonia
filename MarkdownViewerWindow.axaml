@@ -1,0 +1,30 @@
+<Window x:Class="LlamaServerLauncher.MarkdownViewerWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding WindowTitle}"
+        Width="720" Height="640"
+        MinWidth="360" MinHeight="240"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <Grid Margin="15" RowDefinitions="*,Auto">
+        <Border Grid.Row="0"
+                Background="{DynamicResource PanelBackgroundBrush}"
+                BorderBrush="{DynamicResource SeparatorBrush}"
+                BorderThickness="1"
+                CornerRadius="4">
+            <ScrollViewer Padding="16,12"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+                <ContentControl x:Name="ContentHost"/>
+            </ScrollViewer>
+        </Border>
+
+        <Button Grid.Row="1"
+                Content="{Binding Localized.Close}"
+                Click="CloseClick"
+                HorizontalAlignment="Right"
+                Padding="30,8" MinWidth="80"
+                Margin="0,12,0,0"/>
+    </Grid>
+</Window>

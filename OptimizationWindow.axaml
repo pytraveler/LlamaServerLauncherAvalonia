@@ -1,0 +1,218 @@
+<Window x:Class="LlamaServerLauncher.OptimizationWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
+        mc:Ignorable="d"
+        x:DataType="vm:OptimizationViewModel"
+        Title="{Binding Localized.OptTitle}"
+        Width="1000" Height="680"
+        MinWidth="760" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundBrush}">
+
+    <Window.Resources>
+        <StreamGeometry x:Key="AboutIcon">M896 1248v-192q0-14-9-23t-23-9H672q-14 0-23 9t-9 23v192q0 14 9 23t23 9h192q14 0 23-9t9-23m256-672q0-88-55.5-163T958 297t-170-41q-243 0-371 213q-15 24 8 42l132 100q7 6 19 6q16 0 25-12q53-68 86-92q34-24 86-24q48 0 85.5 26t37.5 59q0 38-20 61t-68 45q-63 28-115.5 86.5T640 892v36q0 14 9 23t23 9h192q14 0 23-9t9-23q0-19 21.5-49.5T972 829q32-18 49-28.5t46-35t44.5-48t28-60.5t12.5-81m384 192q0 209-103 385.5T1153.5 1433T768 1536t-385.5-103T103 1153.5T0 768t103-385.5T382.5 103T768 0t385.5 103T1433 382.5T1536 768</StreamGeometry>
+    </Window.Resources>
+
+    <Grid ColumnDefinitions="340,*" Margin="10">
+
+        <!-- ===== Left: settings ===== -->
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,10,0">
+            <StackPanel Spacing="6" IsEnabled="{Binding CanEditSettings}">
+                <TextBlock Text="{Binding Localized.OptSettings}" FontWeight="Bold" FontSize="14"/>
+
+                <TextBlock Text="{Binding Localized.ModelM}"/>
+                <TextBox Text="{Binding ModelPath}"/>
+
+                <TextBlock Text="{Binding Localized.OptLlamaBenchPath}"/>
+                <TextBox Text="{Binding LlamaBenchPath}" PlaceholderText="{Binding Localized.OptBenchPathPlaceholder}"/>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="{Binding Localized.OptMetric}"/>
+                        <ComboBox SelectedIndex="{Binding MetricIndex}" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="{Binding Localized.OptMetricTg}"/>
+                            <ComboBoxItem Content="{Binding Localized.OptMetricPp}"/>
+                            <ComboBoxItem Content="{Binding Localized.OptMetricMean}"/>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Localized.OptOverrideMode}"/>
+                        <ComboBox SelectedIndex="{Binding OverrideModeIndex}" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="{Binding Localized.OptOverrideModeNone}"/>
+                            <ComboBoxItem Content="{Binding Localized.OptOverrideModeScan}"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="{Binding Localized.OptTrials}"/>
+                        <TextBox Text="{Binding NTrials}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Localized.OptRepeat}"/>
+                        <TextBox Text="{Binding Repeat}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="{Binding Localized.OptNTokens}"/>
+                        <TextBox Text="{Binding NTokens}"/>
+                    </StackPanel>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="{Binding Localized.OptWarmupRuns}"/>
+                        <TextBox Text="{Binding NWarmupRuns}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Localized.OptNglMax}"/>
+                        <TextBox Text="{Binding NglMax}" PlaceholderText="{Binding Localized.OptNglMaxPlaceholder}"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="{Binding Localized.OptRuntime}" FontWeight="Bold" Margin="0,6,0,0"/>
+                <TextBlock Text="{Binding Localized.OptRuntimeHint}" FontSize="10" Opacity="0.6" TextWrapping="Wrap"/>
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="{Binding Localized.ContextSize}"/>
+                        <TextBox Text="{Binding ContextSize}" PlaceholderText="{Binding Localized.OptCtxPlaceholder}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Localized.OptMmproj}"/>
+                        <TextBox Text="{Binding MmprojPath}"/>
+                    </StackPanel>
+                </Grid>
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="{Binding Localized.OptCacheTypeK}"/>
+                        <TextBox Text="{Binding CacheTypeK}" PlaceholderText="f16"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Localized.OptCacheTypeV}"/>
+                        <TextBox Text="{Binding CacheTypeV}" PlaceholderText="f16"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="{Binding Localized.OptRanges}" FontWeight="Bold" Margin="0,6,0,0"/>
+                <Grid ColumnDefinitions="Auto,*,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                      ColumnSpacing="6" RowSpacing="4">
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Localized.OptLow}" Opacity="0.7" FontSize="11"/>
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Localized.OptHigh}" Opacity="0.7" FontSize="11"/>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.BatchSize}" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding BatchLow}"/>
+                    <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding BatchHigh}"/>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding Localized.UBatchSize}" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding UBatchLow}"/>
+                    <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding UBatchHigh}"/>
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding Localized.Threads}" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ThreadsLow}"/>
+                    <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding ThreadsHigh}"/>
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*,*" ColumnSpacing="6" IsEnabled="{Binding CanTuneNgl}">
+                    <TextBlock Grid.Column="0" Text="{Binding Localized.GpuLayers}" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Text="{Binding GpuLayersLow}"/>
+                    <TextBox Grid.Column="2" Text="{Binding GpuLayersHigh}"/>
+                </Grid>
+
+                <CheckBox Content="{Binding Localized.OptTuneNCpuMoe}" IsChecked="{Binding TuneNCpuMoe}" Margin="0,6,0,0"/>
+                <TextBlock Text="{Binding Localized.OptTuneNCpuMoeHint}" FontSize="10" Opacity="0.6" TextWrapping="Wrap"/>
+                <Grid ColumnDefinitions="Auto,*,*" ColumnSpacing="6" IsEnabled="{Binding TuneNCpuMoe}">
+                    <TextBlock Grid.Column="0" Text="{Binding Localized.OptCpuMoe}" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Text="{Binding NCpuMoeLow}"/>
+                    <TextBox Grid.Column="2" Text="{Binding NCpuMoeHigh}"/>
+                </Grid>
+
+                <CheckBox Content="{Binding Localized.OptUseFit}" IsChecked="{Binding UseFit}" Margin="0,6,0,0"/>
+                <TextBlock Text="{Binding Localized.OptUseFitHint}" FontSize="10" Opacity="0.6" TextWrapping="Wrap"/>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" IsVisible="{Binding UseFit}">
+                    <TextBlock Grid.Column="0" Text="{Binding Localized.OptFitMargin}" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Text="{Binding FitMargin}"/>
+                </Grid>
+
+                <CheckBox Content="{Binding Localized.OptNoWarmup}" IsChecked="{Binding NoWarmup}" Margin="0,6,0,0"/>
+                <CheckBox Content="{Binding Localized.OptEstimateContext}" IsChecked="{Binding EstimateContext}"/>
+                <CheckBox Content="{Binding Localized.OptPruneBatchLtUbatch}" IsChecked="{Binding PruneBatchLtUbatch}"/>
+                <CheckBox Content="{Binding Localized.OptUseHttpBenchmark}" IsChecked="{Binding UseHttpBenchmark}"/>
+                <CheckBox Content="{Binding Localized.OptNoMmap}" IsChecked="{Binding NoMmap}"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ===== Right: progress / trials / result ===== -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto">
+
+            <!-- run controls + progress + guide -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <Button Content="{Binding Localized.OptRun}" Command="{Binding RunCommand}" MinWidth="90"/>
+                    <Button Content="{Binding Localized.OptStop}" Command="{Binding StopCommand}" MinWidth="90"/>
+                    <TextBlock Text="{Binding ProgressText}" VerticalAlignment="Center" Opacity="0.85"/>
+                </StackPanel>
+                <Button Grid.Column="1" Click="OpenGuideClick" ToolTip.Tip="{Binding Localized.OptGuideTooltip}"
+                        VerticalAlignment="Center" Padding="4" Background="Transparent" BorderThickness="0">
+                    <PathIcon Data="{StaticResource AboutIcon}" Width="18" Height="18"/>
+                </Button>
+            </Grid>
+
+            <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" TextWrapping="Wrap"
+                       Opacity="0.7" FontSize="11" Margin="0,0,0,6"/>
+
+            <!-- trials table -->
+            <Border Grid.Row="2" BorderBrush="{DynamicResource PanelBackgroundBrush}" BorderThickness="1" CornerRadius="4">
+                <Grid RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="40,40,90,30,*" Background="{DynamicResource PanelBackgroundBrush}">
+                        <TextBlock Grid.Column="0" Text="{Binding Localized.OptColStage}" FontWeight="Bold" Margin="4,3" FontSize="11"/>
+                        <TextBlock Grid.Column="1" Text="#" FontWeight="Bold" Margin="4,3" FontSize="11"/>
+                        <TextBlock Grid.Column="2" Text="{Binding Localized.OptColTokensPerSec}" FontWeight="Bold" Margin="4,3" FontSize="11"/>
+                        <TextBlock Grid.Column="3" Text="★" FontWeight="Bold" Margin="4,3" FontSize="11"/>
+                        <TextBlock Grid.Column="4" Text="{Binding Localized.OptColCommand}" FontWeight="Bold" Margin="4,3" FontSize="11"/>
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Trials}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="40,40,90,30,*" Margin="0,1">
+                                        <TextBlock Grid.Column="0" Text="{Binding StageLabel}" Margin="4,1" FontSize="11"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Number}" Margin="4,1" FontSize="11"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding ValueText}" Margin="4,1" FontSize="11"
+                                                   FontFamily="Consolas,Courier New,monospace"/>
+                                        <TextBlock Grid.Column="3" Text="★" Margin="4,1" FontSize="11"
+                                                   IsVisible="{Binding IsBest}" Foreground="Goldenrod"/>
+                                        <TextBlock Grid.Column="4" Text="{Binding Command}" Margin="4,1" FontSize="11"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontFamily="Consolas,Courier New,monospace" Opacity="0.7"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- result -->
+            <Border Grid.Row="3" Margin="0,8,0,0" Padding="8" CornerRadius="4"
+                    Background="{DynamicResource PanelBackgroundBrush}"
+                    IsVisible="{Binding HasResult}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding Localized.OptResult}" FontWeight="Bold"/>
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="2">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.OptImprovement}" Opacity="0.7"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ImprovementText}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.OptRecommendedCtx}" Opacity="0.7"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RecommendedCtxText}"/>
+                    </Grid>
+                    <TextBlock Text="{Binding Localized.OptServerCommand}" Opacity="0.7" Margin="0,4,0,0"/>
+                    <TextBox Text="{Binding OptimizedServerCmd}" IsReadOnly="True" TextWrapping="Wrap"
+                             FontFamily="Consolas,Courier New,monospace" FontSize="11"/>
+                    <Button Content="{Binding Localized.OptApplyToConfig}" Command="{Binding ApplyBestToConfigCommand}"
+                            HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

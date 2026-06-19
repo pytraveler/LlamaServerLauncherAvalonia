@@ -391,7 +391,11 @@
                         <StackPanel Margin="10">
                             <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Localized.ModelParameters}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                        <TextBlock Grid.Column="0" Text="{Binding Localized.ModelParameters}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="{Binding Localized.OptOpen}" Click="OpenOptimizerClick"
+                                                ToolTip.Tip="{Binding Localized.OptTitle}" Padding="8,2"/>
+                                    </Grid>
                                     <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
                                         <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,5,10,0">
                                             <TextBlock Text="{Binding Localized.ContextSize}" ToolTip.Tip="{Binding Localized.TooltipContextSize}"/>
@@ -416,6 +420,15 @@
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding GpuLayersPlaceholder}" PropertyName="GpuLayers" ToolTip.Tip="{Binding Localized.TooltipGpuLayers}"/>
                                                 <Button Grid.Column="1" Click="ClearGpuLayersClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                                </Button>
+                                            </Grid>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.CpuMoe}" ToolTip.Tip="{Binding Localized.TooltipCpuMoe}"/>
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
+                                                <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding CpuMoePlaceholder}" PropertyName="CpuMoe" ToolTip.Tip="{Binding Localized.TooltipCpuMoe}"/>
+                                                <Button Grid.Column="1" Click="ClearCpuMoeClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
                                                     <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                                 </Button>
                                             </Grid>

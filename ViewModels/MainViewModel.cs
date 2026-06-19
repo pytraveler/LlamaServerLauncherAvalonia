@@ -545,6 +545,7 @@ public class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ContextSizePlaceholder));
         OnPropertyChanged(nameof(ThreadsPlaceholder));
         OnPropertyChanged(nameof(GpuLayersPlaceholder));
+        OnPropertyChanged(nameof(CpuMoePlaceholder));
         OnPropertyChanged(nameof(TemperaturePlaceholder));
         OnPropertyChanged(nameof(MaxTokensPlaceholder));
         OnPropertyChanged(nameof(BatchSizePlaceholder));
@@ -600,6 +601,7 @@ public class MainViewModel : INotifyPropertyChanged
     private string _contextSize = string.Empty;
     private string _threads = string.Empty;
     private string _gpuLayers = string.Empty;
+    private string _cpuMoe = string.Empty;
     private string _temperature = string.Empty;
     private string _maxTokens = string.Empty;
     private string _batchSize = string.Empty;
@@ -901,6 +903,7 @@ public class MainViewModel : INotifyPropertyChanged
         CopyLogCommand = new RelayCommand(CopyLog);
         SaveLogCommand = new AsyncRelayCommand(SaveLogAsync);
         OpenArgumentPickerCommand = new AsyncRelayCommand(OpenArgumentPickerAsync);
+        OpenOptimizerCommand = new RelayCommand(_ => OpenOptimizer());
         ShowWindowCommand = new RelayCommand(_ => { });
         CloseFromTrayCommand = new RelayCommand(async _ => { });
         RestartLogStreamCommand = new AsyncRelayCommand(RestartLogStreamAsync);
@@ -983,6 +986,7 @@ public class MainViewModel : INotifyPropertyChanged
         ContextSize = settings.ContextSize;
         Threads = settings.Threads;
         GpuLayers = settings.GpuLayers;
+        CpuMoe = settings.CpuMoe;
         Temperature = settings.Temperature;
         MaxTokens = settings.MaxTokens;
         BatchSize = settings.BatchSize;
@@ -1452,6 +1456,7 @@ public class MainViewModel : INotifyPropertyChanged
             ContextSize = ContextSize,
             Threads = Threads,
             GpuLayers = GpuLayers,
+            CpuMoe = CpuMoe,
             Temperature = Temperature,
             MaxTokens = MaxTokens,
             BatchSize = BatchSize,
@@ -1698,6 +1703,12 @@ public class MainViewModel : INotifyPropertyChanged
     {
         get => _gpuLayers;
         set { _gpuLayers = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string CpuMoe
+    {
+        get => _cpuMoe;
+        set { _cpuMoe = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
     }
 
     public string Temperature
@@ -2470,6 +2481,7 @@ public class MainViewModel : INotifyPropertyChanged
     public string ContextSizePlaceholder => LocalizedStrings.Instance.PlaceholderContextSize;
     public string ThreadsPlaceholder => LocalizedStrings.Instance.PlaceholderThreads;
     public string GpuLayersPlaceholder => LocalizedStrings.Instance.PlaceholderGpuLayers;
+    public string CpuMoePlaceholder => LocalizedStrings.Instance.PlaceholderCpuMoe;
     public string TemperaturePlaceholder => LocalizedStrings.Instance.PlaceholderTemperature;
     public string MaxTokensPlaceholder => LocalizedStrings.Instance.PlaceholderMaxTokens;
     public string BatchSizePlaceholder => LocalizedStrings.Instance.PlaceholderBatchSize;
@@ -3183,6 +3195,7 @@ public class MainViewModel : INotifyPropertyChanged
                 a.ContextSize == b.ContextSize &&
                 a.Threads == b.Threads &&
                 a.GpuLayers == b.GpuLayers &&
+                a.CpuMoe == b.CpuMoe &&
                 a.Temperature == b.Temperature &&
                 a.MaxTokens == b.MaxTokens &&
                 a.BatchSize == b.BatchSize &&
@@ -3384,6 +3397,7 @@ public class MainViewModel : INotifyPropertyChanged
     public ICommand ShowWindowCommand { get; set; }
     public ICommand CloseFromTrayCommand { get; set; }
     public ICommand OpenArgumentPickerCommand { get; }
+    public ICommand OpenOptimizerCommand { get; }
     public ICommand RestartLogStreamCommand { get; }
 
     public ICommand RunScenarioCommand { get; }
@@ -3589,6 +3603,60 @@ public class MainViewModel : INotifyPropertyChanged
         ParseAndUpdateCustomArguments();
     }
 
+    public void OpenOptimizer()
+    {
+        var vm = new OptimizationViewModel(
+            ModelPath, ExecutablePath, ApplyOptimizationResult, _logService,
+            contextSize: ContextSize, cacheTypeK: CacheTypeK, cacheTypeV: CacheTypeV, mmprojPath: MmprojPath);
+        var win = new LlamaServerLauncher.OptimizationWindow();
+        win.SetViewModel(vm, DialogGeometryDict);
+        win.Closed += async (_, _) =>
+        {
+            if (win.CapturedGeometry != null)
+            {
+                DialogGeometryDict["Optimization"] = win.CapturedGeometry;
+                await SaveSettingsAsync();
+            }
+        };
+        win.Show(MainWindow.Instance!);
+    }
+
+    private bool ApplyOptimizationResult(Models.Optimization.OptimizationResult r)
+    {
+        if (!r.ImprovedOverBaseline)
+        {
+            Toasts.Show(LocalizedStrings.Instance.OptNoImprovementApply);
+            return false;
+        }
+
+        Threads = r.Threads.ToString();
+        if (r.GpuLayers is { } ngl)
+            GpuLayers = ngl.ToString();
+        if (r.NCpuMoe is { } ncmoe)
+            CpuMoe = ncmoe.ToString();
+        BatchSize = r.BatchSize.ToString();
+        UBatchSize = r.UBatchSize.ToString();
+        FlashAttention = r.FlashAttn;
+        if (r.RecommendedCtxSize is { } c)
+            ContextSize = c.ToString();
+        if (!string.IsNullOrEmpty(r.OverridePattern))
+            InjectOverrideTensor(r.OverridePattern!);
+        Toasts.Show(LocalizedStrings.Instance.OptApplied);
+        return true;
+    }
+
+    private void InjectOverrideTensor(string pattern)
+    {
+        string token = $"--override-tensor \"{pattern}\"";
+        string existing = CustomArguments ?? string.Empty;
+        var rx = new System.Text.RegularExpressions.Regex("(?:--override-tensor|-ot)\\s+(?:\"[^\"]*\"|\\S+)");
+        if (rx.IsMatch(existing))
+            CustomArguments = rx.Replace(existing, token, 1);
+        else
+            CustomArguments = string.IsNullOrWhiteSpace(existing) ? token : existing.Trim() + " " + token;
+        ParseAndUpdateCustomArguments();
+    }
+
     public ServerConfiguration GetCurrentConfig()
     {
         return new ServerConfiguration
@@ -3601,6 +3669,7 @@ public class MainViewModel : INotifyPropertyChanged
             ContextSize = ParseNullableInt(ContextSize),
             Threads = ParseNullableInt(Threads),
             GpuLayers = ParseNullableInt(GpuLayers),
+            CpuMoe = ParseNullableInt(CpuMoe),
             Temperature = ParseNullableDouble(Temperature),
             MaxTokens = ParseNullableInt(MaxTokens),
             BatchSize = ParseNullableInt(BatchSize),
