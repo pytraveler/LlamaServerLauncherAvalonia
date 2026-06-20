@@ -9,7 +9,7 @@
         SizeToContent="Height"
         Background="{DynamicResource WindowBackgroundBrush}">
     <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" HorizontalAlignment="Center">
-        <TextBlock Grid.Row="0" Text="Llama Server Launcher" FontSize="20" FontWeight="Bold"
+        <TextBlock Grid.Row="0" Text="Llama Server Launcher v1.2" FontSize="20" FontWeight="Bold"
                    HorizontalAlignment="Center" Margin="0,0,0,10"/>
 
         <TextBlock Grid.Row="1" HorizontalAlignment="Center" Margin="0,0,0,10">
