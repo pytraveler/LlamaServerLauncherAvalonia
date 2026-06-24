@@ -746,6 +746,12 @@
   <data name="AboutTitle" xml:space="preserve">
     <value>О программе</value>
   </data>
+  <data name="AboutVersion" xml:space="preserve">
+    <value>Версия: {0}</value>
+  </data>
+  <data name="AboutUpdateAvailable" xml:space="preserve">
+    <value>Доступно обновление: {0}</value>
+  </data>
   <data name="MarkdownViewerTitle" xml:space="preserve">
     <value>Просмотр Markdown</value>
   </data>
@@ -1180,6 +1186,66 @@
   </data>
   <data name="TooltipLogStreamingRestart" xml:space="preserve">
     <value>Перезапустить сервер стриминга логов с текущими настройками</value>
+  </data>
+  <data name="OnDemandProxy" xml:space="preserve">
+    <value>Прокси по запросу</value>
+  </data>
+  <data name="OnDemandProxyEnabledLabel" xml:space="preserve">
+    <value>Включить прокси по запросу</value>
+  </data>
+  <data name="OnDemandProxyHint" xml:space="preserve">
+    <value>OpenAI-совместимый эндпойнт: по запросу загружает нужный профиль (имя профиля передаётся в поле model), проксирует запрос и останавливает сервер по таймауту простоя. В VRAM остаётся только одна модель.</value>
+  </data>
+  <data name="OnDemandProxyPortLabel" xml:space="preserve">
+    <value>Порт</value>
+  </data>
+  <data name="OnDemandProxyRestart" xml:space="preserve">
+    <value>Перезапуск</value>
+  </data>
+  <data name="OnDemandProxyIdle" xml:space="preserve">
+    <value>Выгрузка по простою (сек, 0 = выкл)</value>
+  </data>
+  <data name="OnDemandProxyHealthTimeout" xml:space="preserve">
+    <value>Таймаут загрузки (сек)</value>
+  </data>
+  <data name="OnDemandProxyApiKeyLabel" xml:space="preserve">
+    <value>API-ключ (необязательно)</value>
+  </data>
+  <data name="ComfyUiSection" xml:space="preserve">
+    <value>ComfyUI</value>
+  </data>
+  <data name="ComfyUiFreeEnabledLabel" xml:space="preserve">
+    <value>Освобождать VRAM ComfyUI перед загрузкой профиля</value>
+  </data>
+  <data name="ComfyUiUrlLabel" xml:space="preserve">
+    <value>URL ComfyUI</value>
+  </data>
+  <data name="OnDemandProxyStopped" xml:space="preserve">
+    <value>Прокси по запросу остановлен</value>
+  </data>
+  <data name="OnDemandProxyRunningStatus" xml:space="preserve">
+    <value>Прокси по запросу работает на порту {0}</value>
+  </data>
+  <data name="TooltipOnDemandProxyEnabled" xml:space="preserve">
+    <value>Принимать OpenAI-запросы и автоматически загружать профили по запросу</value>
+  </data>
+  <data name="TooltipOnDemandProxyPort" xml:space="preserve">
+    <value>Порт, который слушает прокси (все сетевые интерфейсы)</value>
+  </data>
+  <data name="TooltipOnDemandProxyIdle" xml:space="preserve">
+    <value>Останавливать сервер после стольких секунд без запросов (0 отключает авто-выгрузку)</value>
+  </data>
+  <data name="TooltipOnDemandProxyHealthTimeout" xml:space="preserve">
+    <value>Максимум секунд ожидания готовности профиля до отказа в запросе</value>
+  </data>
+  <data name="TooltipOnDemandProxyApiKey" xml:space="preserve">
+    <value>Если задан, клиенты должны передавать этот ключ как Bearer-токен</value>
+  </data>
+  <data name="TooltipComfyUiFreeEnabled" xml:space="preserve">
+    <value>Вызывать эндпойнт ComfyUI /free для освобождения VRAM перед запуском профиля</value>
+  </data>
+  <data name="TooltipComfyUiUrl" xml:space="preserve">
+    <value>Базовый URL сервера ComfyUI (например, http://127.0.0.1:8188)</value>
   </data>
   <data name="ScenariosEnabled" xml:space="preserve">
     <value>Включить сценарии</value>

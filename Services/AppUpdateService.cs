@@ -29,7 +29,7 @@ public class AppUpdateService
 
     static AppUpdateService()
     {
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("LlamaServerLauncher/1.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd($"LlamaServerLauncher/{Models.AppInfo.Version}");
     }
 
     public async Task<AppUpdateInfo?> CheckForUpdateAsync()

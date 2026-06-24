@@ -9,11 +9,23 @@ public partial class AboutDialogWindow : Window
 {
     public LocalizedStrings Localized => LocalizedStrings.Instance;
     public string AboutTitle => LocalizedStrings.Instance.AboutTitle;
+    public string InstalledVersionText => string.Format(LocalizedStrings.Instance.AboutVersion, Models.AppInfo.Version);
+    public bool ShowAvailableVersion { get; private set; }
+    public string AvailableVersionText { get; private set; } = "";
 
     public AboutDialogWindow()
     {
         InitializeComponent();
         DataContext = this;
+    }
+
+    public void SetUpdateState(string? availableTag)
+    {
+        if (!string.IsNullOrWhiteSpace(availableTag))
+        {
+            ShowAvailableVersion = true;
+            AvailableVersionText = string.Format(LocalizedStrings.Instance.AboutUpdateAvailable, availableTag);
+        }
     }
 
     private void OpenGitHubProfile(object? sender, RoutedEventArgs e)

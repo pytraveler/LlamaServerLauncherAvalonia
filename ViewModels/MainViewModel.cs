@@ -23,7 +23,7 @@ using LlamaServerLauncher.Services;
 
 namespace LlamaServerLauncher.ViewModels;
 
-public class MainViewModel : INotifyPropertyChanged
+public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 {
     private bool _isInitializing = true;
     private readonly LlamaServerService _serverService;
@@ -38,6 +38,11 @@ public class MainViewModel : INotifyPropertyChanged
     private readonly AutoStartService _autoStartService;
     private readonly DataPathResolver _dataPathResolver;
     private readonly LogStreamService _logStreamService;
+    private readonly OnDemandProxyService _onDemandProxyService;
+    private readonly Services.Optimization.HttpBenchmarkService _proxyHealth = new();
+    private readonly System.Net.Http.HttpClient _comfyUiHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private string _lastProxiedProfile = string.Empty;
+    private readonly HashSet<string> _routingProfileNames = new(StringComparer.Ordinal);
     private ServerConfiguration? _loadedProfileConfig;
     private string _loadedProfileName = string.Empty;
     private string _llamaCppInstalledTag = "";
@@ -394,6 +399,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         LocalizedStrings.CultureChanged -= OnCultureChanged;
         _customColorSaveTimer?.Stop();
+        _onDemandProxyService?.Dispose();
     }
 
     public List<string> AvailableFonts { get; } = GetSystemFonts();
@@ -813,6 +819,298 @@ public class MainViewModel : INotifyPropertyChanged
         await SaveSettingsAsync();
     }
 
+    private bool _onDemandProxyEnabled;
+    private int _onDemandProxyPort = 8081;
+    private int _onDemandProxyIdleSeconds = 300;
+    private int _onDemandProxyHealthTimeoutSeconds = 120;
+    private string _onDemandProxyApiKey = string.Empty;
+    private bool _comfyUiFreeEnabled;
+    private string _comfyUiUrl = "http://127.0.0.1:8188";
+
+    public bool OnDemandProxyEnabled
+    {
+        get => _onDemandProxyEnabled;
+        set
+        {
+            if (_onDemandProxyEnabled != value)
+            {
+                _onDemandProxyEnabled = value;
+                OnPropertyChanged();
+                ApplyOnDemandProxyState();
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
+    public int OnDemandProxyPort
+    {
+        get => _onDemandProxyPort;
+        set
+        {
+            if (_onDemandProxyPort != value)
+            {
+                _onDemandProxyPort = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(OnDemandProxyStatusText));
+                OnPropertyChanged(nameof(OnDemandProxyUrlHint));
+            }
+        }
+    }
+
+    public int OnDemandProxyIdleSeconds
+    {
+        get => _onDemandProxyIdleSeconds;
+        set
+        {
+            if (_onDemandProxyIdleSeconds != value)
+            {
+                _onDemandProxyIdleSeconds = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public int OnDemandProxyHealthTimeoutSeconds
+    {
+        get => _onDemandProxyHealthTimeoutSeconds;
+        set
+        {
+            if (_onDemandProxyHealthTimeoutSeconds != value)
+            {
+                _onDemandProxyHealthTimeoutSeconds = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string OnDemandProxyApiKey
+    {
+        get => _onDemandProxyApiKey;
+        set
+        {
+            if (_onDemandProxyApiKey != value)
+            {
+                _onDemandProxyApiKey = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool ComfyUiFreeEnabled
+    {
+        get => _comfyUiFreeEnabled;
+        set
+        {
+            if (_comfyUiFreeEnabled != value)
+            {
+                _comfyUiFreeEnabled = value;
+                OnPropertyChanged();
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
+    public string ComfyUiUrl
+    {
+        get => _comfyUiUrl;
+        set
+        {
+            if (_comfyUiUrl != value)
+            {
+                _comfyUiUrl = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool OnDemandProxyRunning => _onDemandProxyService.IsRunning;
+
+    public string OnDemandProxyStatusText
+    {
+        get
+        {
+            if (!_onDemandProxyEnabled) return LocalizedStrings.GetString("OnDemandProxyStopped");
+            if (_onDemandProxyService.IsRunning)
+                return string.Format(LocalizedStrings.GetString("OnDemandProxyRunningStatus"), _onDemandProxyPort);
+            return LocalizedStrings.GetString("OnDemandProxyStopped");
+        }
+    }
+
+    public string OnDemandProxyUrlHint
+    {
+        get
+        {
+            try
+            {
+                var host = System.Net.Dns.GetHostName();
+                return $"http://{host}:{_onDemandProxyPort}/v1";
+            }
+            catch
+            {
+                return $"http://<hostname>:{_onDemandProxyPort}/v1";
+            }
+        }
+    }
+
+    private void ApplyOnDemandProxyState()
+    {
+        if (_onDemandProxyEnabled)
+        {
+            try
+            {
+                _onDemandProxyService.Start(new ProxyOptions
+                {
+                    Port = _onDemandProxyPort,
+                    IdleSeconds = _onDemandProxyIdleSeconds,
+                    ApiKey = string.IsNullOrWhiteSpace(_onDemandProxyApiKey) ? null : _onDemandProxyApiKey,
+                });
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"Failed to start on-demand proxy: {ex.Message}");
+                _onDemandProxyEnabled = false;
+                OnPropertyChanged(nameof(OnDemandProxyEnabled));
+            }
+        }
+        else
+        {
+            _onDemandProxyService.Stop();
+        }
+        OnPropertyChanged(nameof(OnDemandProxyRunning));
+        OnPropertyChanged(nameof(OnDemandProxyStatusText));
+        OnPropertyChanged(nameof(OnDemandProxyUrlHint));
+    }
+
+    public void ApplyOnDemandProxyFromSettings()
+    {
+        if (_onDemandProxyEnabled)
+            ApplyOnDemandProxyState();
+        OnPropertyChanged(nameof(OnDemandProxyEnabled));
+        OnPropertyChanged(nameof(OnDemandProxyPort));
+        OnPropertyChanged(nameof(OnDemandProxyIdleSeconds));
+        OnPropertyChanged(nameof(OnDemandProxyHealthTimeoutSeconds));
+        OnPropertyChanged(nameof(OnDemandProxyApiKey));
+        OnPropertyChanged(nameof(ComfyUiFreeEnabled));
+        OnPropertyChanged(nameof(ComfyUiUrl));
+        OnPropertyChanged(nameof(OnDemandProxyStatusText));
+        OnPropertyChanged(nameof(OnDemandProxyUrlHint));
+    }
+
+    private async Task RestartOnDemandProxyAsync()
+    {
+        _onDemandProxyService.Stop();
+        if (_onDemandProxyEnabled)
+            ApplyOnDemandProxyState();
+        OnPropertyChanged(nameof(OnDemandProxyRunning));
+        OnPropertyChanged(nameof(OnDemandProxyStatusText));
+        OnPropertyChanged(nameof(OnDemandProxyUrlHint));
+        await SaveSettingsAsync();
+    }
+
+    IReadOnlyList<string> IOnDemandProxyHost.GetProfileNames() =>
+        Profiles.Where(p => !_routingProfileNames.Contains(p)).ToList();
+
+    string? IOnDemandProxyHost.GetFallbackProfileName()
+    {
+        if (!string.IsNullOrWhiteSpace(_lastProxiedProfile)) return _lastProxiedProfile;
+        if (!string.IsNullOrWhiteSpace(_loadedProfileName)) return _loadedProfileName;
+        return SelectedProfile;
+    }
+
+    async Task<ProxyUpstream?> IOnDemandProxyHost.EnsureProfileRunningAsync(string profileName, CancellationToken ct)
+    {
+        try
+        {
+            var config = await _configService.LoadProfileAsync(profileName);
+            if (config == null)
+            {
+                _logService.Error($"On-demand proxy: profile '{profileName}' not found");
+                return null;
+            }
+
+            var declaredHost = string.IsNullOrWhiteSpace(config.Host) ? "127.0.0.1" : config.Host;
+            var port = config.Port;
+            var connectHost = declaredHost is "0.0.0.0" or "" ? "127.0.0.1" : declaredHost;
+            var baseUrl = $"http://{connectHost}:{port}";
+
+            var alreadyRunning = RunningInstances.Any(i => i.ProfileName == profileName && i.IsRunning);
+            if (!alreadyRunning)
+            {
+                await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var others = RunningInstances.Where(i => i.IsRunning && i.ProfileName != profileName).ToList();
+                    foreach (var other in others)
+                    {
+                        try { await other.StopAsync(); }
+                        catch (Exception ex) { _logService.Error($"On-demand proxy: failed to stop '{other.ProfileName}': {ex.Message}"); }
+                    }
+
+                    await LaunchInstanceAsync(profileName, config);
+                });
+            }
+
+            var ready = await _proxyHealth.WaitForHealthAsync(baseUrl, _onDemandProxyHealthTimeoutSeconds, ct);
+            if (!ready)
+            {
+                _logService.Error($"On-demand proxy: profile '{profileName}' did not become healthy in {_onDemandProxyHealthTimeoutSeconds}s");
+                return null;
+            }
+
+            _lastProxiedProfile = profileName;
+            return new ProxyUpstream(declaredHost, port);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logService.Error($"On-demand proxy: ensure '{profileName}' failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    async Task IOnDemandProxyHost.StopActiveAsync()
+    {
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                var targets = RunningInstances
+                    .Where(i => i.IsRunning && (string.IsNullOrEmpty(_lastProxiedProfile) || i.ProfileName == _lastProxiedProfile))
+                    .ToList();
+                foreach (var instance in targets)
+                {
+                    try { await instance.StopAsync(); }
+                    catch (Exception ex) { _logService.Error($"On-demand proxy: idle stop of '{instance.ProfileName}' failed: {ex.Message}"); }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logService.Error($"On-demand proxy: idle stop failed: {ex.Message}");
+        }
+    }
+
+    private async Task FreeComfyUiIfEnabledAsync()
+    {
+        if (!_comfyUiFreeEnabled || string.IsNullOrWhiteSpace(_comfyUiUrl)) return;
+        try
+        {
+            var url = _comfyUiUrl.TrimEnd('/') + "/free";
+            using var content = new System.Net.Http.StringContent(
+                "{\"unload_models\":true,\"free_memory\":true}",
+                System.Text.Encoding.UTF8,
+                "application/json");
+            using var resp = await _comfyUiHttp.PostAsync(url, content);
+            _logService.AppLog($"ComfyUI: /free -> {(int)resp.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            _logService.Error($"ComfyUI: /free failed: {ex.Message}");
+        }
+    }
+
     public Func<string, string, Task<bool>>? ConfirmActionFunc { get; set; }
 
     public Func<string, string, string, Task> ShowMessageFunc { get; set; } = (_, _, _) => Task.CompletedTask;
@@ -855,6 +1153,7 @@ public class MainViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(LogStreamStatusText));
             });
         };
+        _onDemandProxyService = new OnDemandProxyService(_logService, this);
 
         RunningInstances.CollectionChanged += (_, _) =>
         {
@@ -907,6 +1206,7 @@ public class MainViewModel : INotifyPropertyChanged
         ShowWindowCommand = new RelayCommand(_ => { });
         CloseFromTrayCommand = new RelayCommand(async _ => { });
         RestartLogStreamCommand = new AsyncRelayCommand(RestartLogStreamAsync);
+        RestartOnDemandProxyCommand = new AsyncRelayCommand(RestartOnDemandProxyAsync);
 
         RunScenarioCommand = new AsyncRelayCommand(RunScenarioAsync, () => HasSelectedScenario);
         EditScenarioCommand = new AsyncRelayCommand(EditScenarioAsync);
@@ -914,7 +1214,7 @@ public class MainViewModel : INotifyPropertyChanged
         DeleteScenarioCommand = new AsyncRelayCommand(DeleteScenarioAsync, () => HasSelectedScenario);
 
         LoadProfiles();
-        _logService.AppLog("Application started");
+        _logService.AppLog($"Application started ({AppInfo.Version})");
         _useDefaultDataPath = !_dataPathResolver.IsCustomPathActive();
         UpdateCurrentCommand();
     }
@@ -930,6 +1230,7 @@ public class MainViewModel : INotifyPropertyChanged
         await RefreshSupportedFlagsAsync();
         _ = CheckDockerAvailabilityAsync();
         ApplyLogStreamFromSettings();
+        ApplyOnDemandProxyFromSettings();
 
         // Sticky warning when the configured data folder is unreachable - settings
         // would otherwise look "reset" because we silently fall back to defaults.
@@ -1116,6 +1417,14 @@ public class MainViewModel : INotifyPropertyChanged
         _logStreamPort = settings.LogStreamPort > 0 ? settings.LogStreamPort : 5872;
         _logStreamToken = settings.LogStreamToken ?? "";
         _logStreamEnabled = settings.LogStreamEnabled;
+
+        _onDemandProxyPort = settings.OnDemandProxyPort > 0 ? settings.OnDemandProxyPort : 8081;
+        _onDemandProxyIdleSeconds = settings.OnDemandProxyIdleSeconds;
+        _onDemandProxyHealthTimeoutSeconds = settings.OnDemandProxyHealthTimeoutSeconds > 0 ? settings.OnDemandProxyHealthTimeoutSeconds : 120;
+        _onDemandProxyApiKey = settings.OnDemandProxyApiKey ?? "";
+        _onDemandProxyEnabled = settings.OnDemandProxyEnabled;
+        _comfyUiFreeEnabled = settings.ComfyUiFreeEnabled;
+        _comfyUiUrl = string.IsNullOrWhiteSpace(settings.ComfyUiUrl) ? "http://127.0.0.1:8188" : settings.ComfyUiUrl;
 
         ScenariosEnabled = settings.ScenariosEnabled;
         await LoadScenariosAsync();
@@ -1538,6 +1847,13 @@ public class MainViewModel : INotifyPropertyChanged
             LogStreamEnabled = _logStreamEnabled,
             LogStreamPort = _logStreamPort,
             LogStreamToken = _logStreamToken,
+            OnDemandProxyEnabled = _onDemandProxyEnabled,
+            OnDemandProxyPort = _onDemandProxyPort,
+            OnDemandProxyIdleSeconds = _onDemandProxyIdleSeconds,
+            OnDemandProxyHealthTimeoutSeconds = _onDemandProxyHealthTimeoutSeconds,
+            OnDemandProxyApiKey = _onDemandProxyApiKey,
+            ComfyUiFreeEnabled = _comfyUiFreeEnabled,
+            ComfyUiUrl = _comfyUiUrl,
             ScenariosEnabled = _scenariosEnabled,
             SelectedScenario = _selectedScenario,
             AutoStartWithSystem = _autoStartWithSystem,
@@ -2467,6 +2783,8 @@ public class MainViewModel : INotifyPropertyChanged
     private AppUpdateInfo? _pendingAppUpdate;
 
     public bool ShowAppUpdateButton => _isAppUpdateAvailable;
+
+    public string? AvailableAppUpdateTag => _isAppUpdateAvailable ? _pendingAppUpdate?.Tag : null;
     public string AppUpdateTooltip
     {
         get => _appUpdateTooltip;
@@ -3399,6 +3717,7 @@ public class MainViewModel : INotifyPropertyChanged
     public ICommand OpenArgumentPickerCommand { get; }
     public ICommand OpenOptimizerCommand { get; }
     public ICommand RestartLogStreamCommand { get; }
+    public ICommand RestartOnDemandProxyCommand { get; }
 
     public ICommand RunScenarioCommand { get; }
     public ICommand EditScenarioCommand { get; }
@@ -4948,6 +5267,8 @@ public void RebuildCustomArgumentsFromToggles()
             instance.RequestRemove += OnInstanceRequestRemove;
             instance.PropertyChanged += OnInstancePropertyChanged;
 
+            await FreeComfyUiIfEnabledAsync();
+
             await instance.StartAsync(_supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
 
             if (instance.IsRunning)
@@ -4987,10 +5308,13 @@ public void RebuildCustomArgumentsFromToggles()
     private void LoadProfiles()
     {
         Profiles.Clear();
+        _routingProfileNames.Clear();
         var profiles = _configService.GetAllProfiles();
         foreach (var profile in profiles)
         {
             Profiles.Add(profile.Name);
+            if (profile.Configuration != null && !string.IsNullOrWhiteSpace(profile.Configuration.ModelsDir))
+                _routingProfileNames.Add(profile.Name);
         }
     }
 

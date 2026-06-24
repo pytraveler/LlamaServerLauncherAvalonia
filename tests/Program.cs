@@ -3,6 +3,7 @@ using System;
 var harness = new Harness();
 CommandLineTests.Run(harness);
 OptimizationTests.Run(harness);
+ProxyProtocolTests.Run(harness);
 return harness.Report();
 
 public sealed class Harness

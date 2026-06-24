@@ -10,6 +10,7 @@
     <Compile Include="..\Models\CommandLineParser.cs" />
     <Compile Include="..\Models\CommandLineBuilder.cs" />
     <Compile Include="..\Models\ServerConfiguration.cs" />
+    <Compile Include="..\Models\ProxyProtocol.cs" />
     <Compile Include="..\Optimization\**\*.cs" />
     <Compile Include="..\Models\Optimization\BenchmarkResult.cs" />
     <Compile Include="..\Models\Optimization\BenchMetric.cs" />
@@ -21,6 +22,7 @@
     <Compile Include="..\Services\Optimization\ServerArgvBuilder.cs" />
     <Compile Include="CommandLineTests.cs" />
     <Compile Include="OptimizationTests.cs" />
+    <Compile Include="ProxyProtocolTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>

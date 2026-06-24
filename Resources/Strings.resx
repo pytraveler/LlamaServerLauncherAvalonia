@@ -746,6 +746,12 @@
   <data name="AboutTitle" xml:space="preserve">
     <value>About</value>
   </data>
+  <data name="AboutVersion" xml:space="preserve">
+    <value>Version: {0}</value>
+  </data>
+  <data name="AboutUpdateAvailable" xml:space="preserve">
+    <value>Update available: {0}</value>
+  </data>
   <data name="MarkdownViewerTitle" xml:space="preserve">
     <value>Markdown Viewer</value>
   </data>
@@ -1180,6 +1186,66 @@
   </data>
   <data name="TooltipLogStreamingRestart" xml:space="preserve">
     <value>Restart the log stream server with current settings</value>
+  </data>
+  <data name="OnDemandProxy" xml:space="preserve">
+    <value>On-Demand Proxy</value>
+  </data>
+  <data name="OnDemandProxyEnabledLabel" xml:space="preserve">
+    <value>Enable on-demand proxy</value>
+  </data>
+  <data name="OnDemandProxyHint" xml:space="preserve">
+    <value>An OpenAI-compatible endpoint that loads the requested profile on demand (send the profile name as the model), proxies the request, and stops the server after the idle timeout. Only one model stays in VRAM.</value>
+  </data>
+  <data name="OnDemandProxyPortLabel" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="OnDemandProxyRestart" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="OnDemandProxyIdle" xml:space="preserve">
+    <value>Idle unload (sec, 0 = off)</value>
+  </data>
+  <data name="OnDemandProxyHealthTimeout" xml:space="preserve">
+    <value>Load timeout (sec)</value>
+  </data>
+  <data name="OnDemandProxyApiKeyLabel" xml:space="preserve">
+    <value>API key (optional)</value>
+  </data>
+  <data name="ComfyUiSection" xml:space="preserve">
+    <value>ComfyUI</value>
+  </data>
+  <data name="ComfyUiFreeEnabledLabel" xml:space="preserve">
+    <value>Free ComfyUI VRAM before loading a profile</value>
+  </data>
+  <data name="ComfyUiUrlLabel" xml:space="preserve">
+    <value>ComfyUI URL</value>
+  </data>
+  <data name="OnDemandProxyStopped" xml:space="preserve">
+    <value>On-demand proxy stopped</value>
+  </data>
+  <data name="OnDemandProxyRunningStatus" xml:space="preserve">
+    <value>On-demand proxy running on port {0}</value>
+  </data>
+  <data name="TooltipOnDemandProxyEnabled" xml:space="preserve">
+    <value>Listen for OpenAI-style API requests and auto-load profiles on demand</value>
+  </data>
+  <data name="TooltipOnDemandProxyPort" xml:space="preserve">
+    <value>Port the proxy listens on (all network interfaces)</value>
+  </data>
+  <data name="TooltipOnDemandProxyIdle" xml:space="preserve">
+    <value>Stop the server after this many seconds with no requests (0 disables auto-unload)</value>
+  </data>
+  <data name="TooltipOnDemandProxyHealthTimeout" xml:space="preserve">
+    <value>Maximum seconds to wait for a profile to become ready before failing the request</value>
+  </data>
+  <data name="TooltipOnDemandProxyApiKey" xml:space="preserve">
+    <value>If set, clients must send this key as a Bearer token</value>
+  </data>
+  <data name="TooltipComfyUiFreeEnabled" xml:space="preserve">
+    <value>Call ComfyUI's /free endpoint to release its VRAM before starting a profile</value>
+  </data>
+  <data name="TooltipComfyUiUrl" xml:space="preserve">
+    <value>Base URL of the ComfyUI server (e.g. http://127.0.0.1:8188)</value>
   </data>
   <data name="ScenariosEnabled" xml:space="preserve">
     <value>Enable scenarios</value>

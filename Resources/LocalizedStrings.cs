@@ -345,6 +345,8 @@ public string English => GetString("English");
     public string TooltipHfRepoDraft => GetString("TooltipHfRepoDraft");
 
     public string AboutTitle => GetString("AboutTitle");
+    public string AboutVersion => GetString("AboutVersion");
+    public string AboutUpdateAvailable => GetString("AboutUpdateAvailable");
     public string MarkdownViewerTitle => GetString("MarkdownViewerTitle");
     public string Developer => GetString("Developer");
     public string AppRepository => GetString("AppRepository");
@@ -440,6 +442,25 @@ public string English => GetString("English");
     public string TooltipLogStreamingToken => GetString("TooltipLogStreamingToken");
     public string TooltipLogStreamingTokenHint => GetString("TooltipLogStreamingTokenHint");
     public string TooltipLogStreamingRestart => GetString("TooltipLogStreamingRestart");
+
+    public string OnDemandProxy => GetString("OnDemandProxy");
+    public string OnDemandProxyEnabledLabel => GetString("OnDemandProxyEnabledLabel");
+    public string OnDemandProxyHint => GetString("OnDemandProxyHint");
+    public string OnDemandProxyPortLabel => GetString("OnDemandProxyPortLabel");
+    public string OnDemandProxyRestart => GetString("OnDemandProxyRestart");
+    public string OnDemandProxyIdle => GetString("OnDemandProxyIdle");
+    public string OnDemandProxyHealthTimeout => GetString("OnDemandProxyHealthTimeout");
+    public string OnDemandProxyApiKeyLabel => GetString("OnDemandProxyApiKeyLabel");
+    public string ComfyUiSection => GetString("ComfyUiSection");
+    public string ComfyUiFreeEnabledLabel => GetString("ComfyUiFreeEnabledLabel");
+    public string ComfyUiUrlLabel => GetString("ComfyUiUrlLabel");
+    public string TooltipOnDemandProxyEnabled => GetString("TooltipOnDemandProxyEnabled");
+    public string TooltipOnDemandProxyPort => GetString("TooltipOnDemandProxyPort");
+    public string TooltipOnDemandProxyIdle => GetString("TooltipOnDemandProxyIdle");
+    public string TooltipOnDemandProxyHealthTimeout => GetString("TooltipOnDemandProxyHealthTimeout");
+    public string TooltipOnDemandProxyApiKey => GetString("TooltipOnDemandProxyApiKey");
+    public string TooltipComfyUiFreeEnabled => GetString("TooltipComfyUiFreeEnabled");
+    public string TooltipComfyUiUrl => GetString("TooltipComfyUiUrl");
 
     public string ScenariosEnabled => GetString("ScenariosEnabled");
     public string Scenario => GetString("Scenario");

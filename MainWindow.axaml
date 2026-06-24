@@ -958,6 +958,38 @@
                             </ScrollViewer>
                         </TabItem>
 
+                        <TabItem Header="{Binding Localized.OnDemandProxy}">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="10">
+                                    <CheckBox Content="{Binding Localized.OnDemandProxyEnabledLabel}" IsChecked="{Binding OnDemandProxyEnabled}"
+                                              ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyEnabled}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="{Binding Localized.OnDemandProxyHint}" FontSize="11" Foreground="{DynamicResource DataPathForegroundBrush}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+                                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto" Margin="0,0,0,8">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.OnDemandProxyPortLabel}" Margin="0,0,0,5" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyPort}"/>
+                                        <NumericUpDown Grid.Row="1" Grid.Column="0" Value="{Binding OnDemandProxyPort}" Minimum="1024" Maximum="65535" Width="120" Margin="0,0,8,0" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyPort}"/>
+                                        <Button Grid.Row="1" Grid.Column="1" Content="{Binding Localized.OnDemandProxyRestart}" Click="RestartOnDemandProxyClick" Height="32" VerticalContentAlignment="Center" Padding="12,0"/>
+                                    </Grid>
+
+                                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto" Margin="0,0,0,8">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.OnDemandProxyIdle}" Margin="0,0,8,5" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyIdle}"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Localized.OnDemandProxyHealthTimeout}" Margin="0,0,0,5" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyHealthTimeout}"/>
+                                        <NumericUpDown Grid.Row="1" Grid.Column="0" Value="{Binding OnDemandProxyIdleSeconds}" Minimum="0" Maximum="86400" Width="120" Margin="0,0,8,0" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyIdle}"/>
+                                        <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding OnDemandProxyHealthTimeoutSeconds}" Minimum="5" Maximum="3600" Width="120" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyHealthTimeout}"/>
+                                    </Grid>
+
+                                    <StackPanel Margin="0,0,0,8">
+                                        <TextBlock Text="{Binding Localized.OnDemandProxyApiKeyLabel}" Margin="0,0,0,5" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyApiKey}"/>
+                                        <TextBox Text="{Binding OnDemandProxyApiKey}" Width="200" PasswordChar="*" HorizontalAlignment="Left" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyApiKey}"/>
+                                    </StackPanel>
+
+                                    <TextBlock Text="{Binding OnDemandProxyStatusText}" FontSize="12" Margin="0,0,0,3"/>
+                                    <TextBlock Text="{Binding OnDemandProxyUrlHint}" FontSize="11" Foreground="{DynamicResource DataPathForegroundBrush}" Margin="0,0,0,3" IsVisible="{Binding OnDemandProxyRunning}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
                         <TabItem Header="{Binding Localized.Behavior}">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="10">
@@ -966,6 +998,16 @@
                                     <CheckBox Content="{Binding Localized.AutoStartWithSystem}" IsChecked="{Binding AutoStartWithSystem}"
                                               ToolTip.Tip="{Binding Localized.TooltipAutoStartWithSystem}"/>
                                     <CheckBox Content="{Binding Localized.AutoFitHeight}" IsChecked="{Binding AutoFitHeight}"/>
+
+                                    <Border BorderBrush="{DynamicResource DataPathForegroundBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,8" Padding="0,10,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Localized.ComfyUiSection}" FontWeight="Bold" Margin="0,0,0,6"/>
+                                            <CheckBox Content="{Binding Localized.ComfyUiFreeEnabledLabel}" IsChecked="{Binding ComfyUiFreeEnabled}"
+                                                      ToolTip.Tip="{Binding Localized.TooltipComfyUiFreeEnabled}" Margin="0,0,0,8"/>
+                                            <TextBlock Text="{Binding Localized.ComfyUiUrlLabel}" Margin="0,0,0,5" ToolTip.Tip="{Binding Localized.TooltipComfyUiUrl}"/>
+                                            <TextBox Text="{Binding ComfyUiUrl}" Width="260" HorizontalAlignment="Left" ToolTip.Tip="{Binding Localized.TooltipComfyUiUrl}"/>
+                                        </StackPanel>
+                                    </Border>
 
                                     <TextBlock Text="{Binding Localized.CustomBrowserPath}" Margin="0,12,0,5" ToolTip.Tip="{Binding Localized.TooltipCustomBrowserPath}"/>
                                     <ComboBox ItemsSource="{Binding DetectedBrowsers}"

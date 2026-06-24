@@ -127,6 +127,14 @@ public class AppSettings
     public bool ScenariosEnabled { get; set; }
     public string SelectedScenario { get; set; } = "";
 
+    public bool OnDemandProxyEnabled { get; set; }
+    public int OnDemandProxyPort { get; set; } = 8081;
+    public int OnDemandProxyIdleSeconds { get; set; } = 300;
+    public int OnDemandProxyHealthTimeoutSeconds { get; set; } = 120;
+    public string OnDemandProxyApiKey { get; set; } = "";
+    public bool ComfyUiFreeEnabled { get; set; }
+    public string ComfyUiUrl { get; set; } = "http://127.0.0.1:8188";
+
     public Dictionary<string, DialogGeometry> DialogGeometry { get; set; } = new();
 
     public bool ExperimentalReposEnabled { get; set; }

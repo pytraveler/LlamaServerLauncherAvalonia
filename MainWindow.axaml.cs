@@ -1270,6 +1270,7 @@ public partial class MainWindow : Window
     private async void AboutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         var dialog = new AboutDialogWindow();
+        dialog.SetUpdateState(_viewModel?.AvailableAppUpdateTag);
         await dialog.ShowDialog(this);
     }
 
@@ -1479,6 +1480,11 @@ public partial class MainWindow : Window
     private void RestartLogStreamClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.RestartLogStreamCommand.Execute(null);
+    }
+
+    private void RestartOnDemandProxyClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.RestartOnDemandProxyCommand.Execute(null);
     }
 
     private async void CopyLogClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

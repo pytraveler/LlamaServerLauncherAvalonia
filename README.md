@@ -75,6 +75,18 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 - Short-lived server error indicator (shows if instance exits within 5 seconds of starting)
 - Instance view in system tray menu with full per-instance controls
 
+### On-Demand Model Proxy (OpenAI-compatible)
+A built-in reverse proxy that loads the right profile on demand when an API request arrives — point a client like Cherry Studio at it and the matching model is loaded automatically, served, and unloaded when idle.
+- **OpenAI-style endpoints** — `/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, `/v1/rerank`, `/infill`, plus `/v1/models` (advertises your profiles as models) and `/health`
+- **Profile = model** — send the profile name in the request's `model` field; the proxy starts that profile, waits until it is healthy, then proxies the request and streams the response back (SSE supported)
+- **One model in VRAM** — starting a profile evicts any other running one, so only a single model stays loaded
+- **Idle auto-unload** — stops the server after a configurable idle timeout (set to `0` to disable)
+- **LAN-accessible** — listens on all interfaces; optional Bearer API key for access control
+- Routing-mode profiles (`--models-dir`) are excluded from the advertised model list
+
+### ComfyUI Integration
+- **Free ComfyUI VRAM before loading a profile** — optionally calls ComfyUI's `/free` endpoint to unload its models and release GPU memory before any profile starts (manual start or via the on-demand proxy), so you can hand the GPU between ComfyUI and llama.cpp without juggling them by hand. Configured on the **Behavior** tab (toggle + ComfyUI URL)
+
 ### Scenarios
 - Define sequences of profiles that run in order with configurable time intervals
 - Auto-start scenarios on application launch
@@ -104,6 +116,7 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 
 ### App Updates
 - **Auto-update** — Automatically checks for new application releases and supports one-click update with restart
+- **Version display** — The About dialog shows the installed version (stamped from the build) and, when the periodic check has already found one, the latest available release — without making any extra GitHub API calls
 
 ### System Integration
 - **Auto-start** — Register the app to start with the operating system (Windows registry, Linux autostart .desktop, macOS LaunchAgent)
@@ -243,7 +256,7 @@ cd tests
 dotnet run -c Release   # exit code 0 = all checks passed
 ```
 
-Current coverage includes the command-line layer (`CommandLineParser`, `CommandLineBuilder`, `ServerConfiguration`) and the optimization (HPO) engine. Each area is a separate `*Tests.cs` file wired into `Program.cs`, so coverage grows incrementally.
+Current coverage includes the command-line layer (`CommandLineParser`, `CommandLineBuilder`, `ServerConfiguration`), the optimization (HPO) engine, and the on-demand proxy protocol helpers (`ProxyProtocol`). Each area is a separate `*Tests.cs` file wired into `Program.cs`, so coverage grows incrementally.
 
 ## Usage
 
@@ -290,6 +303,17 @@ The built-in log stream server enables remote log monitoring:
 2. Open `http://localhost:<port>/` in a browser for the built-in web viewer
 3. Connect via WebSocket at `ws://localhost:<port>/ws?token=<token>` for real-time logs
 
+### On-Demand Model Proxy
+
+Let an OpenAI-compatible client load models on demand instead of switching profiles by hand:
+
+1. Enable and configure the proxy in settings (**On-Demand Proxy** tab): port, idle-unload timeout, optional API key
+2. Point your client (e.g. Cherry Studio) at `http://<host>:<port>/v1` and use the **profile name** as the model name
+3. On each request the proxy starts the matching profile (stopping any other running one), waits until it is ready, and proxies the response — streaming included
+4. After the idle timeout with no requests, the server is stopped automatically
+
+Optionally, on the **Behavior** tab, enable **Free ComfyUI VRAM before loading a profile** and set the ComfyUI URL so GPU memory is released before each model loads.
+
 ## Architecture
 
 - **Framework**: Avalonia 12.0.1 (.NET 8.0)
@@ -311,13 +335,16 @@ LlamaServerLauncher/
 │   ├── ProfileInfo                    # Profile metadata
 │   ├── ExperimentalRepoInfo           # Experimental repository definition + cached releases
 │   ├── BrowserInfo                    # Detected browser (name + executable path)
-│   └── HelpArgumentInfo               # Help argument metadata for feature detection
+│   ├── HelpArgumentInfo               # Help argument metadata for feature detection
+│   ├── ProxyProtocol                  # HTTP/JSON helpers for the on-demand proxy (request parsing, model matching)
+│   └── AppInfo                        # Application version accessor (reflection)
 ├── ViewModels/                        # MVVM view models
 │   ├── MainViewModel                  # Main application logic and state (multi-instance, scenarios)
 │   ├── ScenarioDialogViewModel        # Scenario creation/editing logic
 │   ├── ExperimentalRepoDialogViewModel # Add/edit experimental repository dialog logic
 │   ├── DownloadDialogViewModel
 │   ├── ArgumentPickerViewModel
+│   ├── IOnDemandProxyHost             # Bridge for the proxy to drive profile start/stop
 │   └── RelayCommand / AsyncRelayCommand
 ├── Services/                          # Business logic services
 │   ├── LlamaServerService             # Process management, HTTP slots/model queries
@@ -327,6 +354,7 @@ LlamaServerLauncher/
 │   ├── LlamaHelpParserService         # Parses --help output for feature detection
 │   ├── LogService                     # Application and server log management
 │   ├── LogStreamService               # WebSocket log streaming server with HTTP API
+│   ├── OnDemandProxyService           # OpenAI-compatible on-demand proxy (auto-loads profiles, idle unload, ComfyUI free)
 │   ├── ToastService                   # In-app toast notification system
 │   ├── AutoStartService               # System auto-start (Windows/Linux/macOS)
 │   ├── SingleInstanceService          # Enforces single instance with IPC activation
