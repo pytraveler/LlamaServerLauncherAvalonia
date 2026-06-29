@@ -20,10 +20,14 @@ public sealed class ProxyOptions
     public string? ApiKey { get; init; }
 }
 
+public enum ProxyActivityState { Serving, IdleCountdown, Held, Unloaded }
+
+public readonly record struct ProxyActivity(ProxyActivityState State, int RemainingSeconds, string? ProfileName);
+
 public sealed class OnDemandProxyService : IDisposable
 {
     private const int MaxHeaderBytes = 64 * 1024;
-    private const int MaxBodyBytes = 32 * 1024 * 1024;
+    private const int MaxBodyBytes = 256 * 1024 * 1024;
 
     private readonly LogService _logService;
     private readonly IOnDemandProxyHost _host;
@@ -37,14 +41,47 @@ public sealed class OnDemandProxyService : IDisposable
     private int _port;
     private long _inflight;
     private long _lastUseTicks;
+    private volatile bool _modelLoaded;
+    private volatile bool _keepLoaded;
+    private string? _activeProfile;
 
     public bool IsRunning => _tcpListener != null;
     public int Port => _port;
+
+    public event Action<string>? ModelLoaded;
+    public event Action<ProxyActivity>? ActivityChanged;
+    public event Action? ModelUnloaded;
 
     public OnDemandProxyService(LogService logService, IOnDemandProxyHost host)
     {
         _logService = logService;
         _host = host;
+    }
+
+    public void HoldLoaded()
+    {
+        _keepLoaded = true;
+    }
+
+    public async Task UnloadNowAsync()
+    {
+        _keepLoaded = false;
+        _modelLoaded = false;
+        Interlocked.Exchange(ref _lastUseTicks, 0);
+        try { await _host.StopActiveAsync(); }
+        catch (Exception ex) { _logService.Error($"On-demand proxy manual stop failed: {ex.Message}"); }
+        RaiseModelUnloaded();
+    }
+
+    private void RaiseActivity(ProxyActivityState state, int remaining)
+    {
+        ActivityChanged?.Invoke(new ProxyActivity(state, remaining, _activeProfile));
+    }
+
+    private void RaiseModelUnloaded()
+    {
+        _activeProfile = null;
+        ModelUnloaded?.Invoke();
     }
 
     public void Start(ProxyOptions options)
@@ -78,6 +115,11 @@ public sealed class OnDemandProxyService : IDisposable
     {
         if (_tcpListener == null) return;
 
+        var wasLoaded = _modelLoaded;
+        _modelLoaded = false;
+        _keepLoaded = false;
+        Interlocked.Exchange(ref _lastUseTicks, 0);
+
         _cts?.Cancel();
         try { _tcpListener?.Stop(); } catch { }
         _tcpListener = null;
@@ -85,6 +127,8 @@ public sealed class OnDemandProxyService : IDisposable
         _http = null;
         _cts?.Dispose();
         _cts = null;
+
+        if (wasLoaded) RaiseModelUnloaded();
 
         _logService.AppLog("On-demand proxy stopped");
     }
@@ -114,21 +158,42 @@ public sealed class OnDemandProxyService : IDisposable
 
     private async Task IdleLoopAsync(int idleSeconds, CancellationToken ct)
     {
-        if (idleSeconds <= 0) return;
-
-        var idleTicks = TimeSpan.FromSeconds(idleSeconds).Ticks;
         while (!ct.IsCancellationRequested)
         {
             try { await Task.Delay(1000, ct); }
             catch (OperationCanceledException) { break; }
 
-            if (Interlocked.Read(ref _inflight) != 0) continue;
+            if (!_modelLoaded) continue;
+
+            if (Interlocked.Read(ref _inflight) != 0)
+            {
+                RaiseActivity(ProxyActivityState.Serving, 0);
+                continue;
+            }
+
+            if (_keepLoaded || idleSeconds <= 0)
+            {
+                RaiseActivity(ProxyActivityState.Held, 0);
+                continue;
+            }
 
             var last = Interlocked.Read(ref _lastUseTicks);
-            if (last == 0) continue;
-            if (DateTime.UtcNow.Ticks - last <= idleTicks) continue;
+            if (last == 0)
+            {
+                RaiseActivity(ProxyActivityState.Held, 0);
+                continue;
+            }
+
+            var elapsedSec = (int)((DateTime.UtcNow.Ticks - last) / TimeSpan.TicksPerSecond);
+            var remaining = idleSeconds - elapsedSec;
+            if (remaining > 0)
+            {
+                RaiseActivity(ProxyActivityState.IdleCountdown, remaining);
+                continue;
+            }
 
             Interlocked.Exchange(ref _lastUseTicks, 0);
+            _modelLoaded = false;
             try
             {
                 _logService.AppLog($"On-demand proxy idle for {idleSeconds}s, stopping active server");
@@ -138,6 +203,7 @@ public sealed class OnDemandProxyService : IDisposable
             {
                 _logService.Error($"On-demand proxy idle stop failed: {ex.Message}");
             }
+            RaiseModelUnloaded();
         }
     }
 
@@ -149,9 +215,14 @@ public sealed class OnDemandProxyService : IDisposable
             tcpClient.NoDelay = true;
             stream = tcpClient.GetStream();
 
-            var (head, body) = await ReadRequestAsync(stream, ct);
+            var (head, body, readErrorStatus, readErrorMessage) = await ReadRequestAsync(stream, ct);
             if (head == null)
             {
+                if (readErrorStatus != null)
+                {
+                    _logService.Error($"On-demand proxy: rejecting request ({readErrorStatus}: {readErrorMessage})");
+                    await WriteAsync(stream, ProxyProtocol.BuildSimpleResponse(readErrorStatus, "application/json", $"{{\"error\":\"{readErrorMessage}\"}}"), ct);
+                }
                 tcpClient.Close();
                 return;
             }
@@ -192,12 +263,16 @@ public sealed class OnDemandProxyService : IDisposable
             var profile = ProxyProtocol.MatchProfile(requested, _host.GetProfileNames(), _host.GetFallbackProfileName());
             if (profile == null)
             {
+                _logService.Error($"On-demand proxy: {path} model='{requested ?? "(none)"}' has no matching profile (routing/--models-dir profiles are excluded)");
                 await WriteAsync(stream, ProxyProtocol.BuildSimpleResponse("400 Bad Request", "application/json", "{\"error\":\"no matching profile for requested model\"}"), ct);
                 tcpClient.Close();
                 return;
             }
 
+            _logService.AppLog($"On-demand proxy: {path} model='{requested ?? "(none)"}' -> profile '{profile}' ({body?.Length ?? 0} body bytes)");
+
             Interlocked.Increment(ref _inflight);
+            _keepLoaded = false;
             Interlocked.Exchange(ref _lastUseTicks, DateTime.UtcNow.Ticks);
             try
             {
@@ -217,6 +292,13 @@ public sealed class OnDemandProxyService : IDisposable
                     await WriteAsync(stream, ProxyProtocol.BuildSimpleResponse("503 Service Unavailable", "application/json", $"{{\"error\":\"failed to start profile '{profile}'\"}}"), ct);
                     tcpClient.Close();
                     return;
+                }
+
+                if (!_modelLoaded || _activeProfile != profile)
+                {
+                    _modelLoaded = true;
+                    _activeProfile = profile;
+                    ModelLoaded?.Invoke(profile);
                 }
 
                 await ProxyAsync(stream, head, body, upstream.Value, ct);
@@ -282,6 +364,7 @@ public sealed class OnDemandProxyService : IDisposable
             foreach (var h in upstreamResp.Content.Headers)
                 headerPairs.Add(new KeyValuePair<string, string>(h.Key, string.Join(", ", h.Value)));
 
+            _logService.AppLog($"On-demand proxy: upstream {(int)upstreamResp.StatusCode} for {head.Method} {head.Path}");
             var headBytes = ProxyProtocol.BuildResponseHead((int)upstreamResp.StatusCode, upstreamResp.ReasonPhrase ?? "OK", headerPairs);
             await stream.WriteAsync(headBytes, ct);
             await stream.FlushAsync(ct);
@@ -304,7 +387,7 @@ public sealed class OnDemandProxyService : IDisposable
         await stream.FlushAsync(ct);
     }
 
-    private static async Task<(ProxyRequestHead? head, byte[]? body)> ReadRequestAsync(NetworkStream stream, CancellationToken ct)
+    private static async Task<(ProxyRequestHead? head, byte[]? body, string? errorStatus, string? errorMessage)> ReadRequestAsync(NetworkStream stream, CancellationToken ct)
     {
         var buffer = new byte[8192];
         using var accumulated = new MemoryStream();
@@ -321,18 +404,22 @@ public sealed class OnDemandProxyService : IDisposable
             if (headerEnd >= 0) break;
         }
 
-        if (headerEnd < 0) return (null, null);
+        if (headerEnd < 0)
+            return accumulated.Length == 0
+                ? (null, null, null, null)
+                : (null, null, "431 Request Header Fields Too Large", "malformed or oversized request headers");
 
         var raw = accumulated.GetBuffer();
         var total = (int)accumulated.Length;
         var headerText = Encoding.UTF8.GetString(raw, 0, headerEnd);
         var head = ProxyProtocol.ParseRequestHead(headerText);
-        if (head == null) return (null, null);
+        if (head == null) return (null, null, "400 Bad Request", "malformed request line");
 
         var bodyStart = headerEnd + 4;
         var contentLength = head.ContentLength;
-        if (contentLength <= 0) return (head, null);
-        if (contentLength > MaxBodyBytes) return (null, null);
+        if (contentLength <= 0) return (head, null, null, null);
+        if (contentLength > MaxBodyBytes)
+            return (null, null, "413 Payload Too Large", $"request body of {contentLength} bytes exceeds the {MaxBodyBytes}-byte limit");
 
         var body = new byte[contentLength];
         var already = Math.Min(contentLength, total - bodyStart);
@@ -347,7 +434,10 @@ public sealed class OnDemandProxyService : IDisposable
             offset += n;
         }
 
-        return (head, body);
+        if (offset < contentLength)
+            return (null, null, "400 Bad Request", "incomplete request body");
+
+        return (head, body, null, null);
     }
 
     private static int IndexOfHeaderEnd(byte[] data, int length)

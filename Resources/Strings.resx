@@ -113,6 +113,12 @@
   <data name="Save" xml:space="preserve">
     <value>Save</value>
   </data>
+  <data name="SaveAs" xml:space="preserve">
+    <value>Save As…</value>
+  </data>
+  <data name="SaveAsPrompt" xml:space="preserve">
+    <value>Enter a name for the new profile</value>
+  </data>
   <data name="Load" xml:space="preserve">
     <value>Load</value>
   </data>
@@ -136,6 +142,9 @@
   </data>
   <data name="Clear" xml:space="preserve">
     <value>Clear</value>
+  </data>
+  <data name="ClearFields" xml:space="preserve">
+    <value>Clear fields</value>
   </data>
   <data name="Import" xml:space="preserve">
     <value>Import</value>
@@ -1246,6 +1255,30 @@
   </data>
   <data name="TooltipComfyUiUrl" xml:space="preserve">
     <value>Base URL of the ComfyUI server (e.g. http://127.0.0.1:8188)</value>
+  </data>
+  <data name="MiniWindowEnable" xml:space="preserve">
+    <value>Show unload countdown mini-window</value>
+  </data>
+  <data name="TooltipMiniWindowEnable" xml:space="preserve">
+    <value>When the proxy loads a model, show a small always-on-top window with the idle-unload countdown and a button to keep the model loaded.</value>
+  </data>
+  <data name="MiniWindowTitle" xml:space="preserve">
+    <value>Loaded model</value>
+  </data>
+  <data name="MiniWindowInUse" xml:space="preserve">
+    <value>Model in use</value>
+  </data>
+  <data name="MiniWindowUnloadingIn" xml:space="preserve">
+    <value>Unloading in {0}s</value>
+  </data>
+  <data name="MiniWindowKept" xml:space="preserve">
+    <value>Kept loaded</value>
+  </data>
+  <data name="MiniWindowCancelUnload" xml:space="preserve">
+    <value>Cancel unload</value>
+  </data>
+  <data name="MiniWindowUnloadModel" xml:space="preserve">
+    <value>Unload model</value>
   </data>
   <data name="ScenariosEnabled" xml:space="preserve">
     <value>Enable scenarios</value>

@@ -113,6 +113,12 @@
   <data name="Save" xml:space="preserve">
     <value>Сохранить</value>
   </data>
+  <data name="SaveAs" xml:space="preserve">
+    <value>Сохранить как…</value>
+  </data>
+  <data name="SaveAsPrompt" xml:space="preserve">
+    <value>Введите имя нового профиля</value>
+  </data>
   <data name="Load" xml:space="preserve">
     <value>Загрузить</value>
   </data>
@@ -136,6 +142,9 @@
   </data>
   <data name="Clear" xml:space="preserve">
     <value>Очистить</value>
+  </data>
+  <data name="ClearFields" xml:space="preserve">
+    <value>Очистить поля</value>
   </data>
   <data name="Import" xml:space="preserve">
     <value>Импорт</value>
@@ -1246,6 +1255,30 @@
   </data>
   <data name="TooltipComfyUiUrl" xml:space="preserve">
     <value>Базовый URL сервера ComfyUI (например, http://127.0.0.1:8188)</value>
+  </data>
+  <data name="MiniWindowEnable" xml:space="preserve">
+    <value>Показывать мини-окно с отсчётом выгрузки</value>
+  </data>
+  <data name="TooltipMiniWindowEnable" xml:space="preserve">
+    <value>Когда прокси загружает модель, показывать маленькое окно поверх всех окон с обратным отсчётом до выгрузки по простою и кнопкой удержания модели в памяти.</value>
+  </data>
+  <data name="MiniWindowTitle" xml:space="preserve">
+    <value>Загруженная модель</value>
+  </data>
+  <data name="MiniWindowInUse" xml:space="preserve">
+    <value>Модель используется</value>
+  </data>
+  <data name="MiniWindowUnloadingIn" xml:space="preserve">
+    <value>Выгрузка через {0} с</value>
+  </data>
+  <data name="MiniWindowKept" xml:space="preserve">
+    <value>Удерживается в памяти</value>
+  </data>
+  <data name="MiniWindowCancelUnload" xml:space="preserve">
+    <value>Отменить выгрузку</value>
+  </data>
+  <data name="MiniWindowUnloadModel" xml:space="preserve">
+    <value>Выгрузить модель</value>
   </data>
   <data name="ScenariosEnabled" xml:space="preserve">
     <value>Включить сценарии</value>

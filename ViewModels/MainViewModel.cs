@@ -682,6 +682,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private double? _windowTop;
     private string _selectedProfile = string.Empty;
     private string _profileNameInput = string.Empty;
+    private bool _suppressProfileAutoLoad;
     private bool _isServerRunning;
     private string _serverStatus = "Stopped";
     private string _currentLog = string.Empty;
@@ -824,6 +825,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private int _onDemandProxyIdleSeconds = 300;
     private int _onDemandProxyHealthTimeoutSeconds = 120;
     private string _onDemandProxyApiKey = string.Empty;
+    private bool _onDemandProxyMiniWindowEnabled;
     private bool _comfyUiFreeEnabled;
     private string _comfyUiUrl = "http://127.0.0.1:8188";
 
@@ -895,6 +897,55 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             }
         }
     }
+
+    public bool OnDemandProxyMiniWindowEnabled
+    {
+        get => _onDemandProxyMiniWindowEnabled;
+        set
+        {
+            if (_onDemandProxyMiniWindowEnabled != value)
+            {
+                _onDemandProxyMiniWindowEnabled = value;
+                OnPropertyChanged();
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
+    public MiniCountdownViewModel MiniCountdown { get; }
+
+    public event Action? MiniWindowShowRequested;
+    public event Action? MiniWindowHideRequested;
+
+    private void OnProxyModelLoaded(string profile)
+    {
+        if (!_onDemandProxyMiniWindowEnabled) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            MiniCountdown.SetLoaded(profile);
+            MiniWindowShowRequested?.Invoke();
+        });
+    }
+
+    private void OnProxyActivityChanged(ProxyActivity activity)
+    {
+        if (!_onDemandProxyMiniWindowEnabled) return;
+        Dispatcher.UIThread.Post(() => MiniCountdown.Apply(activity));
+    }
+
+    private void OnProxyModelUnloaded()
+    {
+        Dispatcher.UIThread.Post(() => MiniWindowHideRequested?.Invoke());
+    }
+
+    private Task HoldModelLoadedAsync()
+    {
+        _onDemandProxyService.HoldLoaded();
+        MiniCountdown.IsHeld = true;
+        return Task.CompletedTask;
+    }
+
+    private Task UnloadModelNowAsync() => _onDemandProxyService.UnloadNowAsync();
 
     public bool ComfyUiFreeEnabled
     {
@@ -990,6 +1041,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(OnDemandProxyIdleSeconds));
         OnPropertyChanged(nameof(OnDemandProxyHealthTimeoutSeconds));
         OnPropertyChanged(nameof(OnDemandProxyApiKey));
+        OnPropertyChanged(nameof(OnDemandProxyMiniWindowEnabled));
         OnPropertyChanged(nameof(ComfyUiFreeEnabled));
         OnPropertyChanged(nameof(ComfyUiUrl));
         OnPropertyChanged(nameof(OnDemandProxyStatusText));
@@ -1154,6 +1206,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             });
         };
         _onDemandProxyService = new OnDemandProxyService(_logService, this);
+        MiniCountdown = new MiniCountdownViewModel(HoldModelLoadedAsync, UnloadModelNowAsync);
+        _onDemandProxyService.ModelLoaded += OnProxyModelLoaded;
+        _onDemandProxyService.ActivityChanged += OnProxyActivityChanged;
+        _onDemandProxyService.ModelUnloaded += OnProxyModelUnloaded;
 
         RunningInstances.CollectionChanged += (_, _) =>
         {
@@ -1188,7 +1244,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         UnloadModelCommand = new AsyncRelayCommand(UnloadModelAsync, () => IsServerRunning);
         OpenInBrowserCommand = new AsyncRelayCommand(OpenInBrowserAsync, () => CanOpenInBrowser);
         SaveProfileCommand = new AsyncRelayCommand(SaveProfileAsync);
-        LoadProfileCommand = new AsyncRelayCommand(LoadProfileAsync);
+        SaveProfileAsCommand = new AsyncRelayCommand(SaveProfileAsAsync);
         DeleteProfileCommand = new AsyncRelayCommand(DeleteProfileAsync);
         RenameProfileCommand = new AsyncRelayCommand(RenameProfileAsync);
         CloneProfileCommand = new AsyncRelayCommand(CloneProfileAsync);
@@ -1422,6 +1478,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _onDemandProxyIdleSeconds = settings.OnDemandProxyIdleSeconds;
         _onDemandProxyHealthTimeoutSeconds = settings.OnDemandProxyHealthTimeoutSeconds > 0 ? settings.OnDemandProxyHealthTimeoutSeconds : 120;
         _onDemandProxyApiKey = settings.OnDemandProxyApiKey ?? "";
+        _onDemandProxyMiniWindowEnabled = settings.OnDemandProxyMiniWindowEnabled;
         _onDemandProxyEnabled = settings.OnDemandProxyEnabled;
         _comfyUiFreeEnabled = settings.ComfyUiFreeEnabled;
         _comfyUiUrl = string.IsNullOrWhiteSpace(settings.ComfyUiUrl) ? "http://127.0.0.1:8188" : settings.ComfyUiUrl;
@@ -1852,6 +1909,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             OnDemandProxyIdleSeconds = _onDemandProxyIdleSeconds,
             OnDemandProxyHealthTimeoutSeconds = _onDemandProxyHealthTimeoutSeconds,
             OnDemandProxyApiKey = _onDemandProxyApiKey,
+            OnDemandProxyMiniWindowEnabled = _onDemandProxyMiniWindowEnabled,
             ComfyUiFreeEnabled = _comfyUiFreeEnabled,
             ComfyUiUrl = _comfyUiUrl,
             ScenariosEnabled = _scenariosEnabled,
@@ -3474,6 +3532,13 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         set { _selectedProfile = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); OnPropertyChanged(nameof(WindowTitleWithProfile)); }
     }
 
+    private void SetSelectedProfileSilently(string name)
+    {
+        _suppressProfileAutoLoad = true;
+        try { SelectedProfile = name; }
+        finally { _suppressProfileAutoLoad = false; }
+    }
+
     public bool HasUnsavedChanges
     {
         get
@@ -3699,7 +3764,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public ICommand UnloadModelCommand { get; }
     public ICommand OpenInBrowserCommand { get; }
     public ICommand SaveProfileCommand { get; }
-    public ICommand LoadProfileCommand { get; }
+    public ICommand SaveProfileAsCommand { get; }
     public ICommand DeleteProfileCommand { get; }
     public ICommand RenameProfileCommand { get; }
     public ICommand CloneProfileCommand { get; }
@@ -4058,6 +4123,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         ContextSize = string.Empty;
         Threads = string.Empty;
         GpuLayers = string.Empty;
+        CpuMoe = string.Empty;
         Temperature = string.Empty;
         MaxTokens = string.Empty;
         BatchSize = string.Empty;
@@ -4120,6 +4186,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         ContextSize = config.ContextSize?.ToString() ?? string.Empty;
         Threads = config.Threads?.ToString() ?? string.Empty;
         GpuLayers = config.GpuLayers?.ToString() ?? string.Empty;
+        CpuMoe = config.CpuMoe?.ToString() ?? string.Empty;
         Temperature = config.Temperature?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
         MaxTokens = config.MaxTokens?.ToString() ?? string.Empty;
         BatchSize = config.BatchSize?.ToString() ?? string.Empty;
@@ -4215,6 +4282,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         ContextSize = string.Empty;
         Threads = string.Empty;
         GpuLayers = string.Empty;
+        CpuMoe = string.Empty;
         Temperature = string.Empty;
         MaxTokens = string.Empty;
         BatchSize = string.Empty;
@@ -4937,7 +5005,7 @@ public void RebuildCustomArgumentsFromToggles()
                         LoadConfigToUI(SelectedInstance.Configuration);
                         _loadedProfileName = SelectedInstance.ProfileName;
                         _loadedProfileConfig = SelectedInstance.Configuration;
-                        SelectedProfile = SelectedInstance.ProfileName;
+                        SetSelectedProfileSilently(SelectedInstance.ProfileName);
                         OnPropertyChanged(nameof(HasUnsavedChanges));
                         OnPropertyChanged(nameof(WindowTitleWithProfile));
                     }
@@ -5040,7 +5108,7 @@ public void RebuildCustomArgumentsFromToggles()
                     await _configService.SaveProfileAsync(saveName, saveConfig);
                     ProfileNameInput = string.Empty;
                     LoadProfiles();
-                    SelectedProfile = saveName;
+                    SetSelectedProfileSilently(saveName);
                     _loadedProfileName = saveName;
                     _loadedProfileConfig = saveConfig;
 
@@ -5066,7 +5134,7 @@ public void RebuildCustomArgumentsFromToggles()
                 LoadConfigToUI(instance.Configuration);
                 _loadedProfileName = instance.ProfileName;
                 _loadedProfileConfig = instance.Configuration;
-                SelectedProfile = instance.ProfileName;
+                SetSelectedProfileSilently(instance.ProfileName);
 
                 // Sync runtime state (AutoRestart, LogEnabled) to control panel
                 _autoRestart = instance.AutoRestart;
@@ -5104,7 +5172,7 @@ public void RebuildCustomArgumentsFromToggles()
                 await _configService.SaveProfileAsync(saveName, config);
                 ProfileNameInput = string.Empty;
                 LoadProfiles();
-                SelectedProfile = saveName;
+                SetSelectedProfileSilently(saveName);
                 _loadedProfileName = saveName;
                 _loadedProfileConfig = config;
                 OnPropertyChanged(nameof(HasUnsavedChanges));
@@ -5117,7 +5185,7 @@ public void RebuildCustomArgumentsFromToggles()
             LoadConfigToUI(instance.Configuration);
             _loadedProfileName = instance.ProfileName;
             _loadedProfileConfig = instance.Configuration;
-            SelectedProfile = instance.ProfileName;
+            SetSelectedProfileSilently(instance.ProfileName);
             OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(WindowTitleWithProfile));
         }
@@ -5307,14 +5375,22 @@ public void RebuildCustomArgumentsFromToggles()
 
     private void LoadProfiles()
     {
-        Profiles.Clear();
-        _routingProfileNames.Clear();
-        var profiles = _configService.GetAllProfiles();
-        foreach (var profile in profiles)
+        _suppressProfileAutoLoad = true;
+        try
         {
-            Profiles.Add(profile.Name);
-            if (profile.Configuration != null && !string.IsNullOrWhiteSpace(profile.Configuration.ModelsDir))
-                _routingProfileNames.Add(profile.Name);
+            Profiles.Clear();
+            _routingProfileNames.Clear();
+            var profiles = _configService.GetAllProfiles();
+            foreach (var profile in profiles)
+            {
+                Profiles.Add(profile.Name);
+                if (profile.Configuration != null && !string.IsNullOrWhiteSpace(profile.Configuration.ModelsDir))
+                    _routingProfileNames.Add(profile.Name);
+            }
+        }
+        finally
+        {
+            _suppressProfileAutoLoad = false;
         }
     }
 
@@ -5525,14 +5601,27 @@ public void RebuildCustomArgumentsFromToggles()
 
     private async Task SaveProfileAsync()
     {
-        var name = !string.IsNullOrWhiteSpace(ProfileNameInput) ? ProfileNameInput : SelectedProfile;
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(_loadedProfileName))
         {
-            await ShowWarningAsync(LocalizedStrings.Instance.PleaseEnterProfileName);
+            await SaveProfileAsAsync();
             return;
         }
+        await SaveToProfileAsync(_loadedProfileName, GetCurrentConfig());
+    }
 
-        var config = GetCurrentConfig();
+    private async Task SaveProfileAsAsync()
+    {
+        var name = await ShowNameInputAsync(
+            LocalizedStrings.Instance.SaveAs,
+            LocalizedStrings.Instance.SaveAsPrompt,
+            _loadedProfileName);
+        name = name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name)) return;
+        await SaveToProfileAsync(name, GetCurrentConfig());
+    }
+
+    private async Task SaveToProfileAsync(string name, ServerConfiguration config)
+    {
         config.ExecutablePath = NormalizeExecutablePathForSaving(config.ExecutablePath);
         await _configService.SaveProfileAsync(name, config);
 
@@ -5549,13 +5638,11 @@ public void RebuildCustomArgumentsFromToggles()
             }
             matchingInstance.UpdateConfiguration(instanceConfig);
         }
-        
-        ProfileNameInput = string.Empty;
+
         LoadProfiles();
-        
-        SelectedProfile = name;
         _loadedProfileName = name;
         _loadedProfileConfig = config;
+        SetSelectedProfileSilently(name);
         OnPropertyChanged(nameof(HasUnsavedChanges));
         OnPropertyChanged(nameof(WindowTitleWithProfile));
     }
@@ -5578,10 +5665,13 @@ public void RebuildCustomArgumentsFromToggles()
         await dialog.ShowDialog(MainWindow.Instance!);
     }
 
-    private async Task LoadProfileAsync()
+    public async Task OnProfileSelectedAsync()
     {
+        if (_suppressProfileAutoLoad) return;
+
         var name = SelectedProfile;
         if (string.IsNullOrWhiteSpace(name)) return;
+        if (name == _loadedProfileName) return;
 
         if (HasUnsavedChanges)
         {
@@ -5590,34 +5680,14 @@ public void RebuildCustomArgumentsFromToggles()
                 LocalizedStrings.Instance.UnsavedChangesTitle);
 
             if (result == MessageBoxResult.Cancel)
-                return;
-            
-            if (result == MessageBoxResult.Yes)
             {
-                // Save to CURRENT profile (_loadedProfileName), not to the one we're trying to load
-                var saveName = _loadedProfileName;
-                if (string.IsNullOrWhiteSpace(saveName))
-                {
-                    // Fall back to ProfileNameInput if no loaded profile
-                    saveName = ProfileNameInput;
-                }
-                
-                if (string.IsNullOrWhiteSpace(saveName))
-                {
-                    await ShowWarningAsync(LocalizedStrings.Instance.PleaseEnterProfileName);
-                    return;
-                }
-                
-                var config = GetCurrentConfig();
-                await _configService.SaveProfileAsync(saveName, config);
-                ProfileNameInput = string.Empty;
-                LoadProfiles();
-                // Update current profile state but don't return - continue to load the new profile
-                SelectedProfile = saveName;
-                _loadedProfileName = saveName;
-                _loadedProfileConfig = config;
-                OnPropertyChanged(nameof(HasUnsavedChanges));
-                // Continue to load the new profile below
+                SetSelectedProfileSilently(_loadedProfileName);
+                return;
+            }
+
+            if (result == MessageBoxResult.Yes && !string.IsNullOrWhiteSpace(_loadedProfileName))
+            {
+                await SaveToProfileAsync(_loadedProfileName, GetCurrentConfig());
             }
         }
 
@@ -5627,6 +5697,7 @@ public void RebuildCustomArgumentsFromToggles()
             LoadConfigToUI(loadedConfig);
             _loadedProfileConfig = loadedConfig;
             _loadedProfileName = name;
+            SetSelectedProfileSilently(name);
             OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(WindowTitleWithProfile));
         }
@@ -5665,7 +5736,10 @@ public void RebuildCustomArgumentsFromToggles()
         if (string.IsNullOrWhiteSpace(oldName)) return;
 
         // Ask for new name using a simple input dialog
-        var newName = await ShowRenameDialogAsync(oldName);
+        var newName = await ShowNameInputAsync(
+            LocalizedStrings.GetString("Rename"),
+            LocalizedStrings.GetString("EnterNewProfileName"),
+            oldName);
         if (string.IsNullOrWhiteSpace(newName) || newName == oldName) return;
 
         try
@@ -5673,7 +5747,7 @@ public void RebuildCustomArgumentsFromToggles()
             await _configService.RenameProfileAsync(oldName, newName);
             _loadedProfileName = newName;
             LoadProfiles();
-            SelectedProfile = newName;
+            SetSelectedProfileSilently(newName);
             OnPropertyChanged(nameof(WindowTitleWithProfile));
         }
         catch (Exception ex)
@@ -5682,28 +5756,28 @@ public void RebuildCustomArgumentsFromToggles()
         }
     }
 
-    private async Task<string> ShowRenameDialogAsync(string currentName)
+    private async Task<string> ShowNameInputAsync(string title, string prompt, string initialValue)
     {
         var dialog = new Window
         {
-            Title = LocalizedStrings.GetString("Rename"),
+            Title = title,
             Width = 400,
             Height = 180,
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
 
         var panel = new StackPanel { Margin = new Avalonia.Thickness(15) };
-        
-        panel.Children.Add(new TextBlock 
-        { 
-            Text = LocalizedStrings.GetString("EnterNewProfileName"),
-            Margin = new Avalonia.Thickness(5) 
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = prompt,
+            Margin = new Avalonia.Thickness(5)
         });
 
-        var textBox = new TextBox 
-        { 
-            Text = currentName,
-            Margin = new Avalonia.Thickness(5, 10) 
+        var textBox = new TextBox
+        {
+            Text = initialValue,
+            Margin = new Avalonia.Thickness(5, 10)
         };
         panel.Children.Add(textBox);
 
@@ -5914,7 +5988,11 @@ public void RebuildCustomArgumentsFromToggles()
 
         await _configService.SaveProfileAsync(cloneResult.Name, cloneResult.Config);
         LoadProfiles();
-        SelectedProfile = cloneResult.Name;
+        LoadConfigToUI(cloneResult.Config);
+        _loadedProfileName = cloneResult.Name;
+        _loadedProfileConfig = cloneResult.Config;
+        SetSelectedProfileSilently(cloneResult.Name);
+        OnPropertyChanged(nameof(HasUnsavedChanges));
         OnPropertyChanged(nameof(WindowTitleWithProfile));
     }
 
@@ -6067,6 +6145,7 @@ public void RebuildCustomArgumentsFromToggles()
         ContextSize = string.Empty;
         Threads = string.Empty;
         GpuLayers = string.Empty;
+        CpuMoe = string.Empty;
         Temperature = string.Empty;
         MaxTokens = string.Empty;
         BatchSize = string.Empty;

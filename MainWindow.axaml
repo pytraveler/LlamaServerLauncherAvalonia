@@ -69,7 +69,7 @@
             </Grid.RowDefinitions>
             <!-- Compact header: About + profile selector + profile actions + update/overflow/language -->
             <Border Grid.Row="0" Margin="5,5,5,0" Padding="8,5" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                     <Button Grid.Column="0" Click="AboutClick" ToolTip.Tip="{Binding Localized.TooltipAbout}"
                             VerticalAlignment="Center" Margin="0,0,8,0" Padding="4">
                         <PathIcon Data="{StaticResource AboutIcon}" Width="18" Height="18"/>
@@ -80,24 +80,20 @@
                     <ComboBox x:Name="ProfileComboBox" Grid.Column="2"
                               ItemsSource="{Binding Profiles}"
                               SelectedItem="{Binding SelectedProfile}"
-                              Text="{Binding ProfileNameInput, UpdateSourceTrigger=PropertyChanged}"
-                              IsEditable="True"
-                              KeyDown="ProfileComboBox_KeyDown"
                               HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="0,0,6,0"/>
                     <TextBlock Grid.Column="3" Text="{Binding Localized.UnsavedChangesWarning}"
                                Foreground="{DynamicResource WarningForegroundBrush}" VerticalAlignment="Center" Margin="0,0,8,0"
                                IsVisible="{Binding HasUnsavedChanges}"/>
 
-                    <Button Grid.Column="4" Content="{Binding Localized.Load}" Click="LoadClick"
-                            VerticalAlignment="Center" Margin="0,0,4,0"/>
-                    <SplitButton Grid.Column="5" Content="{Binding Localized.Save}" Click="SaveClick"
+                    <SplitButton Grid.Column="4" Content="{Binding Localized.Save}" Click="SaveClick"
                                  VerticalAlignment="Center" Margin="0,0,8,0">
                         <SplitButton.Flyout>
                             <MenuFlyout Placement="Bottom">
+                                <MenuItem Header="{Binding Localized.SaveAs}" Click="SaveAsClick"/>
                                 <MenuItem Header="{Binding Localized.Rename}" Click="RenameClick"/>
                                 <MenuItem Header="{Binding Localized.Clone}" Click="CloneClick"/>
+                                <Separator/>
                                 <MenuItem Header="{Binding Localized.Delete}" Click="DeleteClick"/>
-                                <MenuItem Header="{Binding Localized.Clear}" Click="ClearClick" ToolTip.Tip="{Binding Localized.TooltipClearAllFields}"/>
                                 <Separator/>
                                 <MenuItem Header="{Binding Localized.Export}" Click="ExportClick"/>
                                 <MenuItem Header="{Binding Localized.Import}" Click="ImportClick"/>
@@ -105,7 +101,7 @@
                         </SplitButton.Flyout>
                     </SplitButton>
 
-                    <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Content="{Binding Localized.UpdateApp}" IsVisible="{Binding ShowAppUpdateButton}"
                                 Background="{DynamicResource SuccessBackgroundBrush}" Foreground="White" Click="UpdateAppClick"
                                 ToolTip.Tip="{Binding AppUpdateTooltip}" Margin="0,0,5,0"/>
@@ -121,6 +117,8 @@
                         <Button Content="&#x22EE;" Padding="6,0" Margin="0,0,5,0" ToolTip.Tip="{Binding Localized.TooltipImportAll}">
                             <Button.Flyout>
                                 <MenuFlyout Placement="Bottom">
+                                    <MenuItem Header="{Binding Localized.ClearFields}" Click="ClearClick" ToolTip.Tip="{Binding Localized.TooltipClearAllFields}"/>
+                                    <Separator/>
                                     <MenuItem Header="{Binding Localized.ExportAll}" Click="ExportAllClick" ToolTip.Tip="{Binding Localized.TooltipExportAll}"/>
                                     <MenuItem Header="{Binding Localized.ImportAll}" Click="ImportAllClick" ToolTip.Tip="{Binding Localized.TooltipImportAll}"/>
                                 </MenuFlyout>
@@ -983,6 +981,9 @@
                                         <TextBlock Text="{Binding Localized.OnDemandProxyApiKeyLabel}" Margin="0,0,0,5" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyApiKey}"/>
                                         <TextBox Text="{Binding OnDemandProxyApiKey}" Width="200" PasswordChar="*" HorizontalAlignment="Left" ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyApiKey}"/>
                                     </StackPanel>
+
+                                    <CheckBox Content="{Binding Localized.MiniWindowEnable}" IsChecked="{Binding OnDemandProxyMiniWindowEnabled}"
+                                              ToolTip.Tip="{Binding Localized.TooltipMiniWindowEnable}" Margin="0,0,0,8"/>
 
                                     <TextBlock Text="{Binding OnDemandProxyStatusText}" FontSize="12" Margin="0,0,0,3"/>
                                     <TextBlock Text="{Binding OnDemandProxyUrlHint}" FontSize="11" Foreground="{DynamicResource DataPathForegroundBrush}" Margin="0,0,0,3" IsVisible="{Binding OnDemandProxyRunning}"/>

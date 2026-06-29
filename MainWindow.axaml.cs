@@ -25,20 +25,18 @@ public partial class MainWindow : Window
     private MainViewModel? _viewModel;
     private IntPtr _windowHandle;
     private ConfigurationService? _configService;
+    private MiniCountdownWindow? _miniCountdownWindow;
     private bool _isClosing = false;
     private bool _isAutoFitActive;
     private double _originalMinHeight;
     private bool _isCustomLogDrag;
     private double _customLogDragStartY;
     private double _customLogDragStartHeight;
-    private bool _isAutoCompleting;
-    private bool _suppressAutoComplete;
 
     // Width below which the nav pane auto-collapses. Hysteresis: a manual hamburger
     // toggle sticks until the width crosses this threshold again.
     private const double NavAutoCollapseWidth = 880;
     private bool? _navWideState;
-    private TextBox? _profileComboBoxTextBox;
     private System.Threading.CancellationTokenSource? _autoStartCts;
 
     public static MainWindow? Instance { get; private set; }
@@ -54,7 +52,7 @@ public partial class MainWindow : Window
         Opened += (s, e) =>
         {
             this.GetValue(Window.WindowStateProperty);
-            InitializeProfileComboBoxAutoComplete();
+            InitializeProfileComboBox();
         };
         
         // Use the fact that Window implements IPriorityValue
@@ -96,6 +94,9 @@ public partial class MainWindow : Window
             _configService = new ConfigurationService(_viewModel.LogService, _viewModel.CurrentDataPath);
             vm.PropertyChanged += ViewModel_PropertyChanged;
             vm.OpenDownloadDialogFunc = OpenDownloadDialogAsync;
+            vm.MiniWindowShowRequested += ShowMiniCountdownWindow;
+            vm.MiniWindowHideRequested += HideMiniCountdownWindow;
+            Activated += OnMainWindowActivated;
 
             vm.ConfirmActionFunc = async (title, message) =>
             {
@@ -144,6 +145,44 @@ public partial class MainWindow : Window
                 }
             }, token);
         }
+    }
+
+    private void ShowMiniCountdownWindow()
+    {
+        if (_viewModel == null || _configService == null) return;
+
+        if (_miniCountdownWindow == null)
+        {
+            _miniCountdownWindow = new MiniCountdownWindow();
+            _miniCountdownWindow.Closed += OnMiniCountdownClosed;
+            _miniCountdownWindow.SetViewModel(_viewModel.MiniCountdown, _configService, _viewModel.DialogGeometryDict);
+            _miniCountdownWindow.Show();
+        }
+        else
+        {
+            _miniCountdownWindow.Activate();
+        }
+    }
+
+    private void HideMiniCountdownWindow()
+    {
+        _miniCountdownWindow?.Close();
+    }
+
+    private async void OnMiniCountdownClosed(object? sender, EventArgs e)
+    {
+        _miniCountdownWindow = null;
+        if (sender is MiniCountdownWindow win && win.CapturedGeometry != null && _viewModel != null)
+        {
+            _viewModel.DialogGeometryDict["MiniCountdown"] = win.CapturedGeometry;
+            await _viewModel.SaveSettingsAsync();
+        }
+    }
+
+    private void OnMainWindowActivated(object? sender, EventArgs e)
+    {
+        if (_miniCountdownWindow != null && _viewModel?.MiniCountdown.IsHeld == true)
+            _miniCountdownWindow.Close();
     }
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -433,115 +472,18 @@ public partial class MainWindow : Window
         await _viewModel.SaveSettingsAsync();
     }
 
-    private void InitializeProfileComboBoxAutoComplete()
+    private void InitializeProfileComboBox()
     {
         var comboBox = this.FindControl<ComboBox>("ProfileComboBox");
         if (comboBox == null) return;
 
         comboBox.SelectionChanged += ProfileComboBox_SelectionChanged;
-        comboBox.DropDownOpened += ProfileComboBox_DropDownOpened;
         comboBox.AddHandler(PointerWheelChangedEvent, ProfileComboBox_PointerWheelChanged, RoutingStrategies.Tunnel);
-
-        // Try to find TextBox; if not available yet, retry after template is applied
-        TrySubscribeTextBox(comboBox);
-    }
-
-    private void TrySubscribeTextBox(ComboBox comboBox)
-    {
-        comboBox.ApplyTemplate();
-        _profileComboBoxTextBox = comboBox.FindDescendantOfType<TextBox>();
-        if (_profileComboBoxTextBox != null)
-        {
-            _profileComboBoxTextBox.TextChanged += ProfileComboBox_TextChanged;
-            _profileComboBoxTextBox.AddHandler(KeyDownEvent, ProfileComboBoxInnerKeyDown, RoutingStrategies.Tunnel);
-        }
-    }
-
-    private void ProfileComboBox_DropDownOpened(object? sender, EventArgs e)
-    {
-        // If TextBox was not found earlier, try again when dropdown opens
-        if (_profileComboBoxTextBox == null)
-        {
-            var comboBox = sender as ComboBox;
-            if (comboBox != null)
-                TrySubscribeTextBox(comboBox);
-        }
     }
 
     private void ProfileComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (_viewModel == null) return;
-
-        var comboBox = sender as ComboBox;
-        if (comboBox == null) return;
-
-        // When user selects from dropdown, sync ProfileNameInput with the selected item
-        if (comboBox.SelectedItem is string selectedProfile)
-        {
-            _isAutoCompleting = true;
-            try
-            {
-                if (_profileComboBoxTextBox != null)
-                {
-                    _profileComboBoxTextBox.Text = selectedProfile;
-                    _profileComboBoxTextBox.SelectionStart = selectedProfile.Length;
-                    _profileComboBoxTextBox.SelectionEnd = selectedProfile.Length;
-                }
-                _viewModel.ProfileNameInput = selectedProfile;
-            }
-            finally
-            {
-                _isAutoCompleting = false;
-            }
-        }
-    }
-
-    private void ProfileComboBox_TextChanged(object? sender, EventArgs e)
-    {
-        if (_isAutoCompleting || _viewModel == null || _profileComboBoxTextBox == null)
-            return;
-
-        var currentText = _profileComboBoxTextBox.Text ?? "";
-
-        if (string.IsNullOrEmpty(currentText) || _suppressAutoComplete)
-        {
-            _suppressAutoComplete = false;
-            return;
-        }
-
-        var profiles = _viewModel.Profiles;
-        var match = profiles.FirstOrDefault(p => p.StartsWith(currentText, StringComparison.OrdinalIgnoreCase));
-
-        if (match != null && !string.Equals(match, currentText, StringComparison.OrdinalIgnoreCase))
-        {
-            _isAutoCompleting = true;
-            try
-            {
-                var caretIndex = currentText.Length;
-                _profileComboBoxTextBox.Text = match;
-                _profileComboBoxTextBox.SelectionStart = caretIndex;
-                _profileComboBoxTextBox.SelectionEnd = match.Length;
-
-                var comboBox = this.FindControl<ComboBox>("ProfileComboBox");
-                if (comboBox != null)
-                {
-                    comboBox.IsDropDownOpen = true;
-                    comboBox.SelectedItem = match;
-                }
-            }
-            finally
-            {
-                _isAutoCompleting = false;
-            }
-        }
-    }
-
-    private void ProfileComboBoxInnerKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Back || e.Key == Key.Delete)
-        {
-            _suppressAutoComplete = true;
-        }
+        _ = _viewModel?.OnProfileSelectedAsync();
     }
 
     private void ProfileComboBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -566,39 +508,8 @@ public partial class MainWindow : Window
         if (newIndex < 0) newIndex = profiles.Count - 1;
         if (newIndex >= profiles.Count) newIndex = 0;
 
-        var newProfile = profiles[newIndex];
-
-        _isAutoCompleting = true;
-        try
-        {
-            comboBox.SelectedItem = newProfile;
-
-            if (_profileComboBoxTextBox != null)
-            {
-                _profileComboBoxTextBox.Text = newProfile;
-                _profileComboBoxTextBox.SelectionStart = newProfile.Length;
-                _profileComboBoxTextBox.SelectionEnd = newProfile.Length;
-            }
-
-            _viewModel.ProfileNameInput = newProfile;
-        }
-        finally
-        {
-            _isAutoCompleting = false;
-        }
-
+        comboBox.SelectedItem = profiles[newIndex];
         e.Handled = true;
-    }
-
-    private void ProfileComboBox_KeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter && _viewModel?.LoadProfileCommand.CanExecute(null) == true)
-        {
-            if (sender is ComboBox cb)
-                cb.IsDropDownOpen = false;
-            _viewModel.LoadProfileCommand.Execute(null);
-            e.Handled = true;
-        }
     }
 
     private void SaveClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -606,14 +517,14 @@ public partial class MainWindow : Window
         _viewModel?.SaveProfileCommand.Execute(null);
     }
 
+    private void SaveAsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.SaveProfileAsCommand.Execute(null);
+    }
+
     private void ResetCustomColorsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.ResetCustomColorsCommand.Execute(null);
-    }
-
-    private void LoadClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        _viewModel?.LoadProfileCommand.Execute(null);
     }
 
     private void DeleteClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

@@ -132,6 +132,7 @@ public class AppSettings
     public int OnDemandProxyIdleSeconds { get; set; } = 300;
     public int OnDemandProxyHealthTimeoutSeconds { get; set; } = 120;
     public string OnDemandProxyApiKey { get; set; } = "";
+    public bool OnDemandProxyMiniWindowEnabled { get; set; }
     public bool ComfyUiFreeEnabled { get; set; }
     public string ComfyUiUrl { get; set; } = "http://127.0.0.1:8188";
 

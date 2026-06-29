@@ -1,0 +1,22 @@
+<Window x:Class="LlamaServerLauncher.MiniCountdownWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Localized.MiniWindowTitle}"
+        Width="260" SizeToContent="Height"
+        CanResize="False"
+        Topmost="True"
+        ShowInTaskbar="False"
+        WindowStartupLocation="Manual"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <Border Padding="12">
+        <StackPanel Spacing="8">
+            <TextBlock Text="{Binding ProfileName}" FontWeight="Bold"
+                       TextTrimming="CharacterEllipsis"/>
+            <TextBlock Text="{Binding StatusText}" Opacity="0.8" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding CountdownText}" IsVisible="{Binding ShowCountdown}"
+                       FontSize="30" FontWeight="Bold" HorizontalAlignment="Center"/>
+            <Button Content="{Binding PrimaryButtonText}" Click="PrimaryClick"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+        </StackPanel>
+    </Border>
+</Window>
