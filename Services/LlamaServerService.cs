@@ -5,6 +5,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using LlamaServerLauncher.Models;
 
@@ -22,6 +23,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     private string? _dockerContainerName;
     private DateTime? _processStartTime;
     private bool _serverStateChangedRaised;
+    private int? _lastKnownPid;
 
     public string LogPrefix { get; set; } = "";
 
@@ -232,7 +234,8 @@ public class LlamaServerService : ILlamaServerService, IDisposable
             _process.BeginOutputReadLine();
             _process.BeginErrorReadLine();
 
-            _logService.Info($"Server started with PID: {_process.Id}, executable: {resolvedExecutable}");
+            _lastKnownPid = _process.Id;
+            _logService.Info($"Server started with PID: {_lastKnownPid}, executable: {resolvedExecutable}");
             ServerStateChanged?.Invoke(this, true);
         }
         catch (Exception ex)
@@ -328,7 +331,8 @@ public class LlamaServerService : ILlamaServerService, IDisposable
             _process.BeginOutputReadLine();
             _process.BeginErrorReadLine();
 
-            _logService.Info($"Docker server started with PID: {_process.Id}");
+            _lastKnownPid = _process.Id;
+            _logService.Info($"Docker server started with PID: {_lastKnownPid}");
             ServerStateChanged?.Invoke(this, true);
         }
         catch (Exception ex)
@@ -568,7 +572,23 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         return null;
     }
 
-    public async Task<string?> GetSlotsStatusAsync()
+    private static readonly HttpClient HealthClient = new() { Timeout = TimeSpan.FromSeconds(5) };
+
+    public async Task<bool> CheckHealthOnceAsync(CancellationToken ct)
+    {
+        if (_currentConfig == null) return false;
+        try
+        {
+            using var resp = await HealthClient.GetAsync($"{BaseUrl}/health", ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<string?> GetSlotsStatusAsync(bool logErrors = true)
     {
         if (!IsRunning)
         {
@@ -586,7 +606,8 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         }
         catch (Exception ex)
         {
-            _logService.Error($"Error getting slots status: {ex.Message}");
+            if (logErrors)
+                _logService.Error($"Error getting slots status: {ex.Message}");
         }
 
         return null;
@@ -613,8 +634,11 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         if (_process == null) return;
 
         int? exitCode = null;
-        try { exitCode = _process.ExitCode; } catch { }
-        _logService.Info($"Server process exited. PID={_process.Id}, ExitCode={exitCode}, HasExited={_process.HasExited}");
+        if (!_isStoppingIntentionally)
+        {
+            try { exitCode = _process.ExitCode; } catch { }
+        }
+        _logService.Info($"Server process exited. PID={_lastKnownPid}, ExitCode={exitCode}, Intentional={_isStoppingIntentionally}");
 
         var lifetime = _processStartTime.HasValue ? (DateTime.Now - _processStartTime.Value).TotalSeconds : double.MaxValue;
 

@@ -29,6 +29,10 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
     private const int MaxCachedDescriptions = 20;
 
+    private GpuVendor _detectedVendor = GpuVendor.Unknown;
+    private static readonly bool IsArm64 =
+        System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.Arm64;
+
     public LocalizedStrings Localized => LocalizedStrings.Instance;
 
     public ObservableCollection<ReleaseInfo> Releases { get; } = new();
@@ -221,6 +225,23 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
     public bool ShowProgress => IsDownloading;
 
+    private string _detectedBackendText = "";
+    public string DetectedBackendText
+    {
+        get => _detectedBackendText;
+        private set
+        {
+            if (_detectedBackendText != value)
+            {
+                _detectedBackendText = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasDetectedBackend));
+            }
+        }
+    }
+
+    public bool HasDetectedBackend => !string.IsNullOrEmpty(_detectedBackendText);
+
     public string? DownloadedReleaseTag { get; private set; }
     public string? DownloadedExecutablePath { get; private set; }
     public string? LastCustomDownloadPath { get; set; }
@@ -237,6 +258,17 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         _releaseCache = releaseCache;
         _releaseCacheTimestamp = releaseCacheTimestamp;
         _ = LoadReleasesAsync(preselectedTag);
+        _ = DetectVendorAsync();
+    }
+
+    private async Task DetectVendorAsync()
+    {
+        var vendor = await GpuVendorDetector.DetectAsync();
+        Dispatcher.UIThread.Post(() =>
+        {
+            _detectedVendor = vendor;
+            ApplyBackendSelection();
+        });
     }
 
     public void SetExperimentalRepos(bool enabled, ObservableCollection<ExperimentalRepoInfo> repos)
@@ -403,9 +435,35 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
             AvailableAssets.Add(a);
 
         if (AvailableAssets.Count > 0)
-            SelectedAsset = AvailableAssets[0];
+        {
+            ApplyBackendSelection();
+        }
         else
+        {
+            DetectedBackendText = "";
             StatusMessage = LocalizedStrings.GetString("NoAssetsForOS");
+        }
+    }
+
+    private void ApplyBackendSelection()
+    {
+        if (IsDownloading || AvailableAssets.Count == 0) return;
+
+        var names = AvailableAssets.Select(a => a.Name).ToList();
+        var idx = BackendAssetSelector.PickBestIndex(names, _detectedVendor, IsArm64);
+        if (idx < 0) idx = 0;
+        SelectedAsset = AvailableAssets[idx];
+
+        if (_detectedVendor == GpuVendor.Unknown)
+        {
+            DetectedBackendText = "";
+        }
+        else
+        {
+            var vendor = BackendAssetSelector.VendorLabel(_detectedVendor);
+            var backend = BackendAssetSelector.BackendLabel(AvailableAssets[idx].Name);
+            DetectedBackendText = $"{Localized.AutoDetectedBackend}: {vendor} · {backend}";
+        }
     }
 
     private void UpdateReleaseDescription()

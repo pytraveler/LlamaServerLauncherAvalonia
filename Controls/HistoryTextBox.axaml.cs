@@ -1,9 +1,12 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using LlamaServerLauncher.Models;
+using LlamaServerLauncher.Resources;
 using LlamaServerLauncher.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -19,6 +22,9 @@ public partial class HistoryTextBox : UserControl
     public static readonly StyledProperty<string?> PlaceholderTextProperty =
         AvaloniaProperty.Register<HistoryTextBox, string?>(nameof(PlaceholderText));
 
+    public static readonly StyledProperty<bool> ShowClearButtonProperty =
+        AvaloniaProperty.Register<HistoryTextBox, bool>(nameof(ShowClearButton), defaultValue: true);
+
     public string? PropertyName
     {
         get => GetValue(PropertyNameProperty);
@@ -31,6 +37,12 @@ public partial class HistoryTextBox : UserControl
         set => SetValue(PlaceholderTextProperty, value);
     }
 
+    public bool ShowClearButton
+    {
+        get => GetValue(ShowClearButtonProperty);
+        set => SetValue(ShowClearButtonProperty, value);
+    }
+
     private IDisposable? _textBinding;
     private ArgType? _filterType;
     private string _lastValidText = "";
@@ -40,6 +52,7 @@ public partial class HistoryTextBox : UserControl
     {
         InitializeComponent();
         InnerTextBox.TextChanged += OnInnerTextChanged;
+        ClearButton.IsVisible = ShowClearButton;
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -58,6 +71,14 @@ public partial class HistoryTextBox : UserControl
             InnerTextBox.PlaceholderText = change.GetNewValue<string?>();
         else if (change.Property == IsEnabledProperty)
             InnerTextBox.IsEnabled = change.GetNewValue<bool>();
+        else if (change.Property == ShowClearButtonProperty)
+            ClearButton.IsVisible = change.GetNewValue<bool>();
+    }
+
+    private void ClearButton_Click(object? sender, RoutedEventArgs e)
+    {
+        InnerTextBox.Text = string.Empty;
+        InnerTextBox.Focus();
     }
 
     private void ApplyTextBinding()

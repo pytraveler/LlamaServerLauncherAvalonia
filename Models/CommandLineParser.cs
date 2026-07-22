@@ -6,21 +6,15 @@ namespace LlamaServerLauncher.Models;
 
 public static class CommandLineParser
 {
-    /// <summary>
-    /// Determines whether a token is a command-line flag (e.g. -v, --threads)
-    /// rather than a negative number (e.g. -1, -0.5, -.3).
-    /// A token is a flag if it starts with '-' and the next character is a letter or another '-'.
-    /// </summary>
     public static bool IsFlag(string token)
     {
         if (string.IsNullOrEmpty(token) || token[0] != '-')
             return false;
 
         if (token.Length < 2)
-            return true; // bare "-" is treated as a flag
+            return true;
 
         char next = token[1];
-        // "-" followed by a digit or '.' is a negative number, not a flag
         if (char.IsDigit(next) || next == '.')
             return false;
 
@@ -30,20 +24,16 @@ public static class CommandLineParser
     public static string NormalizeSpecialCharacters(string input)
     {
         if (string.IsNullOrEmpty(input)) return input;
-        
-        // First normalize whitespace but preserve backslash sequences that might be JSON escaping
+
         var result = input
             .Replace("\\t", "\t")
             .Replace("\\n", "\n")
             .Replace("\\r", "\r");
-        
-        // Then decode JSON-style double escaping (\\ becomes \) that may come from UI JSON input
-        // This handles cases where user enters JSON with proper escaping in the UI
+
         result = result.Replace("\\\\", "\\");
-        
-        // Also normalize actual tab/newline chars if they somehow got in
+
         result = result.Replace("\t", " ").Replace("\n", " ").Replace("\r", " ");
-        
+
         return result;
     }
 

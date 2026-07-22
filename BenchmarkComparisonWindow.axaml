@@ -1,0 +1,111 @@
+<Window x:Class="LlamaServerLauncher.BenchmarkComparisonWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
+        xmlns:res="clr-namespace:LlamaServerLauncher.Resources;assembly=LlamaServerLauncher"
+        Title="{Binding Localized.BenchmarkCompareTitle}"
+        Width="1040" Height="700"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        MinWidth="640" MinHeight="440"
+        Background="{DynamicResource WindowBackgroundBrush}">
+
+    <Grid Margin="10" RowDefinitions="Auto,*">
+
+        <WrapPanel Grid.Row="0" Orientation="Horizontal">
+            <Button Content="{Binding Localized.BenchmarkRefresh}" Click="RefreshClick" Margin="0,0,6,0" Padding="8,4"/>
+            <Button Content="{Binding Localized.BenchmarkExportMd}" Click="ExportMdClick" Margin="0,0,6,0" Padding="8,4"
+                    IsEnabled="{Binding HasSelection}"/>
+            <Button Content="{Binding Localized.BenchmarkExportZip}" Click="ExportZipClick" Margin="0,0,6,0" Padding="8,4"
+                    IsEnabled="{Binding HasSelection}"/>
+            <Button Content="{Binding Localized.BenchmarkDeleteRun}" Click="DeleteRunClick" Margin="0,0,6,0" Padding="8,4"
+                    IsEnabled="{Binding HasSelection}"/>
+        </WrapPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="320,6,*" Margin="0,10,0,0">
+
+            <DockPanel Grid.Column="0">
+                <DropDownButton DockPanel.Dock="Top" Margin="0,0,0,8" Padding="8,4"
+                                Content="{Binding Localized.BenchmarkProfileFilter}"
+                                HorizontalAlignment="Left">
+                    <DropDownButton.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedLeft">
+                            <StackPanel MinWidth="220" Spacing="4">
+                                <Button Content="{Binding Localized.BenchmarkProfileFilterAll}"
+                                        Click="ProfileFilterAllClick" HorizontalAlignment="Stretch"/>
+                                <ItemsControl ItemsSource="{Binding ProfileFilters}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsChecked}" Margin="0,1">
+                                                <TextBlock Text="{Binding Name}"/>
+                                            </CheckBox>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Flyout>
+                    </DropDownButton.Flyout>
+                </DropDownButton>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="6">
+                    <TextBlock Text="{Binding Localized.BenchmarkSavedSets}" FontWeight="Bold"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ComboBox ItemsSource="{Binding SavedSetNames}" SelectedItem="{Binding SelectedSetName}"
+                                  HorizontalAlignment="Stretch"/>
+                        <Button Grid.Column="1" Content="{Binding Localized.BenchmarkDeleteSet}" Click="DeleteSetClick" Margin="5,0,0,0"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Text="{Binding SetName, UpdateSourceTrigger=PropertyChanged}"
+                                 PlaceholderText="{Binding Localized.BenchmarkSetName}"/>
+                        <Button Grid.Column="1" Content="{Binding Localized.BenchmarkSaveSet}" Click="SaveSetClick" Margin="5,0,0,0"/>
+                    </Grid>
+                </StackPanel>
+
+                <Border BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="4">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Runs}" Margin="6,4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                                        <CheckBox IsChecked="{Binding IsSelected}"
+                                                  HorizontalAlignment="Stretch">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Subtitle}" FontSize="11" Opacity="0.7"/>
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <Button Grid.Column="1" Content="&#x1F4CC;"
+                                                Padding="5,2" VerticalAlignment="Center" Margin="4,0,0,0"
+                                                Background="Transparent" BorderThickness="0"
+                                                ToolTip.Tip="{Binding $parent[Window].DataContext.Localized.BenchmarkPin}">
+                                            <Button.Flyout>
+                                                <MenuFlyout>
+                                                    <MenuItem Header="{Binding BenchmarkPinFiles, Source={x:Static res:LocalizedStrings.Instance}}"
+                                                              Click="PinFilesClick"/>
+                                                    <MenuItem Header="{Binding BenchmarkPinFolder, Source={x:Static res:LocalizedStrings.Instance}}"
+                                                              Click="PinFolderClick"/>
+                                                </MenuFlyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                        <Button Grid.Column="2" Content="&#x1F4C1;" Click="RevealRunClick"
+                                                Padding="5,2" VerticalAlignment="Center" Margin="2,0,0,0"
+                                                Background="Transparent" BorderThickness="0"
+                                                ToolTip.Tip="{Binding $parent[Window].DataContext.Localized.BenchmarkOpenFolder}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Width="6" Background="Transparent"/>
+
+            <Border Grid.Column="2" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="4" Padding="12">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <ContentControl Content="{Binding ComparisonView}"/>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

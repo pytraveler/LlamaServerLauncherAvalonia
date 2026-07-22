@@ -1,0 +1,102 @@
+<Window x:Class="LlamaServerLauncher.BenchmarkLaunchWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
+        Title="{Binding Localized.BenchmarkRunSave}"
+        Width="660" Height="680"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        MinWidth="480" MinHeight="520"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <Grid Margin="15" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
+
+        <TextBlock Grid.Row="0" Text="{Binding Localized.BenchmarkArgsLabel}" FontWeight="Bold" Margin="0,0,0,5"/>
+
+        <ScrollViewer Grid.Row="1" Height="120" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+            <TextBox Text="{Binding ArgsText}" AcceptsReturn="True" TextWrapping="Wrap"
+                     FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                     ToolTip.Tip="{Binding Localized.TooltipCustomArguments}"/>
+        </ScrollViewer>
+
+        <ItemsControl Grid.Row="2" ItemsSource="{Binding ArgItems}" Margin="0,0,0,4">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <ToggleButton IsChecked="{Binding IsEnabled}"
+                                  Margin="0,0,5,5" Padding="8,4"
+                                  Tapped="ArgToggleTapped"
+                                  RightTapped="ArgToggleRightTapped">
+                        <TextBlock Text="{Binding Name}"/>
+                    </ToggleButton>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Grid.Row="3" Text="{Binding Localized.CustomArgumentToggleHint}"
+                   FontSize="11" Opacity="0.6" Margin="0,0,0,10"
+                   IsVisible="{Binding HasArgItems}"/>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="20" Margin="0,0,0,10">
+            <CheckBox Content="{Binding Localized.BenchmarkFixSeed}" IsChecked="{Binding FixSeed}"/>
+            <CheckBox Content="{Binding Localized.BenchmarkCollectMetrics}" IsChecked="{Binding EnableMetrics}"
+                      IsEnabled="{Binding MetricsSupported}"/>
+        </StackPanel>
+
+        <Border Grid.Row="5" Padding="10" Margin="0,0,0,10" CornerRadius="5"
+                Background="{DynamicResource PanelBackgroundBrush}">
+            <StackPanel>
+                <CheckBox Content="{Binding Localized.BenchmarkStandardRun}" IsChecked="{Binding RunStandardWorkload}"/>
+                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" Margin="0,8,0,0"
+                      IsVisible="{Binding RunStandardWorkload}">
+                    <StackPanel Grid.Column="0" Margin="0,0,15,0">
+                        <TextBlock Text="{Binding Localized.BenchmarkPromptTokens}" Margin="0,0,0,3"/>
+                        <NumericUpDown Value="{Binding StdPromptTokens}" Minimum="1" Maximum="131072" Width="120"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="0,0,15,0">
+                        <TextBlock Text="{Binding Localized.BenchmarkNPredict}" Margin="0,0,0,3"/>
+                        <NumericUpDown Value="{Binding StdNPredict}" Minimum="1" Maximum="32768" Width="120"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Margin="0,0,15,0">
+                        <TextBlock Text="{Binding Localized.BenchmarkRepeat}" Margin="0,0,0,3"/>
+                        <NumericUpDown Value="{Binding StdRepeat}" Minimum="1" Maximum="50" Width="120"/>
+                    </StackPanel>
+                    <CheckBox Grid.Column="3" Content="{Binding Localized.BenchmarkStopAfterRun}"
+                              IsChecked="{Binding StopAfterWorkload}" VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="6" ColumnDefinitions="*,*" Margin="0,0,0,10">
+            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                <TextBlock Text="{Binding Localized.BenchmarkLabel}" Margin="0,0,0,3"/>
+                <TextBox Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                <TextBlock Text="{Binding Localized.BenchmarkNotes}" Margin="0,0,0,3"/>
+                <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="7" RowDefinitions="Auto,*" Margin="0,0,0,10">
+            <TextBlock Text="{Binding Localized.BenchmarkCommandPreview}" FontWeight="Bold" Margin="0,0,0,5"/>
+            <Border Grid.Row="1" Background="{DynamicResource CommandBackgroundBrush}" CornerRadius="4" Padding="10,8"
+                    MinHeight="60">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <SelectableTextBlock Text="{Binding CommandPreview}"
+                                         FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                         Foreground="{DynamicResource CommandForegroundBrush}"
+                                         TextWrapping="Wrap"/>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+            <Button Content="{Binding Localized.BenchmarkRunButton}" Click="RunClick" Padding="15,6"/>
+            <Button Content="{Binding Localized.Cancel}" Click="CancelClick" Padding="15,6"/>
+        </StackPanel>
+    </Grid>
+</Window>

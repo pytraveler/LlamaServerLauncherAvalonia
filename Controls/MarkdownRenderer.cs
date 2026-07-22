@@ -87,6 +87,23 @@ public static class MarkdownRenderer
                 continue;
             }
 
+            if (trimmed.Contains('|') && i + 1 < lines.Length && IsTableSeparator(lines[i + 1]))
+            {
+                var header = SplitRow(line);
+                i += 2;
+                var bodyRows = new List<List<string>>();
+                while (i < lines.Length)
+                {
+                    string rowTrimmed = lines[i].TrimStart();
+                    if (rowTrimmed.Length == 0 || !rowTrimmed.Contains('|'))
+                        break;
+                    bodyRows.Add(SplitRow(lines[i]));
+                    i++;
+                }
+                root.Children.Add(BuildTable(header, bodyRows));
+                continue;
+            }
+
             if (IsListItem(line, out _, out _, out _))
             {
                 var items = new List<(int indent, bool ordered, string marker, string content)>();
@@ -271,7 +288,9 @@ public static class MarkdownRenderer
                 }
             }
 
-            if ((c == '*' || c == '_') && i + 1 < text.Length && text[i + 1] == c)
+            bool canOpen = c == '*' || i == 0 || !char.IsLetterOrDigit(text[i - 1]);
+
+            if ((c == '*' || c == '_') && canOpen && i + 1 < text.Length && text[i + 1] == c)
             {
                 string delim = new string(c, 2);
                 int end = text.IndexOf(delim, i + 2, StringComparison.Ordinal);
@@ -286,9 +305,11 @@ public static class MarkdownRenderer
                 }
             }
 
-            if (c == '*' || c == '_')
+            if ((c == '*' || c == '_') && canOpen)
             {
                 int end = text.IndexOf(c, i + 1);
+                while (c == '_' && end > 0 && end + 1 < text.Length && char.IsLetterOrDigit(text[end + 1]))
+                    end = text.IndexOf(c, end + 1);
                 if (end > i && end != i + 1)
                 {
                     Flush();
@@ -398,5 +419,126 @@ public static class MarkdownRenderer
             }
         }
         return count + ".";
+    }
+
+    private static bool IsTableSeparator(string line)
+    {
+        var cells = SplitRow(line);
+        if (cells.Count == 0)
+            return false;
+        foreach (var raw in cells)
+        {
+            var t = raw.Trim();
+            if (t.Length == 0)
+                return false;
+            int start = 0, end = t.Length;
+            if (t[start] == ':') start++;
+            if (end > start && t[end - 1] == ':') end--;
+            if (end <= start)
+                return false;
+            for (int k = start; k < end; k++)
+                if (t[k] != '-')
+                    return false;
+        }
+        return true;
+    }
+
+    private static List<string> SplitRow(string line)
+    {
+        var s = line.Trim();
+        if (s.StartsWith("|", StringComparison.Ordinal)) s = s.Substring(1);
+        if (s.EndsWith("|", StringComparison.Ordinal)) s = s.Substring(0, s.Length - 1);
+
+        var cells = new List<string>();
+        var sb = new StringBuilder();
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = s[i];
+            if (c == '\\' && i + 1 < s.Length && s[i + 1] == '|')
+            {
+                sb.Append('|');
+                i++;
+                continue;
+            }
+            if (c == '|')
+            {
+                cells.Add(sb.ToString().Trim());
+                sb.Clear();
+                continue;
+            }
+            sb.Append(c);
+        }
+        cells.Add(sb.ToString().Trim());
+        return cells;
+    }
+
+    private static Control BuildTable(List<string> header, List<List<string>> rows)
+    {
+        int cols = header.Count;
+        if (cols == 0)
+            return new StackPanel();
+
+        var grid = new Grid();
+        for (int c = 0; c < cols; c++)
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        for (int r = 0; r < rows.Count; r++)
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+        for (int c = 0; c < cols; c++)
+        {
+            var cell = BuildTableCell(header[c], true);
+            Grid.SetRow(cell, 0);
+            Grid.SetColumn(cell, c);
+            grid.Children.Add(cell);
+        }
+
+        for (int r = 0; r < rows.Count; r++)
+        {
+            var row = rows[r];
+            for (int c = 0; c < cols; c++)
+            {
+                var text = c < row.Count ? row[c] : string.Empty;
+                var cell = BuildTableCell(text, false);
+                Grid.SetRow(cell, r + 1);
+                Grid.SetColumn(cell, c);
+                grid.Children.Add(cell);
+            }
+        }
+
+        var outer = new Border
+        {
+            BorderBrush = Brush("SeparatorBrush"),
+            BorderThickness = new Thickness(1, 1, 0, 0),
+            Margin = new Thickness(0, 4, 0, 4),
+            Child = grid
+        };
+
+        return new ScrollViewer
+        {
+            Content = outer,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+        };
+    }
+
+    private static Control BuildTableCell(string text, bool isHeader)
+    {
+        var body = new SelectableTextBlock { TextWrapping = TextWrapping.Wrap };
+        if (isHeader)
+        {
+            body.FontWeight = FontWeight.Bold;
+            body.Foreground = Brush("AccentForegroundBrush");
+        }
+        ParseInlines(text, body.Inlines!);
+
+        return new Border
+        {
+            BorderBrush = Brush("SeparatorBrush"),
+            BorderThickness = new Thickness(0, 0, 1, 1),
+            Background = isHeader ? Brush("PanelBackgroundBrush") : null,
+            Padding = new Thickness(8, 4),
+            Child = body
+        };
     }
 }

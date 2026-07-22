@@ -22,5 +22,5 @@ public interface ILlamaServerService
     Task<List<string>> GetLoadedModelsAsync();
     Task UnloadSingleModelAsync(string modelId);
     Task<string?> GetCurrentModelAsync();
-    Task<string?> GetSlotsStatusAsync();
+    Task<string?> GetSlotsStatusAsync(bool logErrors = true);
 }

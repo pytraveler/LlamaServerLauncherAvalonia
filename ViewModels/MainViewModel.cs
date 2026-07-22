@@ -37,8 +37,16 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private readonly AppUpdateService _appUpdateService = new();
     private readonly AutoStartService _autoStartService;
     private readonly DataPathResolver _dataPathResolver;
+    private LlamaServerLauncher.Services.Benchmarking.BenchmarkStorageService _benchmarkStorage = null!;
+    private readonly Dictionary<ServerInstance, LlamaServerLauncher.Services.Benchmarking.BenchmarkRunController> _benchmarkRuns = new();
     private readonly LogStreamService _logStreamService;
     private readonly OnDemandProxyService _onDemandProxyService;
+    private readonly HardwareMonitorService _hwMonitor;
+    private HardwareSnapshot _hw = HardwareSnapshot.Empty;
+    private bool _hardwareMonitorEnabled = true;
+    private int _serverStartsInProgress;
+    private string _modelScanFolder = "";
+    private bool _modelScanRecursive;
     private readonly Services.Optimization.HttpBenchmarkService _proxyHealth = new();
     private readonly System.Net.Http.HttpClient _comfyUiHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
     private string _lastProxiedProfile = string.Empty;
@@ -105,12 +113,158 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         AutoRestart = inst?.AutoRestart ?? false;
         LogEnabled = inst?.LogEnabled ?? true;
         ShowServerStartError = inst?.ShowServerStartError ?? false;
-        ServerStatus = inst != null
-            ? (inst.IsRunning
-                ? string.Format(Resources.LocalizedStrings.GetString("StatusRunning"), inst.ProcessId)
-                : Localized.StatusStopped)
-            : Localized.StatusStopped;
+        ServerStatus = inst != null ? StatusTextFor(inst) : Localized.StatusStopped;
+        OnPropertyChanged(nameof(HasInferenceStats));
+        OnPropertyChanged(nameof(InferenceStatsText));
         UpdateCommandStates();
+    }
+
+    private string StatusTextFor(ServerInstance inst)
+    {
+        if (inst.IsReady) return string.Format(Resources.LocalizedStrings.GetString("StatusRunning"), inst.ProcessId);
+        if (inst.IsRunning) return Localized.StatusLoading;
+        return Localized.StatusStopped;
+    }
+
+    public bool HasInferenceStats
+    {
+        get
+        {
+            var inst = _selectedInstance;
+            return inst is { IsRunning: true }
+                && (inst.GenTps.HasValue || inst.PromptTps.HasValue || inst.SlotsTotal.HasValue);
+        }
+    }
+
+    public string InferenceStatsText
+    {
+        get
+        {
+            var inst = _selectedInstance;
+            if (inst is not { IsRunning: true }) return string.Empty;
+            var parts = new List<string>();
+            if (inst.PromptTps is double pp && pp > 0)
+                parts.Add(string.Format(CultureInfo.InvariantCulture, Localized.StatsPrompt, pp));
+            if (inst.GenTps is double tg && tg > 0)
+                parts.Add(string.Format(CultureInfo.InvariantCulture, Localized.StatsGen, tg));
+            if (inst.SlotsTotal is int st && st > 0)
+                parts.Add(string.Format(CultureInfo.InvariantCulture, Localized.StatsSlots, inst.SlotsBusy ?? 0, st));
+            return string.Join("   ·   ", parts);
+        }
+    }
+
+    private void OnHardwareUpdated(object? sender, HardwareSnapshot snapshot)
+    {
+        if (!_hardwareMonitorEnabled) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_hardwareMonitorEnabled) return;
+            _hw = snapshot;
+            RaiseHardwareProps();
+        });
+    }
+
+    private void ReconcileHardwareMonitor()
+    {
+        if (_hardwareMonitorEnabled)
+        {
+            _hwMonitor.Start();
+        }
+        else
+        {
+            _hwMonitor.Stop();
+            _hw = HardwareSnapshot.Empty;
+            RaiseHardwareProps();
+        }
+    }
+
+    private void UpdateGpuPollingGate()
+    {
+        _hwMonitor.PollingSuspended =
+            _serverStartsInProgress > 0 || RunningInstances.Any(i => i.IsStarting || i.IsLoading);
+    }
+
+    private async Task PrepareGpuForServerLaunchAsync()
+    {
+        _hwMonitor.PollingSuspended = true;
+        var drained = await _hwMonitor.WaitForGpuIdleAsync();
+        if (drained)
+            _logService.Info("GPU monitor quiesced before server launch");
+        else
+            _logService.Warning("GPU monitor drain timed out before server launch - a GPU query may still be running");
+    }
+
+    private void RaiseHardwareProps()
+    {
+        OnPropertyChanged(nameof(HasHardwarePanel));
+        OnPropertyChanged(nameof(HasCpu));
+        OnPropertyChanged(nameof(CpuPercent));
+        OnPropertyChanged(nameof(CpuText));
+        OnPropertyChanged(nameof(HasRam));
+        OnPropertyChanged(nameof(RamPercent));
+        OnPropertyChanged(nameof(RamText));
+        OnPropertyChanged(nameof(RamTooltip));
+        OnPropertyChanged(nameof(HasGpuUtil));
+        OnPropertyChanged(nameof(GpuPercent));
+        OnPropertyChanged(nameof(GpuText));
+        OnPropertyChanged(nameof(HasVram));
+        OnPropertyChanged(nameof(VramPercent));
+        OnPropertyChanged(nameof(VramText));
+        OnPropertyChanged(nameof(VramTooltip));
+        OnPropertyChanged(nameof(HasTemp));
+        OnPropertyChanged(nameof(TempPercent));
+        OnPropertyChanged(nameof(TempText));
+    }
+
+    private GpuInfo? Gpu0 => _hw.Gpus.Count > 0 ? _hw.Gpus[0] : null;
+
+    public bool HasHardwarePanel => HasCpu || HasRam || HasGpuUtil || HasVram || HasTemp;
+
+    public bool HasCpu => _hw.CpuPercent.HasValue;
+    public double CpuPercent => _hw.CpuPercent ?? 0;
+    public string CpuText => _hw.CpuPercent is double c ? $"{c:0}%" : string.Empty;
+
+    public bool HasRam => _hw.RamPercent.HasValue;
+    public double RamPercent => _hw.RamPercent ?? 0;
+    public string RamText => _hw.RamPercent is double r ? $"{r:0}%" : string.Empty;
+    public string RamTooltip => _hw.RamUsedGb is double u && _hw.RamTotalGb is double t
+        ? string.Format(CultureInfo.InvariantCulture, Localized.GpuVramValue, u, t) : string.Empty;
+
+    public bool HasGpuUtil => Gpu0?.UtilPercent is not null;
+    public double GpuPercent => Gpu0?.UtilPercent ?? 0;
+    public string GpuText => Gpu0?.UtilPercent is int u ? $"{u}%" : string.Empty;
+
+    public bool HasVram => Gpu0 is { MemUsedMb: not null, MemTotalMb: not null };
+    public double VramPercent => Gpu0 is { MemUsedMb: int used, MemTotalMb: int total } && total > 0
+        ? (double)used / total * 100.0 : 0;
+    public string VramText => HasVram ? $"{VramPercent:0}%" : string.Empty;
+    public string VramTooltip => Gpu0 is { MemUsedMb: int mu, MemTotalMb: int mt }
+        ? string.Format(CultureInfo.InvariantCulture, Localized.GpuVramValue, mu / 1024.0, mt / 1024.0) : string.Empty;
+
+    public bool HasTemp => Gpu0?.TempC is not null;
+    public double TempPercent => Gpu0?.TempC is int tc ? (tc < 0 ? 0 : tc > 100 ? 100 : tc) : 0;
+    public string TempText => Gpu0?.TempC is int t2 ? $"{t2}°" : string.Empty;
+
+    public bool HardwareMonitorEnabled
+    {
+        get => _hardwareMonitorEnabled;
+        set
+        {
+            if (_hardwareMonitorEnabled == value) return;
+            _hardwareMonitorEnabled = value;
+            OnPropertyChanged();
+            if (value)
+            {
+                UpdateGpuPollingGate();
+                _hwMonitor.Start();
+            }
+            else
+            {
+                _hwMonitor.Stop();
+                _hw = HardwareSnapshot.Empty;
+                RaiseHardwareProps();
+            }
+        }
     }
 
     private void UpdateCommandStates()
@@ -392,6 +546,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         RebuildColorSchemeOptions();
         OnPropertyChanged(nameof(ColorSchemeOptions));
         OnPropertyChanged(nameof(ColorScheme));
+        OnPropertyChanged(nameof(ModelMaxContextText));
     }
 
     /// <summary>Unsubscribes from things the view model hooked into at startup.</summary>
@@ -605,6 +760,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private string _host = "127.0.0.1";
     private string _port = "8080";
     private string _contextSize = string.Empty;
+    private int? _modelTrainMaxContext;
+    private GgufModelInfo? _modelInfo;
     private string _threads = string.Empty;
     private string _gpuLayers = string.Empty;
     private string _cpuMoe = string.Empty;
@@ -1173,10 +1330,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private readonly HashSet<string> _shownCorruptFileToasts = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> _pendingCorruptFileToasts = new();
 
-    private ToastItem? _autoFitHeightToast;
-    // Show the auto-fit warning at most once per session.
-    private bool _autoFitHeightWarningShown;
-
     private bool _isLoadingConfig;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -1193,6 +1346,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _serverService = new LlamaServerService(_logService);
         _configService = new ConfigurationService(_logService, resolvedPath);
         _configService.CorruptFileSkipped += OnCorruptFileSkipped;
+        _benchmarkStorage = new LlamaServerLauncher.Services.Benchmarking.BenchmarkStorageService(_dataPathResolver, _logService);
         _downloadService = new LlamaCppDownloadService(resolvedPath);
         _dockerService = new DockerCliService(_logService);
         _autoStartService = new AutoStartService(_logService);
@@ -1206,6 +1360,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             });
         };
         _onDemandProxyService = new OnDemandProxyService(_logService, this);
+        _hwMonitor = new HardwareMonitorService(_logService);
+        _hwMonitor.Updated += OnHardwareUpdated;
         MiniCountdown = new MiniCountdownViewModel(HoldModelLoadedAsync, UnloadModelNowAsync);
         _onDemandProxyService.ModelLoaded += OnProxyModelLoaded;
         _onDemandProxyService.ActivityChanged += OnProxyActivityChanged;
@@ -1216,6 +1372,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             OnPropertyChanged(nameof(HasAnyRunningInstances));
             OnPropertyChanged(nameof(HasAnyInstances));
             RequestTrayMenuRebuild?.Invoke();
+            UpdateGpuPollingGate();
         };
 
         CustomArgumentItems.CollectionChanged += (_, _) =>
@@ -1484,6 +1641,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _comfyUiUrl = string.IsNullOrWhiteSpace(settings.ComfyUiUrl) ? "http://127.0.0.1:8188" : settings.ComfyUiUrl;
 
         ScenariosEnabled = settings.ScenariosEnabled;
+        HardwareMonitorEnabled = settings.HardwareMonitorEnabled;
+        ReconcileHardwareMonitor();
+        _modelScanFolder = settings.ModelScanFolder ?? "";
+        _modelScanRecursive = settings.ModelScanRecursive;
         await LoadScenariosAsync();
         SelectedScenario = settings.SelectedScenario ?? "";
         UpdateSelectedScenarioAutoStart();
@@ -1914,6 +2075,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             ComfyUiUrl = _comfyUiUrl,
             ScenariosEnabled = _scenariosEnabled,
             SelectedScenario = _selectedScenario,
+            HardwareMonitorEnabled = _hardwareMonitorEnabled,
+            ModelScanFolder = _modelScanFolder,
+            ModelScanRecursive = _modelScanRecursive,
             AutoStartWithSystem = _autoStartWithSystem,
             CustomBrowserPath = _customBrowserPath,
             DialogGeometry = new Dictionary<string, DialogGeometry>(DialogGeometryDict),
@@ -1935,6 +2099,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanStartServer));
                 OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(HasMissingExecutable));
+                OnPropertyChanged(nameof(ExecutableBorderBrush));
+                OnPropertyChanged(nameof(ExecutableToolTip));
                 UpdateCurrentCommand();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
                     startCmd.RaiseCanExecuteChanged();
@@ -1954,8 +2121,12 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanStartServer));
                 OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(HasMissingModelFile));
+                OnPropertyChanged(nameof(ModelBorderBrush));
+                OnPropertyChanged(nameof(ModelToolTip));
                 UpdateCurrentCommand();
                 UpdateModelLoadModeStatus();
+                RefreshModelInfo();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
                     startCmd.RaiseCanExecuteChanged();
             }
@@ -1973,6 +2144,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanStartServer));
                 OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(HasMissingModelsDir));
+                OnPropertyChanged(nameof(ModelsDirBorderBrush));
+                OnPropertyChanged(nameof(ModelsDirToolTip));
                 UpdateCurrentCommand();
                 UpdateModelLoadModeStatus();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
@@ -2064,7 +2238,134 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public string ContextSize
     {
         get => _contextSize;
-        set { _contextSize = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+        set { _contextSize = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); OnPropertyChanged(nameof(ContextSliderValue)); UpdateCurrentCommand(); }
+    }
+
+    private const int ContextSliderMinValue = 256;
+    private const int ContextSliderStepValue = 256;
+    private const int ContextSliderFallbackMax = 131072;
+
+    public double ContextSliderMinimum => ContextSliderMinValue;
+    public double ContextSliderTick => ContextSliderStepValue;
+
+    public double ContextSliderMax =>
+        _modelTrainMaxContext is int m && m >= ContextSliderMinValue ? (double)m : ContextSliderFallbackMax;
+
+    public bool HasModelMaxContext => _modelTrainMaxContext is int;
+
+    public string ModelMaxContextText =>
+        _modelTrainMaxContext is int m ? $"{LocalizedStrings.Instance.ModelMaxContext}: {m}" : string.Empty;
+
+    public double ContextSliderValue
+    {
+        get
+        {
+            double max = ContextSliderMax;
+            if (ParseNullableInt(ContextSize) is not int v) return ContextSliderMinValue;
+            if (v < ContextSliderMinValue) return ContextSliderMinValue;
+            return v > max ? max : v;
+        }
+        set
+        {
+            int newVal = (int)Math.Round(value);
+            newVal = newVal / ContextSliderStepValue * ContextSliderStepValue;
+            if (newVal < ContextSliderMinValue) newVal = ContextSliderMinValue;
+            int max = (int)ContextSliderMax;
+            int? raw = ParseNullableInt(ContextSize);
+            if (newVal >= max && raw is int rv && rv > max) return;
+            if (newVal == ContextSliderMinValue && string.IsNullOrWhiteSpace(ContextSize)) return;
+            if (raw == newVal) return;
+            ContextSize = newVal.ToString(CultureInfo.InvariantCulture);
+        }
+    }
+
+    private void RefreshModelInfo()
+    {
+        string path = _modelPath;
+        if (string.IsNullOrWhiteSpace(path)
+            || !path.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)
+            || !File.Exists(path))
+        {
+            SetModelInfo(null);
+            return;
+        }
+        _ = Task.Run(() =>
+        {
+            var info = GgufMetadataService.TryRead(path);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_modelPath == path) SetModelInfo(info);
+            });
+        });
+    }
+
+    private void SetModelInfo(GgufModelInfo? info)
+    {
+        _modelInfo = info;
+
+        int? max = info?.MaxContext;
+        if (_modelTrainMaxContext != max)
+        {
+            _modelTrainMaxContext = max;
+            OnPropertyChanged(nameof(ContextSliderMax));
+            OnPropertyChanged(nameof(ContextSliderValue));
+            OnPropertyChanged(nameof(HasModelMaxContext));
+            OnPropertyChanged(nameof(ModelMaxContextText));
+        }
+
+        OnPropertyChanged(nameof(HasModelInfo));
+        OnPropertyChanged(nameof(ModelInfoBadge));
+        OnPropertyChanged(nameof(HasModelWarning));
+        OnPropertyChanged(nameof(ModelWarning));
+        OnPropertyChanged(nameof(HasSuggestedGpuLayers));
+        OnPropertyChanged(nameof(SuggestedGpuLayersText));
+    }
+
+    public bool HasModelInfo => ModelInfoBadge.Length > 0;
+
+    public string ModelInfoBadge
+    {
+        get
+        {
+            if (_modelInfo is not GgufModelInfo info) return string.Empty;
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(info.Quant)) parts.Add(info.Quant!);
+            if (!string.IsNullOrWhiteSpace(info.SizeLabel)) parts.Add(info.SizeLabel!);
+            if (info.BlockCount is int b && b > 0)
+                parts.Add(string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.GgufLayersShort, b));
+            if (info.IsMoe && info.ExpertCount is int e)
+                parts.Add(string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.GgufMoe, e));
+            if (info.HasChatTemplate) parts.Add(LocalizedStrings.Instance.GgufChatTemplate);
+            return string.Join("   ·   ", parts);
+        }
+    }
+
+    public bool HasModelWarning => _modelInfo?.IsProjector == true;
+
+    public string ModelWarning =>
+        _modelInfo?.IsProjector == true ? LocalizedStrings.Instance.GgufProjectorWarning : string.Empty;
+
+    public bool HasSuggestedGpuLayers
+    {
+        get
+        {
+            if (_modelInfo?.BlockCount is not int n || n <= 0) return false;
+            var g = _gpuLayers.Trim();
+            if (string.Equals(g, "all", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(g, "auto", StringComparison.OrdinalIgnoreCase)) return false;
+            return ParseNullableInt(g) != n;
+        }
+    }
+
+    public string SuggestedGpuLayersText =>
+        _modelInfo?.BlockCount is int n && n > 0
+            ? string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.GgufSuggestNgl, n)
+            : string.Empty;
+
+    public void ApplySuggestedGpuLayers()
+    {
+        if (_modelInfo?.BlockCount is int n && n > 0)
+            GpuLayers = n.ToString(CultureInfo.InvariantCulture);
     }
 
     public string Threads
@@ -2076,7 +2377,14 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public string GpuLayers
     {
         get => _gpuLayers;
-        set { _gpuLayers = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+        set
+        {
+            _gpuLayers = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            OnPropertyChanged(nameof(HasSuggestedGpuLayers));
+            UpdateCurrentCommand();
+        }
     }
 
     public string CpuMoe
@@ -2118,7 +2426,76 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public string MmprojPath
     {
         get => _mmprojPath;
-        set { _mmprojPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+        set
+        {
+            _mmprojPath = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            OnPropertyChanged(nameof(HasMissingMmprojFile));
+            OnPropertyChanged(nameof(MmprojBorderBrush));
+            OnPropertyChanged(nameof(MmprojToolTip));
+            UpdateCurrentCommand();
+        }
+    }
+
+    private bool PathValidationActive => !RunInDocker;
+
+    public bool HasMissingMmprojFile => PathValidationActive
+        && !string.IsNullOrWhiteSpace(MmprojPath) && !System.IO.File.Exists(MmprojPath);
+
+    public bool HasMissingExecutable => PathValidationActive
+        && !string.IsNullOrWhiteSpace(ExecutablePath)
+        && string.IsNullOrEmpty(LlamaServerService.ResolveExecutablePath(ExecutablePath))
+        && !System.IO.File.Exists(ExecutablePath);
+
+    public bool HasMissingModelFile => PathValidationActive
+        && !string.IsNullOrWhiteSpace(ModelPath) && !System.IO.File.Exists(ModelPath);
+
+    public bool HasMissingModelsDir => PathValidationActive
+        && !string.IsNullOrWhiteSpace(ModelsDir) && !System.IO.Directory.Exists(ModelsDir);
+
+    public Avalonia.Media.IBrush MmprojBorderBrush => HasMissingMmprojFile ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush ExecutableBorderBrush => HasMissingExecutable ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush ModelBorderBrush => HasMissingModelFile ? _warningBrush : _transparentBrush;
+    public Avalonia.Media.IBrush ModelsDirBorderBrush => HasMissingModelsDir ? _warningBrush : _transparentBrush;
+
+    public string MmprojToolTip => HasMissingMmprojFile
+        ? LocalizedStrings.Instance.ValidationFileNotFound
+        : (LocalizedStrings.Instance.TooltipMMProj ?? "");
+    public string ExecutableToolTip => HasMissingExecutable ? LocalizedStrings.Instance.ValidationFileNotFound : "";
+    public string ModelToolTip => HasMissingModelFile
+        ? LocalizedStrings.Instance.ValidationFileNotFound
+        : (LocalizedStrings.Instance.TooltipModelPath ?? "");
+    public string ModelsDirToolTip => HasMissingModelsDir
+        ? LocalizedStrings.Instance.ValidationFileNotFound
+        : (LocalizedStrings.Instance.TooltipModelsDir ?? "");
+
+    private void RefreshPathValidation()
+    {
+        OnPropertyChanged(nameof(HasMissingMmprojFile));
+        OnPropertyChanged(nameof(HasMissingExecutable));
+        OnPropertyChanged(nameof(HasMissingModelFile));
+        OnPropertyChanged(nameof(HasMissingModelsDir));
+        OnPropertyChanged(nameof(MmprojBorderBrush));
+        OnPropertyChanged(nameof(ExecutableBorderBrush));
+        OnPropertyChanged(nameof(ModelBorderBrush));
+        OnPropertyChanged(nameof(ModelsDirBorderBrush));
+        OnPropertyChanged(nameof(MmprojToolTip));
+        OnPropertyChanged(nameof(ExecutableToolTip));
+        OnPropertyChanged(nameof(ModelToolTip));
+        OnPropertyChanged(nameof(ModelsDirToolTip));
+    }
+
+    public System.Collections.Generic.List<string> GetMissingReferencedPaths()
+    {
+        var missing = new System.Collections.Generic.List<string>();
+        if (!PathValidationActive) return missing;
+        var loc = LocalizedStrings.Instance;
+        if (HasMissingExecutable) missing.Add($"{loc.LlamaServerExe}  {ExecutablePath}");
+        if (HasMissingModelFile) missing.Add($"{loc.ModelM}  {ModelPath}");
+        if (HasMissingModelsDir) missing.Add($"{loc.ModelsDir}  {ModelsDir}");
+        if (HasMissingMmprojFile) missing.Add($"{loc.MMProj}  {MmprojPath}");
+        return missing;
     }
 
     public string CacheTypeK
@@ -2499,6 +2876,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasUnsavedChanges));
                 OnPropertyChanged(nameof(CanStartServer));
+                RefreshPathValidation();
                 UpdateCurrentCommand();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
                     startCmd.RaiseCanExecuteChanged();
@@ -3005,62 +3383,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         {
             _shownConflictToasts.Clear();
         }
-    }
-
-    /// <summary>
-    /// Warns when auto-fit is off and the active tab's content overflows its viewport.
-    /// Called from MainWindow after layout.
-    /// </summary>
-    public void CheckAutoFitHeightWarning(bool tabContentClipped)
-    {
-        if (AutoFitHeight || !TabPanelVisible)
-            return;
-
-        // Only warn on real overflow; a tab that fits without scrolling shouldn't nag.
-        if (!tabContentClipped)
-        {
-            // Content now fits, so drop any stale warning.
-            if (_autoFitHeightToast != null)
-            {
-                Toasts.Dismiss(_autoFitHeightToast);
-                _autoFitHeightToast = null;
-            }
-            return;
-        }
-
-        // Only show the warning once per session.
-        if (_autoFitHeightWarningShown)
-            return;
-
-        // Dismiss existing toast if still showing
-        if (_autoFitHeightToast != null)
-        {
-            Toasts.Dismiss(_autoFitHeightToast);
-            _autoFitHeightToast = null;
-        }
-
-        _autoFitHeightWarningShown = true;
-
-        var msg = LocalizedStrings.Instance.ToastAutoFitHeightDisabled;
-        _autoFitHeightToast = new ToastItem(msg, onClick: () =>
-        {
-            AutoFitHeight = true;
-            _autoFitHeightToast = null;
-        });
-
-        Toasts.Toasts.Add(_autoFitHeightToast);
-
-        // Auto-dismiss after 6 seconds
-        var capturedToast = _autoFitHeightToast;
-        _ = System.Threading.Tasks.Task.Delay(6000).ContinueWith(_ =>
-        {
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-            {
-                if (_autoFitHeightToast == capturedToast)
-                    _autoFitHeightToast = null;
-                Toasts.Toasts.Remove(capturedToast);
-            });
-        });
     }
 
     public Avalonia.Media.IBrush SpecTypeBorderBrush => HasUnsupportedSpecType ? _warningBrush : _transparentBrush;
@@ -3824,7 +4146,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         && (RunInDocker ? IsDockerAvailable : true)
         && IsPortValid && IsHostValid;
 
-    public bool CanOpenInBrowser => (_selectedInstance?.IsRunning ?? false) && _selectedInstance.Configuration.EnableWebUI != false;
+    public bool CanOpenInBrowser => (_selectedInstance?.IsReady ?? false) && _selectedInstance.Configuration.EnableWebUI != false;
 
     private async Task BrowseExecutableAsync()
     {
@@ -3871,6 +4193,58 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         {
             ModelsDir = result;
         }
+    }
+
+    public async Task OpenModelPickerAsync()
+    {
+        var initialFolder = ResolveInitialScanFolder();
+        var vm = new ModelPickerViewModel(initialFolder, _modelScanRecursive);
+        var dialog = new ModelPickerWindow();
+        dialog.SetViewModel(vm, DialogGeometryDict);
+        await dialog.ShowDialog(MainWindow.Instance!);
+
+        bool dirty = false;
+
+        if (dialog.CapturedGeometry != null)
+        {
+            DialogGeometryDict["ModelPicker"] = dialog.CapturedGeometry;
+            dirty = true;
+        }
+
+        if (!string.IsNullOrEmpty(dialog.ScannedFolder) &&
+            (dialog.ScannedFolder != _modelScanFolder || dialog.ScannedRecursive != _modelScanRecursive))
+        {
+            _modelScanFolder = dialog.ScannedFolder;
+            _modelScanRecursive = dialog.ScannedRecursive;
+            dirty = true;
+        }
+
+        if (dialog.IsConfirmed && !string.IsNullOrEmpty(dialog.SelectedPath))
+            ModelPath = dialog.SelectedPath!;
+
+        if (dirty) await SaveSettingsAsync();
+    }
+
+    private string ResolveInitialScanFolder()
+    {
+        if (!string.IsNullOrWhiteSpace(_modelScanFolder) && System.IO.Directory.Exists(_modelScanFolder))
+            return _modelScanFolder;
+
+        if (!string.IsNullOrWhiteSpace(ModelPath))
+        {
+            try
+            {
+                var dir = System.IO.Path.GetDirectoryName(ModelPath);
+                if (!string.IsNullOrEmpty(dir) && System.IO.Directory.Exists(dir))
+                    return dir;
+            }
+            catch { }
+        }
+
+        if (!string.IsNullOrWhiteSpace(ModelsDir) && System.IO.Directory.Exists(ModelsDir))
+            return ModelsDir;
+
+        return "";
     }
 
     private async Task BrowseLogFileAsync()
@@ -3999,6 +4373,151 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             if (win.CapturedGeometry != null)
             {
                 DialogGeometryDict["Optimization"] = win.CapturedGeometry;
+                await SaveSettingsAsync();
+            }
+        };
+        win.Show(MainWindow.Instance!);
+    }
+
+    public async Task OpenBenchmarkLaunchDialog()
+    {
+        var baseConfig = GetCurrentConfig();
+        var initialArgs = CommandLineBuilder.Build(baseConfig, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+        int seedValue = baseConfig.Seed ?? 42;
+        bool metricsSupported = _supportedFlags == null || _supportedFlags.Count == 0 || _supportedFlags.Contains("--metrics");
+
+        string BuildPreview(string finalArgs)
+        {
+            var cfg = BuildBenchmarkConfig(baseConfig, finalArgs);
+            return CommandLineBuilder.BuildFullCommand(cfg, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+        }
+
+        BenchmarkLaunchResult? result = null;
+        var vm = new BenchmarkLaunchViewModel(initialArgs, seedValue, metricsSupported, BuildPreview, r => result = r);
+        var win = new LlamaServerLauncher.BenchmarkLaunchWindow();
+        win.SetViewModel(vm, DialogGeometryDict);
+        await win.ShowDialog(MainWindow.Instance!);
+
+        if (win.CapturedGeometry != null)
+        {
+            DialogGeometryDict["BenchmarkLaunch"] = win.CapturedGeometry;
+            await SaveSettingsAsync();
+        }
+
+        if (result != null)
+            await StartBenchmarkAsync(baseConfig, result);
+    }
+
+    private ServerConfiguration BuildBenchmarkConfig(ServerConfiguration baseConfig, string finalArgs)
+    {
+        var parsed = ServerConfigurationExtensions.ParseFromCommandLine(finalArgs) ?? baseConfig.Clone();
+        parsed.ExecutablePath = baseConfig.ExecutablePath;
+        parsed.ModelsDir = baseConfig.ModelsDir;
+        parsed.RunInDocker = baseConfig.RunInDocker;
+        parsed.DockerImage = baseConfig.DockerImage;
+        parsed.DockerGpuAll = baseConfig.DockerGpuAll;
+        parsed.DockerRm = baseConfig.DockerRm;
+        parsed.DockerContainerName = baseConfig.DockerContainerName;
+        parsed.HfRepo = baseConfig.HfRepo;
+        parsed.HfFile = baseConfig.HfFile;
+        parsed.HfRepoDraft = baseConfig.HfRepoDraft;
+        parsed.Offline = baseConfig.Offline;
+        if (string.IsNullOrEmpty(parsed.ModelPath)) parsed.ModelPath = baseConfig.ModelPath;
+        if (string.IsNullOrEmpty(parsed.MmprojPath)) parsed.MmprojPath = baseConfig.MmprojPath;
+        if (string.IsNullOrWhiteSpace(parsed.Host)) parsed.Host = baseConfig.Host;
+        return parsed;
+    }
+
+    private async Task StartBenchmarkAsync(ServerConfiguration baseConfig, BenchmarkLaunchResult result)
+    {
+        try
+        {
+            var config = BuildBenchmarkConfig(baseConfig, result.FinalArgs);
+
+            if (!config.RunInDocker)
+            {
+                if (string.IsNullOrEmpty(config.ExecutablePath))
+                {
+                    var defaultPath = _downloadService.GetDefaultLlamaServerPath();
+                    if (defaultPath != null)
+                        config.ExecutablePath = defaultPath;
+                    else
+                    {
+                        await ShowWarningAsync(LocalizedStrings.Instance.PromptDownloadLlama);
+                        return;
+                    }
+                }
+            }
+            else if (!_isDockerAvailable)
+            {
+                await ShowErrorAsync(LocalizedStrings.Instance.DockerNotInstalledError);
+                return;
+            }
+
+            var profileName = !string.IsNullOrWhiteSpace(_loadedProfileName)
+                ? _loadedProfileName
+                : (!string.IsNullOrWhiteSpace(ProfileNameInput) ? ProfileNameInput : "Unnamed");
+
+            RecordCurrentValuesToHistory();
+            await RefreshSupportedFlagsAsync();
+
+            var fullCommand = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+
+            var options = new LlamaServerLauncher.Services.Benchmarking.BenchmarkRunOptions
+            {
+                ProfileName = profileName,
+                Command = fullCommand,
+                Config = config,
+                RunInDocker = config.RunInDocker,
+                Label = result.Label,
+                Notes = result.Notes,
+                RunStandardWorkload = result.RunStandardWorkload,
+                StopAfterWorkload = result.StopAfterWorkload,
+                StdPromptTokens = result.StdPromptTokens,
+                StdNPredict = result.StdNPredict,
+                StdRepeat = result.StdRepeat,
+                HardwareSummary = GetHardwareSummary(),
+            };
+
+            await LaunchInstanceAsync(profileName, config, options);
+        }
+        catch (Exception ex)
+        {
+            var message = string.Format(LocalizedStrings.Instance.FailedToStartServer, ex.Message);
+            await ShowErrorAsync(message);
+        }
+    }
+
+    private string? GetHardwareSummary()
+    {
+        try
+        {
+            var parts = new List<string>();
+            foreach (var g in _hw.Gpus)
+            {
+                var name = string.IsNullOrWhiteSpace(g.Name) ? $"GPU{g.Index}" : g.Name;
+                parts.Add(g.MemTotalMb is int mt ? $"{name} ({mt / 1024} GB)" : name);
+            }
+            if (_hw.RamTotalGb is double ram)
+                parts.Add($"RAM {ram:0} GB");
+            return parts.Count > 0 ? string.Join(", ", parts) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public void OpenBenchmarkComparison()
+    {
+        var vm = new BenchmarkComparisonViewModel(_benchmarkStorage, _logService);
+        var win = new LlamaServerLauncher.BenchmarkComparisonWindow();
+        win.SetViewModel(vm, DialogGeometryDict);
+        win.Closed += async (_, _) =>
+        {
+            if (win.CapturedGeometry != null)
+            {
+                DialogGeometryDict["BenchmarkComparison"] = win.CapturedGeometry;
                 await SaveSettingsAsync();
             }
         };
@@ -5036,9 +5555,7 @@ public void RebuildCustomArgumentsFromToggles()
                 if (SelectedInstance == instance)
                 {
                     IsServerRunning = isRunning;
-                    ServerStatus = isRunning
-                        ? string.Format(Resources.LocalizedStrings.GetString("StatusRunning"), instance.ProcessId)
-                        : Localized.StatusStopped;
+                    ServerStatus = StatusTextFor(instance);
 
                     if (!isRunning && instance.ShowServerStartError)
                         ShowServerStartError = true;
@@ -5046,14 +5563,48 @@ public void RebuildCustomArgumentsFromToggles()
                         DismissServerStartError();
                 }
                 OnPropertyChanged(nameof(HasAnyRunningInstances));
+                UpdateGpuPollingGate();
             });
         }
         catch (TaskCanceledException) { }
+
+        if (!isRunning && _benchmarkRuns.TryGetValue(instance, out var benchmarkController))
+        {
+            _benchmarkRuns.Remove(instance);
+            try
+            {
+                var saved = await benchmarkController.FinishAndSaveAsync();
+                if (saved is { } s)
+                {
+                    var msg = string.Format(LocalizedStrings.GetString("BenchmarkSavedToast"), instance.ProfileName, s.Run.Id);
+                    Toasts.Show(msg, 8000, () => LlamaServerLauncher.Services.Benchmarking.ShellHelper.RevealInExplorer(s.Dir));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"Failed to save benchmark run: {ex.Message}");
+                Toasts.ShowError(LocalizedStrings.GetString("BenchmarkSaveFailedToast"));
+            }
+            finally
+            {
+                benchmarkController.Dispose();
+            }
+        }
     }
 
     private void OnInstancePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is not ServerInstance instance) return;
+
+        if (e.PropertyName is nameof(ServerInstance.IsReady) or nameof(ServerInstance.IsStarting))
+            UpdateGpuPollingGate();
+
+        if (e.PropertyName == nameof(ServerInstance.NoMmapCrashSuspected) && instance.NoMmapCrashSuspected)
+        {
+            Toasts.ShowError(
+                string.Format(LocalizedStrings.GetString("NoMmapCrashAdvice"), instance.ProfileName),
+                durationMs: 0);
+        }
 
         if (e.PropertyName == nameof(ServerInstance.AutoRestart))
         {
@@ -5077,6 +5628,18 @@ public void RebuildCustomArgumentsFromToggles()
         else if (e.PropertyName == nameof(ServerInstance.ShowServerStartError) && instance == _selectedInstance)
         {
             ShowServerStartError = instance.ShowServerStartError;
+        }
+        else if (e.PropertyName == nameof(ServerInstance.IsReady) && instance == _selectedInstance)
+        {
+            ServerStatus = StatusTextFor(instance);
+            OnPropertyChanged(nameof(HasInferenceStats));
+            OnPropertyChanged(nameof(InferenceStatsText));
+            UpdateCommandStates();
+        }
+        else if (e.PropertyName == nameof(ServerInstance.StatsVersion) && instance == _selectedInstance)
+        {
+            OnPropertyChanged(nameof(HasInferenceStats));
+            OnPropertyChanged(nameof(InferenceStatsText));
         }
     }
 
@@ -5273,7 +5836,8 @@ public void RebuildCustomArgumentsFromToggles()
             await _selectedInstance.UnloadModelAsync();
     }
 
-    public async Task<bool> LaunchInstanceAsync(string profileName, ServerConfiguration config)
+    public async Task<bool> LaunchInstanceAsync(string profileName, ServerConfiguration config,
+        LlamaServerLauncher.Services.Benchmarking.BenchmarkRunOptions? benchmarkOptions = null)
     {
         try
         {
@@ -5334,30 +5898,47 @@ public void RebuildCustomArgumentsFromToggles()
             instance.ServerStateChanged += OnInstanceServerStateChanged;
             instance.RequestRemove += OnInstanceRequestRemove;
             instance.PropertyChanged += OnInstancePropertyChanged;
-
-            await FreeComfyUiIfEnabledAsync();
-
-            await instance.StartAsync(_supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
-
-            if (instance.IsRunning)
+            instance.PrepareGpuForLaunchAsync = PrepareGpuForServerLaunchAsync;
+            System.Threading.Interlocked.Increment(ref _serverStartsInProgress);
+            UpdateGpuPollingGate();
+            try
             {
-                RunningInstances.Add(instance);
-                SelectedInstance = instance;
-                return true;
+                await FreeComfyUiIfEnabledAsync();
+
+                await instance.StartAsync(_supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+
+                if (instance.IsRunning)
+                {
+                    RunningInstances.Add(instance);
+                    SelectedInstance = instance;
+                    if (benchmarkOptions != null)
+                    {
+                        benchmarkOptions.LlamaVersion = version;
+                        var controller = new LlamaServerLauncher.Services.Benchmarking.BenchmarkRunController(_benchmarkStorage, _logService);
+                        _benchmarkRuns[instance] = controller;
+                        controller.Begin(instance, benchmarkOptions);
+                    }
+                    return true;
+                }
+                else
+                {
+                    // Process didn't start. Keep the instance in the panel (red toggle button)
+                    // so the user can still click it to load the broken profile; handlers stay
+                    // attached so a later restart updates the same button in place.
+                    instance.StartFailed = true;
+                    RunningInstances.Add(instance);
+                    SelectedInstance = instance;
+
+                    var msg = string.Format(LocalizedStrings.GetString("ServerStartFailedToast"), profileName);
+                    Toasts.ShowError(msg);
+
+                    return false;
+                }
             }
-            else
+            finally
             {
-                // Process didn't start. Keep the instance in the panel (red toggle button)
-                // so the user can still click it to load the broken profile; handlers stay
-                // attached so a later restart updates the same button in place.
-                instance.StartFailed = true;
-                RunningInstances.Add(instance);
-                SelectedInstance = instance;
-
-                var msg = string.Format(LocalizedStrings.GetString("ServerStartFailedToast"), profileName);
-                Toasts.ShowError(msg);
-
-                return false;
+                System.Threading.Interlocked.Decrement(ref _serverStartsInProgress);
+                UpdateGpuPollingGate();
             }
         }
         catch (Exception ex)
@@ -5369,7 +5950,7 @@ public void RebuildCustomArgumentsFromToggles()
 
     private async Task OpenInBrowserAsync()
     {
-        if (_selectedInstance != null)
+        if (_selectedInstance is { IsReady: true })
             await _selectedInstance.OpenInBrowserAsync();
     }
 
@@ -6517,18 +7098,22 @@ public void RebuildCustomArgumentsFromToggles()
                 _pendingAppUpdate = freshUpdate;
             }
 
-            var confirm = await Dispatcher.UIThread.InvokeAsync(async () =>
-            {
-                var result = await MessageBox.ShowAsync(
-                    MainWindow.Instance!,
-                    LocalizedStrings.GetString("AppUpdateConfirm"),
-                    LocalizedStrings.Instance.ConfirmTitle,
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Question);
-                return result;
-            });
+            var releaseTitle = LocalizedStrings.GetString("AppUpdateReleaseTitle");
+            if (!string.IsNullOrWhiteSpace(_pendingAppUpdate.Tag))
+                releaseTitle = $"{releaseTitle} — {_pendingAppUpdate.Tag}";
+            var releaseBody = string.IsNullOrWhiteSpace(_pendingAppUpdate.Body)
+                ? LocalizedStrings.GetString("AppUpdateConfirm")
+                : _pendingAppUpdate.Body;
 
-            if (confirm != MessageBoxResult.Yes) return;
+            var confirm = await Dispatcher.UIThread.InvokeAsync(async () =>
+                await MarkdownViewerWindow.ShowWithActionAsync(
+                    MainWindow.Instance!,
+                    releaseBody,
+                    LocalizedStrings.GetString("AppUpdateNow"),
+                    releaseTitle,
+                    DialogGeometryDict));
+
+            if (!confirm) return;
 
             ServerStatus = LocalizedStrings.GetString("AppUpdateDownloading");
             var cts = new System.Threading.CancellationTokenSource();
@@ -6613,6 +7198,7 @@ public void RebuildCustomArgumentsFromToggles()
 
     public void Dispose()
     {
+        _hwMonitor.Dispose();
         _periodicCheckCts?.Cancel();
         _periodicCheckCts?.Dispose();
         foreach (var instance in RunningInstances.ToList())
@@ -6746,65 +7332,114 @@ public static class MessageBox
 {
     public static async Task<MessageBoxResult> ShowAsync(Window owner, string message, string title, MessageBoxButtons buttons, MessageBoxIcon icon)
     {
+        var loc = LocalizedStrings.Instance;
+
         var dialog = new Window
         {
             Title = title,
-            Width = 400,
-            Height = 180,
+            SizeToContent = Avalonia.Controls.SizeToContent.WidthAndHeight,
+            MinWidth = 360,
+            MaxWidth = 560,
+            CanResize = false,
+            ShowInTaskbar = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
 
-        var panel = new StackPanel { Margin = new Avalonia.Thickness(15) };
-        
-        panel.Children.Add(new TextBlock 
-        { 
-            Text = message, 
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap, 
-            Margin = new Avalonia.Thickness(5) 
-        });
-
-        var buttonPanel = new StackPanel 
-        { 
-            Orientation = Avalonia.Layout.Orientation.Horizontal,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-            Margin = new Avalonia.Thickness(5, 10, 5, 5)
+        var root = new Grid
+        {
+            Margin = new Avalonia.Thickness(18),
+            RowDefinitions = new RowDefinitions("*,Auto")
         };
+
+        var contentPanel = new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            Margin = new Avalonia.Thickness(0, 0, 0, 16)
+        };
+        var (glyph, glyphColor) = IconVisual(icon);
+        if (glyph != null)
+        {
+            contentPanel.Children.Add(new TextBlock
+            {
+                Text = glyph,
+                FontSize = 26,
+                Foreground = new Avalonia.Media.SolidColorBrush(glyphColor),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+                Margin = new Avalonia.Thickness(0, 0, 14, 0)
+            });
+        }
+        contentPanel.Children.Add(new TextBlock
+        {
+            Text = message,
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            MaxWidth = 440
+        });
+        Grid.SetRow(contentPanel, 0);
+        root.Children.Add(contentPanel);
+
+        var buttonPanel = new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+        };
+        Grid.SetRow(buttonPanel, 1);
 
         MessageBoxResult result = MessageBoxResult.None;
 
+        Button MakeButton(string text, MessageBoxResult r, bool isDefault, bool isCancel)
+        {
+            var btn = new Button
+            {
+                Content = text,
+                MinWidth = 88,
+                Margin = new Avalonia.Thickness(6, 0, 0, 0),
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                IsDefault = isDefault,
+                IsCancel = isCancel
+            };
+            btn.Click += (s, e) => { result = r; dialog.Close(); };
+            return btn;
+        }
+
         if (buttons == MessageBoxButtons.YesNoCancel)
         {
-            var yesButton = new Button { Content = "Yes", Margin = new Avalonia.Thickness(5) };
-            yesButton.Click += (s, e) => { result = MessageBoxResult.Yes; dialog.Close(); };
-            buttonPanel.Children.Add(yesButton);
-
-            var noButton = new Button { Content = "No", Margin = new Avalonia.Thickness(5) };
-            noButton.Click += (s, e) => { result = MessageBoxResult.No; dialog.Close(); };
-            buttonPanel.Children.Add(noButton);
-
-            var cancelButton = new Button { Content = "Cancel", Margin = new Avalonia.Thickness(5) };
-            cancelButton.Click += (s, e) => { result = MessageBoxResult.Cancel; dialog.Close(); };
-            buttonPanel.Children.Add(cancelButton);
+            buttonPanel.Children.Add(MakeButton(loc.ButtonYes, MessageBoxResult.Yes, isDefault: true, isCancel: false));
+            buttonPanel.Children.Add(MakeButton(loc.ButtonNo, MessageBoxResult.No, isDefault: false, isCancel: false));
+            buttonPanel.Children.Add(MakeButton(loc.Cancel, MessageBoxResult.Cancel, isDefault: false, isCancel: true));
+        }
+        else if (buttons == MessageBoxButtons.YesNo)
+        {
+            buttonPanel.Children.Add(MakeButton(loc.ButtonYes, MessageBoxResult.Yes, isDefault: true, isCancel: false));
+            buttonPanel.Children.Add(MakeButton(loc.ButtonNo, MessageBoxResult.No, isDefault: false, isCancel: true));
         }
         else
         {
-            var okButton = new Button { Content = "OK", Margin = new Avalonia.Thickness(5) };
-            okButton.Click += (s, e) => { result = MessageBoxResult.OK; dialog.Close(); };
-            buttonPanel.Children.Add(okButton);
+            buttonPanel.Children.Add(MakeButton(loc.ButtonOk, MessageBoxResult.OK, isDefault: true, isCancel: true));
         }
 
-        panel.Children.Add(buttonPanel);
-        dialog.Content = panel;
-        
+        root.Children.Add(buttonPanel);
+        dialog.Content = root;
+
         await dialog.ShowDialog(owner);
         return result;
     }
+
+    private static (string? glyph, Avalonia.Media.Color color) IconVisual(MessageBoxIcon icon) => icon switch
+    {
+        MessageBoxIcon.Information => ("i", Avalonia.Media.Color.Parse("#3498DB")),
+        MessageBoxIcon.Question => ("?", Avalonia.Media.Color.Parse("#3498DB")),
+        MessageBoxIcon.Warning => ("⚠", Avalonia.Media.Color.Parse("#E67E22")),
+        MessageBoxIcon.Error => ("✖", Avalonia.Media.Color.Parse("#E74C3C")),
+        _ => (null, Avalonia.Media.Colors.Transparent)
+    };
 }
 
 public enum MessageBoxButtons
 {
     OK,
-    YesNoCancel
+    YesNoCancel,
+    YesNo
 }
 
 public enum MessageBoxIcon

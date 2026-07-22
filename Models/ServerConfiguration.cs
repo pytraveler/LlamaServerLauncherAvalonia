@@ -532,7 +532,6 @@ public static class ServerConfigurationExtensions
 
             if (argValues.TryGetValue(arg, out var val) && val != null)
             {
-                // Quote values containing spaces or special chars so they survive re-parsing
                 if (val.Contains(' ') || val.Contains('\t') || val.Contains('"') || val.Contains('\''))
                 {
                     unknownArgs.Add(CommandLineBuilder.QuoteValue(val));

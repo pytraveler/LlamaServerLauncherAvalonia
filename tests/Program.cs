@@ -4,6 +4,17 @@ var harness = new Harness();
 CommandLineTests.Run(harness);
 OptimizationTests.Run(harness);
 ProxyProtocolTests.Run(harness);
+GgufMetadataTests.Run(harness);
+InferenceStatsParserTests.Run(harness);
+GpuStatsParserTests.Run(harness);
+CpuUsageTests.Run(harness);
+AmdGpuParserTests.Run(harness);
+ModelScanTests.Run(harness);
+EndpointSnippetsTests.Run(harness);
+BackendAssetSelectorTests.Run(harness);
+ServerLogFilterTests.Run(harness);
+ServerCrashAdvisorTests.Run(harness);
+BenchmarkTests.Run(harness);
 return harness.Report();
 
 public sealed class Harness

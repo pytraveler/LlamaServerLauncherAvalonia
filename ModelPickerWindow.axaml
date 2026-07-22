@@ -1,0 +1,72 @@
+<Window x:Class="LlamaServerLauncher.ModelPickerWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
+        mc:Ignorable="d"
+        x:DataType="vm:ModelPickerViewModel"
+        Title="{Binding Localized.ModelPickerTitle}"
+        Width="900" Height="600"
+        MinWidth="560" MinHeight="380"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundBrush}">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="10">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0" Text="{Binding Localized.ModelPickerFolder}"
+                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox Grid.Column="1" Text="{Binding FolderPath}" VerticalAlignment="Center"/>
+            <Button Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseClick" Margin="8,0,0,0"/>
+            <Button Grid.Column="3" Content="{Binding Localized.ModelPickerRescan}" Click="RescanClick" Margin="6,0,0,0"/>
+            <CheckBox Grid.Column="4" Content="{Binding Localized.ModelPickerRecursive}"
+                      IsChecked="{Binding Recursive}" Click="RecursiveClick"
+                      VerticalAlignment="Center" Margin="12,0,0,0"/>
+        </Grid>
+
+        <TextBox Grid.Row="1"
+                 Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                 PlaceholderText="{Binding Localized.ModelPickerFilter}"
+                 Margin="0,0,0,8"/>
+
+        <ListBox Grid.Row="2"
+                 ItemsSource="{Binding Models}"
+                 SelectedItem="{Binding SelectedModel}"
+                 DoubleTapped="ListDoubleTapped">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Border Background="#66FFA726" CornerRadius="3" Padding="5,0" Margin="8,0,0,0"
+                                        VerticalAlignment="Center" IsVisible="{Binding IsProjector}">
+                                    <TextBlock Text="mmproj" FontSize="10" FontWeight="Bold"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding MetaText}" IsVisible="{Binding HasMeta}"
+                                       FontSize="11" Opacity="0.7" Margin="0,1,0,0"
+                                       FontFamily="Consolas,Courier New,monospace"/>
+                            <TextBlock Text="{Binding RelativeDir}" IsVisible="{Binding HasRelativeDir}"
+                                       FontSize="10" Opacity="0.5" Margin="0,1,0,0"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding SizeText}"
+                                   VerticalAlignment="Center" Opacity="0.7" Margin="10,0,4,0"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+            <TextBlock Grid.Column="0" Text="{Binding StatusText}"
+                       VerticalAlignment="Center" Opacity="0.75"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{Binding Localized.ModelPickerSelect}"
+                        Click="SelectClick" MinWidth="90" IsDefault="True"/>
+                <Button Content="{Binding Localized.ModelPickerCancel}"
+                        Click="CancelClick" MinWidth="90" Margin="10,0,0,0" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

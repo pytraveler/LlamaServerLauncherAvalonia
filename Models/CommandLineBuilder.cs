@@ -269,7 +269,6 @@ public static class CommandLineBuilder
 
         AddBoolOnOff(args, "-fa", config.FlashAttention);
 
-        // Spec-type
         if (!string.IsNullOrEmpty(config.SpecType) && config.SpecType != "none")
         {
             bool specTypeValueValid = validSpecTypeValues == null
@@ -282,7 +281,6 @@ public static class CommandLineBuilder
             }
         }
 
-        // Draft model (-md)
         string? draftModelCustomValue = GetCustomValue("-md");
         var mdResolved = ResolveSupportedFlag("-md");
         if (draftModelCustomValue != null)
@@ -296,13 +294,11 @@ public static class CommandLineBuilder
                 args.Add($"{mdResolved} \"{EscapePath(config.SpecDraftModel)}\"");
         }
 
-        // -ngld
         {
             var ngldVal = string.IsNullOrEmpty(config.SpecDraftGpuLayers) ? null : config.SpecDraftGpuLayers;
             AddIfNotOverridden(args, "-ngld", ngldVal);
         }
 
-        // General spec params
         {
             var nmaxVal = config.SpecDraftNMax?.ToString();
             AddIfNotOverridden(args, "--spec-draft-n-max", nmaxVal);
@@ -320,7 +316,6 @@ public static class CommandLineBuilder
             AddIfNotOverridden(args, "--spec-draft-p-min", pminVal);
         }
 
-        // HuggingFace args
         AddIfNotOverridden(args, "-hf", config.HfRepo);
         AddIfNotOverridden(args, "-hff", config.HfFile);
         AddIfNotOverridden(args, "-hfd", config.HfRepoDraft);
@@ -392,7 +387,6 @@ public static class CommandLineBuilder
             char c = value[i];
             if (c == '\\' && i + 1 < value.Length && (value[i + 1] == '"' || value[i + 1] == '\\'))
             {
-                // Already an escape sequence (\\" or \\\\) — preserve as-is
                 sb.Append(c);
                 sb.Append(value[i + 1]);
                 i++;
@@ -463,7 +457,6 @@ public static class CommandLineBuilder
 
             if (disabledCustomArgs.Contains(arg))
             {
-                // Skip disabled flag and its value if present
                 if (i + 1 < parsed.Count && !CommandLineParser.IsFlag(parsed[i + 1]))
                     i++;
                 continue;

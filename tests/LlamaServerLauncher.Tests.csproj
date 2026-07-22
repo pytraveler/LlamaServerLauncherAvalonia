@@ -11,6 +11,16 @@
     <Compile Include="..\Models\CommandLineBuilder.cs" />
     <Compile Include="..\Models\ServerConfiguration.cs" />
     <Compile Include="..\Models\ProxyProtocol.cs" />
+    <Compile Include="..\Models\InferenceStatsParser.cs" />
+    <Compile Include="..\Models\GpuStatsParser.cs" />
+    <Compile Include="..\Models\CpuUsage.cs" />
+    <Compile Include="..\Models\AmdGpuParser.cs" />
+    <Compile Include="..\Models\ModelScanEntry.cs" />
+    <Compile Include="..\Services\ModelScanService.cs" />
+    <Compile Include="..\Models\EndpointSnippets.cs" />
+    <Compile Include="..\Models\BackendAssetSelector.cs" />
+    <Compile Include="..\Models\ServerLogFilter.cs" />
+    <Compile Include="..\Models\ServerCrashAdvisor.cs" />
     <Compile Include="..\Optimization\**\*.cs" />
     <Compile Include="..\Models\Optimization\BenchmarkResult.cs" />
     <Compile Include="..\Models\Optimization\BenchMetric.cs" />
@@ -20,9 +30,25 @@
     <Compile Include="..\Services\Optimization\FlashAttnStyle.cs" />
     <Compile Include="..\Services\Optimization\BenchCommandBuilder.cs" />
     <Compile Include="..\Services\Optimization\ServerArgvBuilder.cs" />
+    <Compile Include="..\Services\GgufMetadataService.cs" />
+    <Compile Include="..\Models\Benchmarking\BenchmarkMetrics.cs" />
+    <Compile Include="..\Models\Benchmarking\BenchmarkRun.cs" />
+    <Compile Include="..\Services\Benchmarking\PrometheusMetricsParser.cs" />
+    <Compile Include="..\Services\Benchmarking\BenchmarkReportBuilder.cs" />
     <Compile Include="CommandLineTests.cs" />
     <Compile Include="OptimizationTests.cs" />
     <Compile Include="ProxyProtocolTests.cs" />
+    <Compile Include="GgufMetadataTests.cs" />
+    <Compile Include="InferenceStatsParserTests.cs" />
+    <Compile Include="GpuStatsParserTests.cs" />
+    <Compile Include="CpuUsageTests.cs" />
+    <Compile Include="AmdGpuParserTests.cs" />
+    <Compile Include="ModelScanTests.cs" />
+    <Compile Include="EndpointSnippetsTests.cs" />
+    <Compile Include="BackendAssetSelectorTests.cs" />
+    <Compile Include="ServerLogFilterTests.cs" />
+    <Compile Include="ServerCrashAdvisorTests.cs" />
+    <Compile Include="BenchmarkTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>

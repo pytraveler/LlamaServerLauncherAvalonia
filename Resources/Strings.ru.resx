@@ -86,6 +86,45 @@
   <data name="StatusRunning" xml:space="preserve">
     <value>Запущен (PID: {0})</value>
   </data>
+  <data name="StatusLoading" xml:space="preserve">
+    <value>Загрузка модели…</value>
+  </data>
+  <data name="StatsPrompt" xml:space="preserve">
+    <value>промпт {0:0} t/s</value>
+  </data>
+  <data name="StatsGen" xml:space="preserve">
+    <value>генерация {0:0} t/s</value>
+  </data>
+  <data name="StatsSlots" xml:space="preserve">
+    <value>слоты {0}/{1}</value>
+  </data>
+  <data name="GpuVramLabel" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="GpuVramValue" xml:space="preserve">
+    <value>{0:0.0}/{1:0.0} ГБ</value>
+  </data>
+  <data name="HwCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="HwRam" xml:space="preserve">
+    <value>RAM</value>
+  </data>
+  <data name="HwGpu" xml:space="preserve">
+    <value>GPU</value>
+  </data>
+  <data name="HwVram" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="HwTemp" xml:space="preserve">
+    <value>Темп</value>
+  </data>
+  <data name="HardwareMonitorEnabled" xml:space="preserve">
+    <value>Монитор оборудования (CPU / RAM / GPU)</value>
+  </data>
+  <data name="TooltipHardwareMonitorEnabled" xml:space="preserve">
+    <value>Показывать загрузку CPU, RAM и GPU/VRAM над кнопками серверов (опрос nvidia-smi / rocm-smi и ОС каждые 2 с)</value>
+  </data>
   <data name="WindowTitleRunning" xml:space="preserve">
     <value>ЗАПУЩЕН</value>
   </data>
@@ -181,6 +220,27 @@
   </data>
   <data name="ContextSize" xml:space="preserve">
     <value>Размер контекста:</value>
+  </data>
+  <data name="ModelMaxContext" xml:space="preserve">
+    <value>Макс. у модели</value>
+  </data>
+  <data name="GgufLayersShort" xml:space="preserve">
+    <value>{0} слоёв</value>
+  </data>
+  <data name="GgufMoe" xml:space="preserve">
+    <value>MoE {0}x</value>
+  </data>
+  <data name="GgufChatTemplate" xml:space="preserve">
+    <value>chat-шаблон</value>
+  </data>
+  <data name="GgufProjectorWarning" xml:space="preserve">
+    <value>Это mmproj/визуальный проектор — укажите его в поле mmproj, а не как модель.</value>
+  </data>
+  <data name="GgufSuggestNgl" xml:space="preserve">
+    <value>Выгрузить все {0} слоёв</value>
+  </data>
+  <data name="GgufSuggestNglTooltip" xml:space="preserve">
+    <value>Выставить число GPU-слоёв так, чтобы выгрузить всю модель в VRAM</value>
   </data>
   <data name="Threads" xml:space="preserve">
     <value>Потоки:</value>
@@ -899,6 +959,12 @@
   <data name="AppUpdateConfirm" xml:space="preserve">
     <value>Доступна новая версия приложения. Скачать и перезапустить?</value>
   </data>
+  <data name="AppUpdateReleaseTitle" xml:space="preserve">
+    <value>Описание релиза</value>
+  </data>
+  <data name="AppUpdateNow" xml:space="preserve">
+    <value>Обновить сейчас</value>
+  </data>
   <data name="InstalledVersionTooltip" xml:space="preserve">
     <value>Установленная версия: {0}</value>
   </data>
@@ -937,6 +1003,66 @@
   </data>
   <data name="ArgumentPickerCancel" xml:space="preserve">
     <value>Отмена</value>
+  </data>
+  <data name="PickModel" xml:space="preserve">
+    <value>Выбрать…</value>
+  </data>
+  <data name="TooltipPickModel" xml:space="preserve">
+    <value>Просканировать папку и выбрать модель из списка</value>
+  </data>
+  <data name="ModelPickerTitle" xml:space="preserve">
+    <value>Выбор модели</value>
+  </data>
+  <data name="ModelPickerFolder" xml:space="preserve">
+    <value>Папка:</value>
+  </data>
+  <data name="ModelPickerFilter" xml:space="preserve">
+    <value>Фильтр моделей…</value>
+  </data>
+  <data name="ModelPickerRescan" xml:space="preserve">
+    <value>Обновить</value>
+  </data>
+  <data name="ModelPickerRecursive" xml:space="preserve">
+    <value>Включая подпапки</value>
+  </data>
+  <data name="ModelPickerSelect" xml:space="preserve">
+    <value>Выбрать</value>
+  </data>
+  <data name="ModelPickerCancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
+  <data name="ModelPickerScanning" xml:space="preserve">
+    <value>Сканирование…</value>
+  </data>
+  <data name="ModelPickerEmpty" xml:space="preserve">
+    <value>GGUF-модели в этой папке не найдены.</value>
+  </data>
+  <data name="ModelPickerModels" xml:space="preserve">
+    <value>моделей</value>
+  </data>
+  <data name="CopyEndpoint" xml:space="preserve">
+    <value>Копировать</value>
+  </data>
+  <data name="CopyServerUrl" xml:space="preserve">
+    <value>URL сервера</value>
+  </data>
+  <data name="CopyOpenAiUrl" xml:space="preserve">
+    <value>OpenAI base URL (/v1)</value>
+  </data>
+  <data name="CopyChatCurl" xml:space="preserve">
+    <value>curl (chat completion)</value>
+  </data>
+  <data name="ToastCopied" xml:space="preserve">
+    <value>Скопировано в буфер обмена</value>
+  </data>
+  <data name="AutoDetectedBackend" xml:space="preserve">
+    <value>Автоопределение</value>
+  </data>
+  <data name="NoMmapCrashAdvice" xml:space="preserve">
+    <value>Сервер «{0}» упал на CUDA pinned-памяти при загрузке с --no-mmap. Загрузка больших моделей в этом режиме ненадёжна — попробуйте отключить «No mmap» в профиле.</value>
+  </data>
+  <data name="TooltipAutoDetectedBackend" xml:space="preserve">
+    <value>Сборка выбрана автоматически по обнаруженному GPU. Вы можете выбрать другую вручную.</value>
   </data>
   <data name="TabSpeculative" xml:space="preserve">
     <value>Спекулятивный</value>
@@ -1401,9 +1527,6 @@
 
 Остановить и продолжить?</value>
   </data>
-  <data name="ToastAutoFitHeightDisabled" xml:space="preserve">
-    <value>Авторегулировка высоты окна отключена. Содержимое вкладки может быть обрезано. Растяните окно или нажмите, чтобы включить авторегулировку.</value>
-  </data>
   <data name="SelectInstalledBrowser" xml:space="preserve">
     <value>Выберите установленный браузер…</value>
   </data>
@@ -1673,5 +1796,206 @@
   </data>
   <data name="OptMmproj" xml:space="preserve">
     <value>mmproj</value>
+  </data>
+  <data name="ButtonYes" xml:space="preserve">
+    <value>Да</value>
+  </data>
+  <data name="ButtonNo" xml:space="preserve">
+    <value>Нет</value>
+  </data>
+  <data name="ButtonOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Remove" xml:space="preserve">
+    <value>Убрать</value>
+  </data>
+  <data name="MoveUp" xml:space="preserve">
+    <value>Вверх</value>
+  </data>
+  <data name="MoveDown" xml:space="preserve">
+    <value>Вниз</value>
+  </data>
+  <data name="DropOverlayTitle" xml:space="preserve">
+    <value>Перетащите файл профиля сюда</value>
+  </data>
+  <data name="ServerErrorBadge" xml:space="preserve">
+    <value>ОШИБКА</value>
+  </data>
+  <data name="ValidationFileNotFound" xml:space="preserve">
+    <value>Файл не найден на диске</value>
+  </data>
+  <data name="ConfirmCloseUnsavedTitle" xml:space="preserve">
+    <value>Несохранённые изменения</value>
+  </data>
+  <data name="ConfirmCloseUnsavedMessage" xml:space="preserve">
+    <value>В текущем профиле есть несохранённые изменения. Закрыть без сохранения?</value>
+  </data>
+  <data name="ConfirmSwitchUnsavedMessage" xml:space="preserve">
+    <value>В текущем профиле есть несохранённые изменения. Переключить профиль без сохранения?</value>
+  </data>
+  <data name="HotkeyMapTitle" xml:space="preserve">
+    <value>Горячие клавиши</value>
+  </data>
+  <data name="MenuKeyboardShortcuts" xml:space="preserve">
+    <value>Горячие клавиши…</value>
+  </data>
+  <data name="TriStateOn" xml:space="preserve">
+    <value>Вкл</value>
+  </data>
+  <data name="TriStateOff" xml:space="preserve">
+    <value>Выкл</value>
+  </data>
+  <data name="TriStateAuto" xml:space="preserve">
+    <value>Авто</value>
+  </data>
+  <data name="ConfirmMissingFilesTitle" xml:space="preserve">
+    <value>Файлы не найдены</value>
+  </data>
+  <data name="ConfirmMissingFilesMessage" xml:space="preserve">
+    <value>Следующие указанные пути не найдены на диске:</value>
+  </data>
+  <data name="ConfirmMissingFilesProceed" xml:space="preserve">
+    <value>Сервер, скорее всего, не запустится. Всё равно запустить?</value>
+  </data>
+  <data name="BenchmarkRunSave" xml:space="preserve">
+    <value>Запустить и сохранить бенчмарк</value>
+  </data>
+  <data name="BenchmarkArgsLabel" xml:space="preserve">
+    <value>Аргументы запуска (llama-server)</value>
+  </data>
+  <data name="BenchmarkFixSeed" xml:space="preserve">
+    <value>Зафиксировать seed</value>
+  </data>
+  <data name="BenchmarkCollectMetrics" xml:space="preserve">
+    <value>Снимать метрики (--metrics)</value>
+  </data>
+  <data name="BenchmarkStandardRun" xml:space="preserve">
+    <value>Стандартный прогон</value>
+  </data>
+  <data name="BenchmarkStopAfterRun" xml:space="preserve">
+    <value>Остановить после прогона</value>
+  </data>
+  <data name="BenchmarkPromptTokens" xml:space="preserve">
+    <value>Промпт, токенов</value>
+  </data>
+  <data name="BenchmarkNPredict" xml:space="preserve">
+    <value>Генерация, токенов</value>
+  </data>
+  <data name="BenchmarkRepeat" xml:space="preserve">
+    <value>Повторы</value>
+  </data>
+  <data name="BenchmarkLabel" xml:space="preserve">
+    <value>Метка</value>
+  </data>
+  <data name="BenchmarkNotes" xml:space="preserve">
+    <value>Заметки</value>
+  </data>
+  <data name="BenchmarkCommandPreview" xml:space="preserve">
+    <value>Итоговая команда</value>
+  </data>
+  <data name="BenchmarkRunButton" xml:space="preserve">
+    <value>Запустить</value>
+  </data>
+  <data name="BenchmarkCompareTitle" xml:space="preserve">
+    <value>Сравнение бенчмарков</value>
+  </data>
+  <data name="BenchmarkCompareOpen" xml:space="preserve">
+    <value>Бенчмарки</value>
+  </data>
+  <data name="BenchmarkRefresh" xml:space="preserve">
+    <value>Обновить</value>
+  </data>
+  <data name="BenchmarkExportMd" xml:space="preserve">
+    <value>Экспорт .md</value>
+  </data>
+  <data name="BenchmarkExportZip" xml:space="preserve">
+    <value>Экспорт ZIP</value>
+  </data>
+  <data name="BenchmarkOpenFolder" xml:space="preserve">
+    <value>Открыть папку</value>
+  </data>
+  <data name="BenchmarkPin" xml:space="preserve">
+    <value>Прикрепить артефакты (копировать в pinned)</value>
+  </data>
+  <data name="BenchmarkProfileFilter" xml:space="preserve">
+    <value>Профили</value>
+  </data>
+  <data name="BenchmarkProfileFilterAll" xml:space="preserve">
+    <value>Выбрать все</value>
+  </data>
+  <data name="BenchmarkReportNoSelection" xml:space="preserve">
+    <value>Бенчмарки не выбраны.</value>
+  </data>
+  <data name="BenchmarkReportMetric" xml:space="preserve">
+    <value>Метрика</value>
+  </data>
+  <data name="BenchmarkReportValue" xml:space="preserve">
+    <value>Значение</value>
+  </data>
+  <data name="BenchmarkReportProfile" xml:space="preserve">
+    <value>Профиль</value>
+  </data>
+  <data name="BenchmarkReportDate" xml:space="preserve">
+    <value>Дата</value>
+  </data>
+  <data name="BenchmarkReportModel" xml:space="preserve">
+    <value>Модель</value>
+  </data>
+  <data name="BenchmarkReportGenTps" xml:space="preserve">
+    <value>Генерация, tok/s</value>
+  </data>
+  <data name="BenchmarkReportPromptTps" xml:space="preserve">
+    <value>Промпт, tok/s</value>
+  </data>
+  <data name="BenchmarkReportTtft" xml:space="preserve">
+    <value>TTFT, мс</value>
+  </data>
+  <data name="BenchmarkReportDuration" xml:space="preserve">
+    <value>Длительность, с</value>
+  </data>
+  <data name="BenchmarkReportTitle" xml:space="preserve">
+    <value>Бенчмарк</value>
+  </data>
+  <data name="BenchmarkReportCommand" xml:space="preserve">
+    <value>Команда</value>
+  </data>
+  <data name="BenchmarkReportHardware" xml:space="preserve">
+    <value>Оборудование</value>
+  </data>
+  <data name="BenchmarkReportDraftModel" xml:space="preserve">
+    <value>Draft-модель</value>
+  </data>
+  <data name="BenchmarkReportCustomArgs" xml:space="preserve">
+    <value>Доп. аргументы</value>
+  </data>
+  <data name="BenchmarkPinFiles" xml:space="preserve">
+    <value>Прикрепить файлы…</value>
+  </data>
+  <data name="BenchmarkPinFolder" xml:space="preserve">
+    <value>Прикрепить папку…</value>
+  </data>
+  <data name="BenchmarkDeleteRun" xml:space="preserve">
+    <value>Удалить прогон</value>
+  </data>
+  <data name="BenchmarkDeleteRunConfirm" xml:space="preserve">
+    <value>Удалить выбранные прогоны бенчмарка? Действие необратимо.</value>
+  </data>
+  <data name="BenchmarkSavedSets" xml:space="preserve">
+    <value>Сохранённые сравнения</value>
+  </data>
+  <data name="BenchmarkSetName" xml:space="preserve">
+    <value>Название сравнения</value>
+  </data>
+  <data name="BenchmarkSaveSet" xml:space="preserve">
+    <value>Сохранить</value>
+  </data>
+  <data name="BenchmarkDeleteSet" xml:space="preserve">
+    <value>Удалить</value>
+  </data>
+  <data name="BenchmarkSavedToast" xml:space="preserve">
+    <value>{0}: бенчмарк сохранён ({1}). Нажмите, чтобы открыть папку.</value>
+  </data>
+  <data name="BenchmarkSaveFailedToast" xml:space="preserve">
+    <value>Не удалось сохранить прогон бенчмарка.</value>
   </data>
 </root>

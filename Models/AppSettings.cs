@@ -127,6 +127,11 @@ public class AppSettings
     public bool ScenariosEnabled { get; set; }
     public string SelectedScenario { get; set; } = "";
 
+    public bool HardwareMonitorEnabled { get; set; } = true;
+
+    public string ModelScanFolder { get; set; } = "";
+    public bool ModelScanRecursive { get; set; }
+
     public bool OnDemandProxyEnabled { get; set; }
     public int OnDemandProxyPort { get; set; } = 8081;
     public int OnDemandProxyIdleSeconds { get; set; } = 300;

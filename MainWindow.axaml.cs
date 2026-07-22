@@ -203,15 +203,8 @@ public partial class MainWindow : Window
                 if (_viewModel.AutoFitHeight && !_isAutoFitActive)
                     EnableAutoFitHeight();
                 else if (!_viewModel.AutoFitHeight && _isAutoFitActive)
-                {
                     DisableAutoFitHeight();
-                    CheckTabContentHeightWarning();
-                }
             });
-        }
-        else if (e.PropertyName == nameof(MainViewModel.SelectedTabIndex))
-        {
-            Dispatcher.UIThread.Post(CheckTabContentHeightWarning);
         }
         else if (e.PropertyName == nameof(MainViewModel.LogVisible))
         {
@@ -347,31 +340,6 @@ public partial class MainWindow : Window
             Height = _viewModel.AutoFitHeightSavedHeight;
 
         _isAutoFitActive = false;
-    }
-
-    private void CheckTabContentHeightWarning()
-    {
-        if (_viewModel == null) return;
-        if (_viewModel.AutoFitHeight) return;
-
-        // Wait one layout pass so the scroll viewport/extent are up to date.
-        Dispatcher.UIThread.Post(() =>
-        {
-            var tabControl = this.FindControl<TabControl>("MainTabControl");
-            if (tabControl == null || _viewModel == null) return;
-
-            // The active tab wraps its content in a ScrollViewer; only warn when
-            // the content actually overflows the viewport.
-            var scrollViewer = tabControl.SelectedContent as ScrollViewer
-                ?? tabControl.GetVisualDescendants()
-                    .OfType<ScrollViewer>()
-                    .FirstOrDefault(sv => sv.IsEffectivelyVisible && sv.Bounds.Height > 0);
-
-            bool contentClipped = scrollViewer != null
-                && scrollViewer.Extent.Height > scrollViewer.Viewport.Height + 1;
-
-            _viewModel.CheckAutoFitHeightWarning(contentClipped);
-        });
     }
 
     private void OnLogSplitterPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -550,11 +518,8 @@ public partial class MainWindow : Window
     private async void CopyCurrentCommandClick(object? sender, PointerPressedEventArgs e)
     {
         if (_viewModel == null) return;
-        var text = _viewModel.CurrentCommand;
-        if (string.IsNullOrEmpty(text)) return;
-        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
-        if (clipboard != null)
-            await clipboard.SetTextAsync(text);
+        if (sender is Control c && !e.GetCurrentPoint(c).Properties.IsLeftButtonPressed) return;
+        await CopyToClipboardWithToastAsync(_viewModel.CurrentCommand);
     }
 
     private void ImportClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -577,214 +542,10 @@ public partial class MainWindow : Window
         _viewModel?.ClearAllFieldsCommand.Execute(null);
     }
 
-    private void ClearExecutablePathClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.ExecutablePath = string.Empty;
-    }
-
-    private void ClearModelPathClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.ModelPath = string.Empty;
-    }
-
-    private void ClearModelsDirClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.ModelsDir = string.Empty;
-    }
-
-    private void ClearContextSizeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.ContextSize = string.Empty;
-    }
-
-    private void ClearThreadsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.Threads = string.Empty;
-    }
-
-    private void ClearTemperatureClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.Temperature = string.Empty;
-    }
-
-    private void ClearMaxTokensClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.MaxTokens = string.Empty;
-    }
-
-    private void ClearBatchSizeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.BatchSize = string.Empty;
-    }
-
-    private void ClearUBatchSizeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.UBatchSize = string.Empty;
-    }
-
-    private void ClearMinPClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.MinP = string.Empty;
-    }
-
-    private void ClearTopKClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.TopK = string.Empty;
-    }
-
-    private void ClearTopPClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.TopP = string.Empty;
-    }
-
-    private void ClearRepeatPenaltyClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.RepeatPenalty = string.Empty;
-    }
-
-    private void ClearApiKeyClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.ApiKey = string.Empty;
-    }
-
-    private void ClearAliasClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.Alias = string.Empty;
-    }
-
-    private void ClearLogFileClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.LogFilePath = string.Empty;
-    }
-
-    private void ClearMmprojClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.MmprojPath = string.Empty;
-    }
-
-    private void ClearGpuLayersClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.GpuLayers = string.Empty;
-    }
-
-    private void ClearCpuMoeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.CpuMoe = string.Empty;
-    }
-
-    private void ClearParallelSlotsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.ParallelSlots = string.Empty;
-    }
-
-    private void ClearTimeoutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.Timeout = string.Empty;
-    }
-
-    private void ClearReasoningBudgetClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.ReasoningBudget = string.Empty;
-    }
-
-    private void ClearSeedClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.Seed = string.Empty;
-    }
-
-    private void ClearPresencePenaltyClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.PresencePenalty = string.Empty;
-    }
-
-    private void ClearFrequencyPenaltyClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.FrequencyPenalty = string.Empty;
-    }
-
     private void ClearSpecTypeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (_viewModel != null)
             _viewModel.SpecType = string.Empty;
-    }
-
-    private void ClearSpecDraftNMaxClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.SpecDraftNMax = string.Empty;
-    }
-
-    private void ClearSpecDraftNMinClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.SpecDraftNMin = string.Empty;
-    }
-
-    private void ClearSpecDraftPSplitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.SpecDraftPSplit = string.Empty;
-    }
-
-    private void ClearSpecDraftPMinClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.SpecDraftPMin = string.Empty;
-    }
-
-    private void ClearSpecDraftModelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.SpecDraftModel = string.Empty;
-    }
-
-    private void ClearSpecDraftGpuLayersClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.SpecDraftGpuLayers = string.Empty;
-    }
-
-    private void ClearHfRepoClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.HfRepo = string.Empty;
-    }
-
-    private void ClearHfFileClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.HfFile = string.Empty;
-    }
-
-    private void ClearHfRepoDraftClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_viewModel != null)
-            _viewModel.HfRepoDraft = string.Empty;
     }
 
     private void ClearDockerImageClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -832,6 +593,22 @@ public partial class MainWindow : Window
         _viewModel?.OpenOptimizer();
     }
 
+    private async void RunBenchmarkClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.OpenBenchmarkLaunchDialog();
+    }
+
+    private void OpenBenchmarkComparisonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.OpenBenchmarkComparison();
+    }
+
+    private void ApplySuggestedNglClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.ApplySuggestedGpuLayers();
+    }
+
     private void CustomArgumentToggleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
     {
         _viewModel?.RebuildCustomArgumentsFromToggles();
@@ -859,26 +636,24 @@ public partial class MainWindow : Window
         }
     }
 
-    private void TriStateCheckBox_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is CheckBox checkBox && checkBox.IsChecked.HasValue)
-        {
-            // Cycle: false -> true -> null -> false
-            if (!checkBox.IsChecked.Value)
-                checkBox.IsChecked = true;
-            else if (checkBox.IsChecked == true)
-                checkBox.IsChecked = null;
-            else
-                checkBox.IsChecked = false;
-            e.Handled = true;
-        }
-    }
-
-    private void StartServerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void StartServerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (_viewModel?.CanStartServer != true) return;
-        _viewModel?.DismissServerStartError();
-        _viewModel?.StartServerCommand.Execute(null);
+
+        var missing = _viewModel.GetMissingReferencedPaths();
+        if (missing.Count > 0)
+        {
+            var loc = LocalizedStrings.Instance;
+            var message = loc.ConfirmMissingFilesMessage + "\n\n"
+                + string.Join("\n", missing) + "\n\n"
+                + loc.ConfirmMissingFilesProceed;
+            var result = await MessageBox.ShowAsync(this, message, loc.ConfirmMissingFilesTitle,
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (result != MessageBoxResult.Yes) return;
+        }
+
+        _viewModel.DismissServerStartError();
+        _viewModel.StartServerCommand.Execute(null);
     }
 
     private void RestartServerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -891,6 +666,124 @@ public partial class MainWindow : Window
     {
         _viewModel?.DismissServerStartError();
         _viewModel?.StopServerCommand.Execute(null);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled) return;
+
+        var ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        var noMods = e.KeyModifiers == KeyModifiers.None;
+        var args = new Avalonia.Interactivity.RoutedEventArgs();
+
+        if (ctrl && !shift && e.Key == Key.S)
+        {
+            SaveClick(this, args);
+            e.Handled = true;
+        }
+        else if (noMods && e.Key == Key.F5)
+        {
+            StartServerClick(this, args);
+            e.Handled = true;
+        }
+        else if (shift && e.Key == Key.F5)
+        {
+            if (_viewModel?.IsServerRunning == true) StopServerClick(this, args);
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.R)
+        {
+            if (_viewModel?.IsServerRunning == true) RestartServerClick(this, args);
+            e.Handled = true;
+        }
+        else if (noMods && e.Key == Key.F1)
+        {
+            ShowHotkeyMap();
+            e.Handled = true;
+        }
+    }
+
+    private void KeyboardShortcutsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => ShowHotkeyMap();
+
+    private void ShowHotkeyMap()
+    {
+        var loc = LocalizedStrings.Instance;
+        var shortcuts = new (string Gesture, string Action)[]
+        {
+            ("Ctrl+S", loc.Save),
+            ("F5", loc.StartServer),
+            ("Shift+F5", loc.StopServer),
+            ("Ctrl+R", loc.RestartServer),
+            ("F1", loc.HotkeyMapTitle),
+        };
+
+        var grid = new Grid
+        {
+            Margin = new Avalonia.Thickness(18),
+            ColumnDefinitions = new ColumnDefinitions("Auto,24,*")
+        };
+        for (int i = 0; i <= shortcuts.Length; i++)
+            grid.RowDefinitions.Add(new RowDefinition(Avalonia.Controls.GridLength.Auto));
+
+        for (int i = 0; i < shortcuts.Length; i++)
+        {
+            var chip = new Border
+            {
+                Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#22808080")),
+                CornerRadius = new Avalonia.CornerRadius(4),
+                Padding = new Avalonia.Thickness(8, 2),
+                Margin = new Avalonia.Thickness(0, 3),
+                Child = new TextBlock
+                {
+                    Text = shortcuts[i].Gesture,
+                    FontFamily = "Consolas",
+                    FontWeight = Avalonia.Media.FontWeight.SemiBold
+                }
+            };
+            Grid.SetRow(chip, i);
+            Grid.SetColumn(chip, 0);
+            grid.Children.Add(chip);
+
+            var action = new TextBlock
+            {
+                Text = shortcuts[i].Action,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            Grid.SetRow(action, i);
+            Grid.SetColumn(action, 2);
+            grid.Children.Add(action);
+        }
+
+        var dialog = new Window
+        {
+            Title = loc.HotkeyMapTitle,
+            SizeToContent = Avalonia.Controls.SizeToContent.WidthAndHeight,
+            CanResize = false,
+            ShowInTaskbar = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        if (this.TryFindResource("WindowBackgroundBrush", out var bgObj) && bgObj is Avalonia.Media.IBrush bg)
+            dialog.Background = bg;
+
+        var closeBtn = new Button
+        {
+            Content = loc.Close,
+            MinWidth = 88,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            Margin = new Avalonia.Thickness(0, 14, 0, 0),
+            IsDefault = true,
+            IsCancel = true
+        };
+        closeBtn.Click += (_, _) => dialog.Close();
+        Grid.SetRow(closeBtn, shortcuts.Length);
+        Grid.SetColumn(closeBtn, 0);
+        Grid.SetColumnSpan(closeBtn, 3);
+        grid.Children.Add(closeBtn);
+
+        dialog.Content = grid;
+        dialog.ShowDialog(this);
     }
 
     private void UnloadModelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -1119,6 +1012,45 @@ public partial class MainWindow : Window
             await instance.OpenInBrowserAsync();
     }
 
+    private async void InstanceCopyUrlClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (GetInstanceFromMenuItem(sender) is ServerInstance instance)
+            await CopyToClipboardWithToastAsync(Models.EndpointSnippets.BaseUrl(instance.Configuration.Host, instance.Configuration.Port));
+    }
+
+    private async void InstanceCopyOpenAiUrlClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (GetInstanceFromMenuItem(sender) is ServerInstance instance)
+            await CopyToClipboardWithToastAsync(Models.EndpointSnippets.OpenAiBaseUrl(instance.Configuration.Host, instance.Configuration.Port));
+    }
+
+    private async void InstanceCopyCurlClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (GetInstanceFromMenuItem(sender) is ServerInstance instance)
+        {
+            var cfg = instance.Configuration;
+            await CopyToClipboardWithToastAsync(Models.EndpointSnippets.ChatCurl(cfg.Host, cfg.Port, cfg.ApiKey, cfg.Alias, cfg.ModelPath));
+        }
+    }
+
+    private async System.Threading.Tasks.Task CopyToClipboardWithToastAsync(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        try
+        {
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard != null)
+            {
+                await clipboard.SetTextAsync(text);
+                _viewModel?.Toasts.ShowNeutral(_viewModel.Localized.ToastCopied, durationMs: 2000);
+            }
+        }
+        catch
+        {
+            // Ignore clipboard errors
+        }
+    }
+
     private void BrowseBrowserClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.BrowseBrowserCommand.Execute(null);
@@ -1155,6 +1087,12 @@ public partial class MainWindow : Window
     private void BrowseModelsDirClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.BrowseModelsDirCommand.Execute(null);
+    }
+
+    private async void PickModelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.OpenModelPickerAsync();
     }
 
     private void BrowseLogFileClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -1206,6 +1144,11 @@ public partial class MainWindow : Window
 
     private void ScenariosEnabledClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+    }
+
+    private void HardwareMonitorEnabledClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _ = _viewModel?.SaveSettingsAsync();
     }
 
     private void RunScenarioClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -2140,12 +2083,11 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
             e.Cancel = true;
             _isClosing = true;
             
-            // Server is running - ask for confirmation
             var result = await MessageBox.ShowAsync(
                 this,
                 LocalizedStrings.Instance.ConfirmCloseMessage,
                 LocalizedStrings.Instance.ConfirmCloseTitle,
-                MessageBoxButtons.YesNoCancel,
+                MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
             if (result == MessageBoxResult.Yes)
@@ -2153,16 +2095,14 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
                 // User confirmed - stop server first
                 await _viewModel.StopServerIfRunningAsync();
                 await SaveWindowPositionAsync();
-                
+
                 // Now close for real
                 Close();
             }
             else
             {
-                // User said No or Cancel - reset flag and cancel
                 _isClosing = false;
             }
-            // else: user said No or Cancel - window stays open
         }
         else
         {
@@ -2172,6 +2112,23 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
             {
                 e.Cancel = true;
                 _isClosing = true;
+
+                if (_viewModel.HasUnsavedChanges)
+                {
+                    var unsaved = await MessageBox.ShowAsync(
+                        this,
+                        LocalizedStrings.Instance.ConfirmCloseUnsavedMessage,
+                        LocalizedStrings.Instance.ConfirmCloseUnsavedTitle,
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+
+                    if (unsaved != MessageBoxResult.Yes)
+                    {
+                        _isClosing = false;
+                        return;
+                    }
+                }
+
                 await SaveWindowPositionAsync();
                 _viewModel.Dispose();
                 Close();

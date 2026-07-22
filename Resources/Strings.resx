@@ -86,6 +86,45 @@
   <data name="StatusRunning" xml:space="preserve">
     <value>Running (PID: {0})</value>
   </data>
+  <data name="StatusLoading" xml:space="preserve">
+    <value>Loading model…</value>
+  </data>
+  <data name="StatsPrompt" xml:space="preserve">
+    <value>prompt {0:0} t/s</value>
+  </data>
+  <data name="StatsGen" xml:space="preserve">
+    <value>gen {0:0} t/s</value>
+  </data>
+  <data name="StatsSlots" xml:space="preserve">
+    <value>slots {0}/{1}</value>
+  </data>
+  <data name="GpuVramLabel" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="GpuVramValue" xml:space="preserve">
+    <value>{0:0.0}/{1:0.0} GB</value>
+  </data>
+  <data name="HwCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="HwRam" xml:space="preserve">
+    <value>RAM</value>
+  </data>
+  <data name="HwGpu" xml:space="preserve">
+    <value>GPU</value>
+  </data>
+  <data name="HwVram" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="HwTemp" xml:space="preserve">
+    <value>Temp</value>
+  </data>
+  <data name="HardwareMonitorEnabled" xml:space="preserve">
+    <value>Hardware monitor (CPU / RAM / GPU)</value>
+  </data>
+  <data name="TooltipHardwareMonitorEnabled" xml:space="preserve">
+    <value>Show live CPU, RAM and GPU/VRAM usage above the server buttons (polls nvidia-smi / rocm-smi and the OS every 2s)</value>
+  </data>
   <data name="WindowTitleRunning" xml:space="preserve">
     <value>RUNNING</value>
   </data>
@@ -181,6 +220,27 @@
   </data>
   <data name="ContextSize" xml:space="preserve">
     <value>Context Size:</value>
+  </data>
+  <data name="ModelMaxContext" xml:space="preserve">
+    <value>Model max</value>
+  </data>
+  <data name="GgufLayersShort" xml:space="preserve">
+    <value>{0} layers</value>
+  </data>
+  <data name="GgufMoe" xml:space="preserve">
+    <value>MoE {0}x</value>
+  </data>
+  <data name="GgufChatTemplate" xml:space="preserve">
+    <value>chat template</value>
+  </data>
+  <data name="GgufProjectorWarning" xml:space="preserve">
+    <value>This is an mmproj/vision projector — set it in the mmproj field, not as the model.</value>
+  </data>
+  <data name="GgufSuggestNgl" xml:space="preserve">
+    <value>Offload all {0} layers</value>
+  </data>
+  <data name="GgufSuggestNglTooltip" xml:space="preserve">
+    <value>Set GPU layers to offload the whole model to VRAM</value>
   </data>
   <data name="Threads" xml:space="preserve">
     <value>Threads:</value>
@@ -899,6 +959,12 @@
   <data name="AppUpdateConfirm" xml:space="preserve">
     <value>A new version of the application is available. Download and restart?</value>
   </data>
+  <data name="AppUpdateReleaseTitle" xml:space="preserve">
+    <value>Release Notes</value>
+  </data>
+  <data name="AppUpdateNow" xml:space="preserve">
+    <value>Update Now</value>
+  </data>
   <data name="InstalledVersionTooltip" xml:space="preserve">
     <value>Installed version: {0}</value>
   </data>
@@ -937,6 +1003,66 @@
   </data>
   <data name="ArgumentPickerCancel" xml:space="preserve">
     <value>Cancel</value>
+  </data>
+  <data name="PickModel" xml:space="preserve">
+    <value>Pick…</value>
+  </data>
+  <data name="TooltipPickModel" xml:space="preserve">
+    <value>Scan a folder and pick a model from the list</value>
+  </data>
+  <data name="ModelPickerTitle" xml:space="preserve">
+    <value>Select a model</value>
+  </data>
+  <data name="ModelPickerFolder" xml:space="preserve">
+    <value>Folder:</value>
+  </data>
+  <data name="ModelPickerFilter" xml:space="preserve">
+    <value>Filter models…</value>
+  </data>
+  <data name="ModelPickerRescan" xml:space="preserve">
+    <value>Rescan</value>
+  </data>
+  <data name="ModelPickerRecursive" xml:space="preserve">
+    <value>Include subfolders</value>
+  </data>
+  <data name="ModelPickerSelect" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="ModelPickerCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ModelPickerScanning" xml:space="preserve">
+    <value>Scanning…</value>
+  </data>
+  <data name="ModelPickerEmpty" xml:space="preserve">
+    <value>No .gguf files found in this folder.</value>
+  </data>
+  <data name="ModelPickerModels" xml:space="preserve">
+    <value>models</value>
+  </data>
+  <data name="CopyEndpoint" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="CopyServerUrl" xml:space="preserve">
+    <value>Server URL</value>
+  </data>
+  <data name="CopyOpenAiUrl" xml:space="preserve">
+    <value>OpenAI base URL (/v1)</value>
+  </data>
+  <data name="CopyChatCurl" xml:space="preserve">
+    <value>curl (chat completion)</value>
+  </data>
+  <data name="ToastCopied" xml:space="preserve">
+    <value>Copied to clipboard</value>
+  </data>
+  <data name="AutoDetectedBackend" xml:space="preserve">
+    <value>Auto-detected</value>
+  </data>
+  <data name="NoMmapCrashAdvice" xml:space="preserve">
+    <value>Server '{0}' hit a CUDA pinned-memory failure while loading with --no-mmap. Loading large models this way is unreliable — try disabling "No mmap" in the profile.</value>
+  </data>
+  <data name="TooltipAutoDetectedBackend" xml:space="preserve">
+    <value>The build was pre-selected based on your detected GPU. You can still choose a different one.</value>
   </data>
   <data name="TabSpeculative" xml:space="preserve">
     <value>Speculative</value>
@@ -1401,9 +1527,6 @@
 
 Stop and continue?</value>
   </data>
-  <data name="ToastAutoFitHeightDisabled" xml:space="preserve">
-    <value>Window auto-height is off. Tab content may be clipped. Stretch the window or click to enable auto-height.</value>
-  </data>
   <data name="SelectInstalledBrowser" xml:space="preserve">
     <value>Select an installed browser…</value>
   </data>
@@ -1673,5 +1796,206 @@ Stop and continue?</value>
   </data>
   <data name="OptMmproj" xml:space="preserve">
     <value>mmproj</value>
+  </data>
+  <data name="ButtonYes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="ButtonNo" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="ButtonOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="MoveUp" xml:space="preserve">
+    <value>Move up</value>
+  </data>
+  <data name="MoveDown" xml:space="preserve">
+    <value>Move down</value>
+  </data>
+  <data name="DropOverlayTitle" xml:space="preserve">
+    <value>Drop profile file here</value>
+  </data>
+  <data name="ServerErrorBadge" xml:space="preserve">
+    <value>ERROR</value>
+  </data>
+  <data name="ValidationFileNotFound" xml:space="preserve">
+    <value>File not found on disk</value>
+  </data>
+  <data name="ConfirmCloseUnsavedTitle" xml:space="preserve">
+    <value>Unsaved changes</value>
+  </data>
+  <data name="ConfirmCloseUnsavedMessage" xml:space="preserve">
+    <value>The current profile has unsaved changes. Close without saving?</value>
+  </data>
+  <data name="ConfirmSwitchUnsavedMessage" xml:space="preserve">
+    <value>The current profile has unsaved changes. Switch profile without saving?</value>
+  </data>
+  <data name="HotkeyMapTitle" xml:space="preserve">
+    <value>Keyboard shortcuts</value>
+  </data>
+  <data name="MenuKeyboardShortcuts" xml:space="preserve">
+    <value>Keyboard shortcuts…</value>
+  </data>
+  <data name="TriStateOn" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="TriStateOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="TriStateAuto" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="ConfirmMissingFilesTitle" xml:space="preserve">
+    <value>Missing files</value>
+  </data>
+  <data name="ConfirmMissingFilesMessage" xml:space="preserve">
+    <value>These referenced paths were not found on disk:</value>
+  </data>
+  <data name="ConfirmMissingFilesProceed" xml:space="preserve">
+    <value>The server will most likely fail to start. Start anyway?</value>
+  </data>
+  <data name="BenchmarkRunSave" xml:space="preserve">
+    <value>Run &amp; save benchmark</value>
+  </data>
+  <data name="BenchmarkArgsLabel" xml:space="preserve">
+    <value>Launch arguments (llama-server)</value>
+  </data>
+  <data name="BenchmarkFixSeed" xml:space="preserve">
+    <value>Fix seed</value>
+  </data>
+  <data name="BenchmarkCollectMetrics" xml:space="preserve">
+    <value>Collect metrics (--metrics)</value>
+  </data>
+  <data name="BenchmarkStandardRun" xml:space="preserve">
+    <value>Run standard workload</value>
+  </data>
+  <data name="BenchmarkStopAfterRun" xml:space="preserve">
+    <value>Stop after workload</value>
+  </data>
+  <data name="BenchmarkPromptTokens" xml:space="preserve">
+    <value>Prompt tokens</value>
+  </data>
+  <data name="BenchmarkNPredict" xml:space="preserve">
+    <value>Generate tokens</value>
+  </data>
+  <data name="BenchmarkRepeat" xml:space="preserve">
+    <value>Repeats</value>
+  </data>
+  <data name="BenchmarkLabel" xml:space="preserve">
+    <value>Label</value>
+  </data>
+  <data name="BenchmarkNotes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="BenchmarkCommandPreview" xml:space="preserve">
+    <value>Resulting command</value>
+  </data>
+  <data name="BenchmarkRunButton" xml:space="preserve">
+    <value>Run</value>
+  </data>
+  <data name="BenchmarkCompareTitle" xml:space="preserve">
+    <value>Benchmark comparison</value>
+  </data>
+  <data name="BenchmarkCompareOpen" xml:space="preserve">
+    <value>Benchmarks</value>
+  </data>
+  <data name="BenchmarkRefresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="BenchmarkExportMd" xml:space="preserve">
+    <value>Export .md</value>
+  </data>
+  <data name="BenchmarkExportZip" xml:space="preserve">
+    <value>Export ZIP</value>
+  </data>
+  <data name="BenchmarkOpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="BenchmarkPin" xml:space="preserve">
+    <value>Pin artifacts (copy into pinned)</value>
+  </data>
+  <data name="BenchmarkProfileFilter" xml:space="preserve">
+    <value>Profiles</value>
+  </data>
+  <data name="BenchmarkProfileFilterAll" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="BenchmarkReportNoSelection" xml:space="preserve">
+    <value>No benchmarks selected.</value>
+  </data>
+  <data name="BenchmarkReportMetric" xml:space="preserve">
+    <value>Metric</value>
+  </data>
+  <data name="BenchmarkReportValue" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="BenchmarkReportProfile" xml:space="preserve">
+    <value>Profile</value>
+  </data>
+  <data name="BenchmarkReportDate" xml:space="preserve">
+    <value>Date</value>
+  </data>
+  <data name="BenchmarkReportModel" xml:space="preserve">
+    <value>Model</value>
+  </data>
+  <data name="BenchmarkReportGenTps" xml:space="preserve">
+    <value>Gen tok/s</value>
+  </data>
+  <data name="BenchmarkReportPromptTps" xml:space="preserve">
+    <value>Prompt tok/s</value>
+  </data>
+  <data name="BenchmarkReportTtft" xml:space="preserve">
+    <value>TTFT, ms</value>
+  </data>
+  <data name="BenchmarkReportDuration" xml:space="preserve">
+    <value>Duration, s</value>
+  </data>
+  <data name="BenchmarkReportTitle" xml:space="preserve">
+    <value>Benchmark</value>
+  </data>
+  <data name="BenchmarkReportCommand" xml:space="preserve">
+    <value>Command</value>
+  </data>
+  <data name="BenchmarkReportHardware" xml:space="preserve">
+    <value>Hardware</value>
+  </data>
+  <data name="BenchmarkReportDraftModel" xml:space="preserve">
+    <value>Draft model</value>
+  </data>
+  <data name="BenchmarkReportCustomArgs" xml:space="preserve">
+    <value>Custom args</value>
+  </data>
+  <data name="BenchmarkPinFiles" xml:space="preserve">
+    <value>Pin files…</value>
+  </data>
+  <data name="BenchmarkPinFolder" xml:space="preserve">
+    <value>Pin folder…</value>
+  </data>
+  <data name="BenchmarkDeleteRun" xml:space="preserve">
+    <value>Delete run</value>
+  </data>
+  <data name="BenchmarkDeleteRunConfirm" xml:space="preserve">
+    <value>Delete the selected benchmark run(s)? This cannot be undone.</value>
+  </data>
+  <data name="BenchmarkSavedSets" xml:space="preserve">
+    <value>Saved comparisons</value>
+  </data>
+  <data name="BenchmarkSetName" xml:space="preserve">
+    <value>Comparison name</value>
+  </data>
+  <data name="BenchmarkSaveSet" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="BenchmarkDeleteSet" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="BenchmarkSavedToast" xml:space="preserve">
+    <value>{0}: benchmark saved ({1}). Click to open folder.</value>
+  </data>
+  <data name="BenchmarkSaveFailedToast" xml:space="preserve">
+    <value>Failed to save benchmark run.</value>
   </data>
 </root>

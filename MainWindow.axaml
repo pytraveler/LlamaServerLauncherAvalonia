@@ -56,6 +56,14 @@
             <Setter Property="Foreground" Value="#E74C3C"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+        <Style Selector="SplitButton.instanceLoading">
+            <Setter Property="Foreground" Value="#E39A2B"/>
+            <Setter Property="BorderBrush" Value="#E39A2B"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+        </Style>
+        <Style Selector="SplitButton.instanceLoading /template/ ContentPresenter">
+            <Setter Property="Foreground" Value="#E39A2B"/>
+        </Style>
     </Window.Styles>
 
     <Grid>
@@ -71,6 +79,7 @@
             <Border Grid.Row="0" Margin="5,5,5,0" Padding="8,5" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                     <Button Grid.Column="0" Click="AboutClick" ToolTip.Tip="{Binding Localized.TooltipAbout}"
+                            AutomationProperties.Name="{Binding Localized.TooltipAbout}"
                             VerticalAlignment="Center" Margin="0,0,8,0" Padding="4">
                         <PathIcon Data="{StaticResource AboutIcon}" Width="18" Height="18"/>
                     </Button>
@@ -86,6 +95,7 @@
                                IsVisible="{Binding HasUnsavedChanges}"/>
 
                     <SplitButton Grid.Column="4" Content="{Binding Localized.Save}" Click="SaveClick"
+                                 ToolTip.Tip="{Binding Localized.Save, StringFormat='{}{0} (Ctrl+S)'}"
                                  VerticalAlignment="Center" Margin="0,0,8,0">
                         <SplitButton.Flyout>
                             <MenuFlyout Placement="Bottom">
@@ -114,13 +124,16 @@
                         <Button Content="{Binding Localized.ChangeVersionLlama}" IsVisible="{Binding ShowLlamaChangeVersionButton}"
                                 Click="LlamaDownloadClick" Margin="0,0,5,0"
                                 ToolTip.Tip="{Binding LlamaInstalledVersionTooltip}"/>
-                        <Button Content="&#x22EE;" Padding="6,0" Margin="0,0,5,0" ToolTip.Tip="{Binding Localized.TooltipImportAll}">
+                        <Button Content="&#x22EE;" Padding="6,0" Margin="0,0,5,0" ToolTip.Tip="{Binding Localized.TooltipImportAll}"
+                                AutomationProperties.Name="{Binding Localized.TooltipImportAll}">
                             <Button.Flyout>
                                 <MenuFlyout Placement="Bottom">
                                     <MenuItem Header="{Binding Localized.ClearFields}" Click="ClearClick" ToolTip.Tip="{Binding Localized.TooltipClearAllFields}"/>
                                     <Separator/>
                                     <MenuItem Header="{Binding Localized.ExportAll}" Click="ExportAllClick" ToolTip.Tip="{Binding Localized.TooltipExportAll}"/>
                                     <MenuItem Header="{Binding Localized.ImportAll}" Click="ImportAllClick" ToolTip.Tip="{Binding Localized.TooltipImportAll}"/>
+                                    <Separator/>
+                                    <MenuItem Header="{Binding Localized.MenuKeyboardShortcuts}" Click="KeyboardShortcutsClick"/>
                                 </MenuFlyout>
                             </Button.Flyout>
                         </Button>
@@ -263,26 +276,32 @@
                                     <TextBlock Text="{Binding Localized.Paths}" FontWeight="Bold" Margin="0,0,0,10"/>
                                     <Grid ColumnDefinitions="220,3*,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.LlamaServerExe}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                        <ctrl:HistoryTextBox Grid.Row="0" Grid.Column="1" PlaceholderText="{Binding ExecutablePathPlaceholder}" PropertyName="ExecutablePath" Margin="0,2"/>
+                                        <Border Grid.Row="0" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
+                                                BorderBrush="{Binding ExecutableBorderBrush}" ToolTip.Tip="{Binding ExecutableToolTip}">
+                                            <ctrl:HistoryTextBox PlaceholderText="{Binding ExecutablePathPlaceholder}" PropertyName="ExecutablePath"/>
+                                        </Border>
                                         <Button Grid.Row="0" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseExecutableClick" VerticalAlignment="Stretch" Margin="5,2,0,2"/>
-                                        <Button Grid.Row="0" Grid.Column="3" Click="ClearExecutablePathClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.ModelM}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                        <ctrl:HistoryTextBox Grid.Row="1" Grid.Column="1" PlaceholderText="{Binding ModelPathPlaceholder}" PropertyName="ModelPath" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipModelPath}"/>
+                                        <Border Grid.Row="1" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
+                                                BorderBrush="{Binding ModelBorderBrush}" ToolTip.Tip="{Binding ModelToolTip}">
+                                            <ctrl:HistoryTextBox PlaceholderText="{Binding ModelPathPlaceholder}" PropertyName="ModelPath"/>
+                                        </Border>
                                         <Button Grid.Row="1" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseModelClick" VerticalAlignment="Stretch" Margin="5,2,0,2"/>
-                                        <Button Grid.Row="1" Grid.Column="3" Click="ClearModelPathClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
+                                        <Button Grid.Row="1" Grid.Column="3" Content="{Binding Localized.PickModel}" Click="PickModelClick" VerticalAlignment="Stretch" Margin="5,2,0,2" ToolTip.Tip="{Binding Localized.TooltipPickModel}"/>
 
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding Localized.ModelsDir}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                        <ctrl:HistoryTextBox Grid.Row="2" Grid.Column="1" PlaceholderText="{Binding ModelsDirPlaceholder}" PropertyName="ModelsDir" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipModelsDir}"/>
+                                        <Border Grid.Row="2" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
+                                                BorderBrush="{Binding ModelsDirBorderBrush}" ToolTip.Tip="{Binding ModelsDirToolTip}">
+                                            <ctrl:HistoryTextBox PlaceholderText="{Binding ModelsDirPlaceholder}" PropertyName="ModelsDir"/>
+                                        </Border>
                                         <Button Grid.Row="2" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseModelsDirClick" VerticalAlignment="Stretch" Margin="5,2,0,2"/>
-                                        <Button Grid.Row="2" Grid.Column="3" Click="ClearModelsDirClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
                                     </Grid>
+                                    <TextBlock Text="{Binding ModelInfoBadge}" IsVisible="{Binding HasModelInfo}"
+                                               FontSize="11" Opacity="0.75" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                    <TextBlock Text="{Binding ModelWarning}" IsVisible="{Binding HasModelWarning}"
+                                               Foreground="{DynamicResource WarningForegroundBrush}" FontSize="11" FontWeight="SemiBold"
+                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
                                     <TextBlock Text="{Binding ModelLoadModeStatus}"
                                                Foreground="{Binding ModelLoadModeStatusBrush}"
                                                FontWeight="Bold" Margin="0,8,0,0"
@@ -301,9 +320,6 @@
                                                 ToolTip.Tip="{Binding HfRepoToolTip}">
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding HfRepoPlaceholder}" PropertyName="HfRepo"/>
                                         </Border>
-                                        <Button Grid.Row="0" Grid.Column="3" Click="ClearHfRepoClick" VerticalAlignment="Stretch" Margin="3,4,0,4" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.HfFile}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding HfFileToolTip}"/>
                                         <Border Grid.Row="1" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
@@ -311,9 +327,6 @@
                                                 ToolTip.Tip="{Binding HfFileToolTip}">
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding HfFilePlaceholder}" PropertyName="HfFile"/>
                                         </Border>
-                                        <Button Grid.Row="1" Grid.Column="3" Click="ClearHfFileClick" VerticalAlignment="Stretch" Margin="3,4,0,4" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
                                         <CheckBox Grid.Row="2" Grid.Column="1" Content="{Binding Localized.Offline}" IsChecked="{Binding Offline}" Margin="0,5,0,0" IsEnabled="{Binding IsOfflineSupported}" ToolTip.Tip="{Binding OfflineToolTip}"/>
                                     </Grid>
@@ -344,7 +357,7 @@
                                 <StackPanel>
                                     <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
                                         <TextBlock Grid.Column="0" Text="{Binding Localized.CustomArguments}" FontWeight="Bold"/>
-                                        <Button Grid.Column="1" Click="ClearCustomArgumentsClick" VerticalAlignment="Stretch" ToolTip.Tip="Clear" Padding="5,0">
+                                        <Button Grid.Column="1" Click="ClearCustomArgumentsClick" VerticalAlignment="Stretch" ToolTip.Tip="{Binding Localized.Clear}" Padding="5,0">
                                             <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                         </Button>
                                         <Button Grid.Column="2" Content="+" Click="OpenArgumentPickerClick"
@@ -364,12 +377,13 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <ToggleButton Content="{Binding Name}" 
-                                                              IsChecked="{Binding IsEnabled}"
+                                                <ToggleButton IsChecked="{Binding IsEnabled}"
                                                               Margin="0,0,5,5"
                                                               Padding="8,4"
                                                               Tapped="CustomArgumentToggleTapped"
-                                                              RightTapped="CustomArgumentToggleRightTapped"/>
+                                                              RightTapped="CustomArgumentToggleRightTapped">
+                                                    <TextBlock Text="{Binding Name}"/>
+                                                </ToggleButton>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
@@ -389,9 +403,11 @@
                         <StackPanel Margin="10">
                             <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                                 <StackPanel>
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
                                         <TextBlock Grid.Column="0" Text="{Binding Localized.ModelParameters}" FontWeight="Bold" VerticalAlignment="Center"/>
-                                        <Button Grid.Column="1" Content="{Binding Localized.OptOpen}" Click="OpenOptimizerClick"
+                                        <Button Grid.Column="1" Content="{Binding Localized.BenchmarkCompareOpen}" Click="OpenBenchmarkComparisonClick"
+                                                ToolTip.Tip="{Binding Localized.BenchmarkCompareTitle}" Padding="8,2" Margin="0,0,6,0"/>
+                                        <Button Grid.Column="2" Content="{Binding Localized.OptOpen}" Click="OpenOptimizerClick"
                                                 ToolTip.Tip="{Binding Localized.OptTitle}" Padding="8,2"/>
                                     </Grid>
                                     <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
@@ -399,36 +415,35 @@
                                             <TextBlock Text="{Binding Localized.ContextSize}" ToolTip.Tip="{Binding Localized.TooltipContextSize}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding ContextSizePlaceholder}" PropertyName="ContextSize" ToolTip.Tip="{Binding Localized.TooltipContextSize}"/>
-                                                <Button Grid.Column="1" Click="ClearContextSizeClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
+                                            <Slider Margin="0,0,0,0" Minimum="{Binding ContextSliderMinimum}" Maximum="{Binding ContextSliderMax}"
+                                                    Value="{Binding ContextSliderValue, Mode=TwoWay}"
+                                                    TickFrequency="{Binding ContextSliderTick}" IsSnapToTickEnabled="True"
+                                                    SmallChange="256" LargeChange="1024" ToolTip.Tip="{Binding Localized.TooltipContextSize}"/>
+                                            <TextBlock Text="{Binding ModelMaxContextText}" IsVisible="{Binding HasModelMaxContext}"
+                                                       FontSize="10" Opacity="0.7" HorizontalAlignment="Right"/>
                                         </StackPanel>
                                         <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5,10,0">
                                             <TextBlock Text="{Binding Localized.Threads}" ToolTip.Tip="{Binding Localized.TooltipThreads}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding ThreadsPlaceholder}" PropertyName="Threads" ToolTip.Tip="{Binding Localized.TooltipThreads}"/>
-                                                <Button Grid.Column="1" Click="ClearThreadsClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,5,0,0">
                                             <TextBlock Text="{Binding Localized.GpuLayers}" ToolTip.Tip="{Binding Localized.TooltipGpuLayers}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding GpuLayersPlaceholder}" PropertyName="GpuLayers" ToolTip.Tip="{Binding Localized.TooltipGpuLayers}"/>
-                                                <Button Grid.Column="1" Click="ClearGpuLayersClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
+                                            <Button Content="{Binding SuggestedGpuLayersText}" IsVisible="{Binding HasSuggestedGpuLayers}"
+                                                    Click="ApplySuggestedNglClick" ToolTip.Tip="{Binding Localized.GgufSuggestNglTooltip}"
+                                                    Background="Transparent" BorderThickness="0" Padding="0" Margin="0,3,0,0"
+                                                    HorizontalAlignment="Left" Cursor="Hand" FontSize="11"
+                                                    Foreground="{DynamicResource AccentForegroundBrush}"/>
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,5,10,0">
                                             <TextBlock Text="{Binding Localized.CpuMoe}" ToolTip.Tip="{Binding Localized.TooltipCpuMoe}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding CpuMoePlaceholder}" PropertyName="CpuMoe" ToolTip.Tip="{Binding Localized.TooltipCpuMoe}"/>
-                                                <Button Grid.Column="1" Click="ClearCpuMoeClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                     </Grid>
@@ -443,27 +458,18 @@
                                             <TextBlock Text="{Binding Localized.Temperature}" ToolTip.Tip="{Binding Localized.TooltipTemperature}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding TemperaturePlaceholder}" PropertyName="Temperature" ToolTip.Tip="{Binding Localized.TooltipTemperature}"/>
-                                                <Button Grid.Column="1" Click="ClearTemperatureClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5,10,0">
                                             <TextBlock Text="{Binding Localized.MaxTokens}" ToolTip.Tip="{Binding Localized.TooltipMaxTokens}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding MaxTokensPlaceholder}" PropertyName="MaxTokens" ToolTip.Tip="{Binding Localized.TooltipMaxTokens}"/>
-                                                <Button Grid.Column="1" Click="ClearMaxTokensClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,5,0,0">
                                             <TextBlock Text="{Binding Localized.BatchSize}" ToolTip.Tip="{Binding Localized.TooltipBatchSize}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding BatchSizePlaceholder}" PropertyName="BatchSize" ToolTip.Tip="{Binding Localized.TooltipBatchSize}"/>
-                                                <Button Grid.Column="1" Click="ClearBatchSizeClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
 
@@ -471,18 +477,12 @@
                                             <TextBlock Text="{Binding Localized.UBatchSize}" ToolTip.Tip="{Binding Localized.TooltipUBatchSize}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding UBatchSizePlaceholder}" PropertyName="UBatchSize" ToolTip.Tip="{Binding Localized.TooltipUBatchSize}"/>
-                                                <Button Grid.Column="1" Click="ClearUBatchSizeClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,5,10,0">
                                             <TextBlock Text="{Binding Localized.MinP}" ToolTip.Tip="{Binding Localized.TooltipMinP}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding MinPPlaceholder}" PropertyName="MinP" ToolTip.Tip="{Binding Localized.TooltipMinP}"/>
-                                                <Button Grid.Column="1" Click="ClearMinPClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
 
@@ -490,27 +490,18 @@
                                             <TextBlock Text="{Binding Localized.TopK}" ToolTip.Tip="{Binding Localized.TooltipTopK}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding TopKPlaceholder}" PropertyName="TopK" ToolTip.Tip="{Binding Localized.TooltipTopK}"/>
-                                                <Button Grid.Column="1" Click="ClearTopKClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,5,10,0">
                                             <TextBlock Text="{Binding Localized.TopP}" ToolTip.Tip="{Binding Localized.TooltipTopP}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding TopPPlaceholder}" PropertyName="TopP" ToolTip.Tip="{Binding Localized.TooltipTopP}"/>
-                                                <Button Grid.Column="1" Click="ClearTopPClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,5,0,0">
                                             <TextBlock Text="{Binding Localized.RepeatPenalty}" ToolTip.Tip="{Binding Localized.TooltipRepeatPenalty}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding RepeatPenaltyPlaceholder}" PropertyName="RepeatPenalty" ToolTip.Tip="{Binding Localized.TooltipRepeatPenalty}"/>
-                                                <Button Grid.Column="1" Click="ClearRepeatPenaltyClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
 
@@ -518,27 +509,18 @@
                                             <TextBlock Text="{Binding Localized.Seed}" ToolTip.Tip="{Binding Localized.TooltipSeed}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding SeedPlaceholder}" PropertyName="Seed" ToolTip.Tip="{Binding Localized.TooltipSeed}" IsEnabled="{Binding IsSeedSupported}"/>
-                                                <Button Grid.Column="1" Click="ClearSeedClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,5,10,0">
                                             <TextBlock Text="{Binding Localized.PresencePenalty}" ToolTip.Tip="{Binding Localized.TooltipPresencePenalty}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding PresencePenaltyPlaceholder}" PropertyName="PresencePenalty" ToolTip.Tip="{Binding Localized.TooltipPresencePenalty}" IsEnabled="{Binding IsPresencePenaltySupported}"/>
-                                                <Button Grid.Column="1" Click="ClearPresencePenaltyClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,5,0,0">
                                             <TextBlock Text="{Binding Localized.FrequencyPenalty}" ToolTip.Tip="{Binding Localized.TooltipFrequencyPenalty}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding FrequencyPenaltyPlaceholder}" PropertyName="FrequencyPenalty" ToolTip.Tip="{Binding Localized.TooltipFrequencyPenalty}" IsEnabled="{Binding IsFrequencyPenaltySupported}"/>
-                                                <Button Grid.Column="1" Click="ClearFrequencyPenaltyClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                     </Grid>
@@ -555,62 +537,45 @@
                                 <StackPanel>
                                     <TextBlock Text="{Binding Localized.AdditionalOptions}" FontWeight="Bold" Margin="0,0,0,10"/>
                                     <WrapPanel>
-                                        <CheckBox x:Name="FlashAttentionCheckBox" Content="{Binding Localized.FlashAttention}" IsChecked="{Binding FlashAttention}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipFlashAttention}"/>
-                                        <CheckBox x:Name="WebUICheckBox" Content="{Binding Localized.WebUI}" IsChecked="{Binding EnableWebUI}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipWebUI}"/>
-                                        <CheckBox x:Name="EmbeddingCheckBox" Content="{Binding Localized.Embedding}" IsChecked="{Binding EmbeddingMode}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipEmbedding}"/>
-                                        <CheckBox x:Name="SlotsCheckBox" Content="{Binding Localized.Slots}" IsChecked="{Binding EnableSlots}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipSlots}"/>
-                                        <CheckBox x:Name="MetricsCheckBox" Content="{Binding Localized.Metrics}" IsChecked="{Binding EnableMetrics}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipMetrics}"/>
-                                        <CheckBox x:Name="ContBatchingCheckBox" Content="{Binding Localized.ContBatching}" IsChecked="{Binding ContBatching}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipContBatching}" IsEnabled="{Binding IsContBatchingSupported}"/>
-                                        <CheckBox x:Name="CachePromptCheckBox" Content="{Binding Localized.CachePrompt}" IsChecked="{Binding CachePrompt}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipCachePrompt}" IsEnabled="{Binding IsCachePromptSupported}"/>
-                                        <CheckBox x:Name="MlockCheckBox" Content="{Binding Localized.Mlock}" IsChecked="{Binding Mlock}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipMlock}" IsEnabled="{Binding IsMlockSupported}"/>
-                                        <CheckBox x:Name="MmapCheckBox" Content="{Binding Localized.Mmap}" IsChecked="{Binding Mmap}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipMmap}" IsEnabled="{Binding IsMmapSupported}"/>
-                                        <CheckBox x:Name="ContextShiftCheckBox" Content="{Binding Localized.ContextShift}" IsChecked="{Binding ContextShift}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipContextShift}" IsEnabled="{Binding IsContextShiftSupported}"/>
-                                        <CheckBox x:Name="ReasoningCheckBox" Content="{Binding Localized.Reasoning}" IsChecked="{Binding Reasoning}" Margin="5" PointerPressed="TriStateCheckBox_PointerPressed" ToolTip.Tip="{Binding Localized.TooltipReasoning}" IsEnabled="{Binding IsReasoningSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.FlashAttention}" Value="{Binding FlashAttention, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipFlashAttention}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.WebUI}" Value="{Binding EnableWebUI, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipWebUI}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.Embedding}" Value="{Binding EmbeddingMode, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipEmbedding}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.Slots}" Value="{Binding EnableSlots, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipSlots}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.Metrics}" Value="{Binding EnableMetrics, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipMetrics}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.ContBatching}" Value="{Binding ContBatching, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipContBatching}" IsEnabled="{Binding IsContBatchingSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.CachePrompt}" Value="{Binding CachePrompt, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipCachePrompt}" IsEnabled="{Binding IsCachePromptSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.Mlock}" Value="{Binding Mlock, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipMlock}" IsEnabled="{Binding IsMlockSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.Mmap}" Value="{Binding Mmap, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipMmap}" IsEnabled="{Binding IsMmapSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.ContextShift}" Value="{Binding ContextShift, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipContextShift}" IsEnabled="{Binding IsContextShiftSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.Reasoning}" Value="{Binding Reasoning, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipReasoning}" IsEnabled="{Binding IsReasoningSupported}"/>
                                     </WrapPanel>
                                     <Grid ColumnDefinitions="150,*,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,5,0,0">
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.ApiKey}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipApiKey}"/>
                                         <ctrl:HistoryTextBox Grid.Row="0" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ApiKeyPlaceholder}" PropertyName="ApiKey" ToolTip.Tip="{Binding Localized.TooltipApiKey}"/>
-                                        <Button Grid.Row="0" Grid.Column="2" Click="ClearApiKeyClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
                                         
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.Alias}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipAlias}"/>
                                         <ctrl:HistoryTextBox Grid.Row="1" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding AliasPlaceholder}" PropertyName="Alias" ToolTip.Tip="{Binding Localized.TooltipAlias}"/>
-                                        <Button Grid.Row="1" Grid.Column="2" Click="ClearAliasClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding Localized.LogFile}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipLogFile}"/>
                                         <ctrl:HistoryTextBox Grid.Row="2" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding LogFilePathPlaceholder}" PropertyName="LogFilePath" ToolTip.Tip="{Binding Localized.TooltipLogFile}"/>
                                         <Button Grid.Row="2" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseLogFileClick" VerticalAlignment="Stretch" Margin="3,2,0,2"/>
-                                        <Button Grid.Row="2" Grid.Column="3" Click="ClearLogFileClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding Localized.MMProj}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipMMProj}"/>
-                                        <ctrl:HistoryTextBox Grid.Row="3" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding MmprojPathPlaceholder}" PropertyName="MmprojPath" ToolTip.Tip="{Binding Localized.TooltipMMProj}"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding Localized.MMProj}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding MmprojToolTip}"/>
+                                        <Border Grid.Row="3" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
+                                                BorderBrush="{Binding MmprojBorderBrush}"
+                                                ToolTip.Tip="{Binding MmprojToolTip}">
+                                            <ctrl:HistoryTextBox PlaceholderText="{Binding MmprojPathPlaceholder}" PropertyName="MmprojPath"/>
+                                        </Border>
                                         <Button Grid.Row="3" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseMmprojClick" VerticalAlignment="Stretch" Margin="3,2,0,2"/>
-                                        <Button Grid.Row="3" Grid.Column="3" Click="ClearMmprojClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
                                         <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding Localized.ParallelSlots}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipParallelSlots}"/>
                                         <ctrl:HistoryTextBox Grid.Row="4" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ParallelSlotsPlaceholder}" PropertyName="ParallelSlots" ToolTip.Tip="{Binding Localized.TooltipParallelSlots}" IsEnabled="{Binding IsParallelSlotsSupported}"/>
-                                        <Button Grid.Row="4" Grid.Column="2" Click="ClearParallelSlotsClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
                                         <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding Localized.Timeout}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipTimeout}"/>
                                         <ctrl:HistoryTextBox Grid.Row="5" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding TimeoutPlaceholder}" PropertyName="Timeout" ToolTip.Tip="{Binding Localized.TooltipTimeout}" IsEnabled="{Binding IsTimeoutSupported}"/>
-                                        <Button Grid.Row="5" Grid.Column="2" Click="ClearTimeoutClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
                                         <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding Localized.ReasoningBudget}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipReasoningBudget}"/>
                                         <ctrl:HistoryTextBox Grid.Row="6" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ReasoningBudgetPlaceholder}" PropertyName="ReasoningBudget" ToolTip.Tip="{Binding Localized.TooltipReasoningBudget}" IsEnabled="{Binding IsReasoningBudgetSupported}"/>
-                                        <Button Grid.Row="6" Grid.Column="2" Click="ClearReasoningBudgetClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
                                     </Grid>
                                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                         <StackPanel Orientation="Horizontal" Margin="0,0,30,0">
@@ -621,7 +586,7 @@
                                                 <ComboBox ItemsSource="{Binding CacheTypeOptions}" SelectedItem="{Binding CacheTypeK}" Width="100"
                                                           IsEnabled="{Binding IsCacheTypeKSupported}"/>
                                             </Border>
-                                            <Button Click="ClearCacheTypeKClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Button Click="ClearCacheTypeKClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="{Binding Localized.Clear}">
                                                 <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                             </Button>
                                         </StackPanel>
@@ -633,7 +598,7 @@
                                                 <ComboBox ItemsSource="{Binding CacheTypeOptions}" SelectedItem="{Binding CacheTypeV}" Width="100"
                                                           IsEnabled="{Binding IsCacheTypeVSupported}"/>
                                             </Border>
-                                            <Button Click="ClearCacheTypeVClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                            <Button Click="ClearCacheTypeVClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="{Binding Localized.Clear}">
                                                 <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                             </Button>
                                         </StackPanel>
@@ -661,7 +626,7 @@
                                                       Width="200"
                                                       IsEnabled="{Binding IsSpecTypeSupported}"/>
                                         </Border>
-                                        <Button Click="ClearSpecTypeClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="Clear">
+                                        <Button Click="ClearSpecTypeClick" VerticalAlignment="Stretch" Margin="3,0,0,0" ToolTip.Tip="{Binding Localized.Clear}">
                                             <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                         </Button>
                                     </StackPanel>
@@ -680,9 +645,6 @@
                                                         ToolTip.Tip="{Binding SpecDraftNMaxToolTip}">
                                                     <ctrl:HistoryTextBox PlaceholderText="{Binding SpecDraftNMaxPlaceholder}" PropertyName="SpecDraftNMax"/>
                                                 </Border>
-                                                <Button Grid.Column="1" Click="ClearSpecDraftNMaxClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5,10,0">
@@ -693,9 +655,6 @@
                                                         ToolTip.Tip="{Binding SpecDraftNMinToolTip}">
                                                     <ctrl:HistoryTextBox PlaceholderText="{Binding SpecDraftNMinPlaceholder}" PropertyName="SpecDraftNMin"/>
                                                 </Border>
-                                                <Button Grid.Column="1" Click="ClearSpecDraftNMinClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,5,10,0">
@@ -706,9 +665,6 @@
                                                         ToolTip.Tip="{Binding SpecDraftPSplitToolTip}">
                                                     <ctrl:HistoryTextBox PlaceholderText="{Binding SpecDraftPSplitPlaceholder}" PropertyName="SpecDraftPSplit"/>
                                                 </Border>
-                                                <Button Grid.Column="1" Click="ClearSpecDraftPSplitClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,5,10,0">
@@ -719,9 +675,6 @@
                                                         ToolTip.Tip="{Binding SpecDraftPMinToolTip}">
                                                     <ctrl:HistoryTextBox PlaceholderText="{Binding SpecDraftPMinPlaceholder}" PropertyName="SpecDraftPMin"/>
                                                 </Border>
-                                                <Button Grid.Column="1" Click="ClearSpecDraftPMinClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
-                                                    <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                     </Grid>
@@ -739,9 +692,6 @@
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding SpecDraftModelPlaceholder}" PropertyName="SpecDraftModel"/>
                                         </Border>
                                         <Button Grid.Row="0" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseDraftModelClick" VerticalAlignment="Stretch" Margin="5,4,0,4"/>
-                                        <Button Grid.Row="0" Grid.Column="3" Click="ClearSpecDraftModelClick" VerticalAlignment="Stretch" Margin="3,4,0,4" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.SpecDraftGpuLayers}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding DraftGpuLayersToolTip}"/>
                                         <Border Grid.Row="1" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
@@ -749,9 +699,6 @@
                                                 ToolTip.Tip="{Binding DraftGpuLayersToolTip}">
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding SpecDraftGpuLayersPlaceholder}" PropertyName="SpecDraftGpuLayers"/>
                                         </Border>
-                                        <Button Grid.Row="1" Grid.Column="3" Click="ClearSpecDraftGpuLayersClick" VerticalAlignment="Stretch" Margin="3,4,0,4" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
 
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding Localized.HfRepoDraft}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding HfRepoDraftToolTip}"/>
                                         <Border Grid.Row="2" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
@@ -759,9 +706,6 @@
                                                 ToolTip.Tip="{Binding HfRepoDraftToolTip}">
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding HfRepoDraftPlaceholder}" PropertyName="HfRepoDraft"/>
                                         </Border>
-                                        <Button Grid.Row="2" Grid.Column="3" Click="ClearHfRepoDraftClick" VerticalAlignment="Stretch" Margin="3,4,0,4" ToolTip.Tip="Clear">
-                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
-                                        </Button>
                                     </Grid>
                                 </StackPanel>
                             </Border>
@@ -797,7 +741,7 @@
                                                   IsEditable="True"
                                                   IsEnabled="{Binding RunInDocker}"
                                                   ToolTip.Tip="{Binding Localized.TooltipDockerImage}"/>
-                                        <Button Grid.Row="0" Grid.Column="2" Click="ClearDockerImageClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
+                                        <Button Grid.Row="0" Grid.Column="2" Click="ClearDockerImageClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="{Binding Localized.Clear}">
                                             <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                         </Button>
 
@@ -807,7 +751,7 @@
                                                  IsEnabled="{Binding RunInDocker}"
                                                  PlaceholderText="{Binding Localized.PlaceholderDockerContainerName}"
                                                  ToolTip.Tip="{Binding Localized.TooltipDockerContainerName}"/>
-                                        <Button Grid.Row="1" Grid.Column="2" Click="ClearDockerContainerNameClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="Clear">
+                                        <Button Grid.Row="1" Grid.Column="2" Click="ClearDockerContainerNameClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="{Binding Localized.Clear}">
                                             <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
                                         </Button>
                                     </Grid>
@@ -999,6 +943,9 @@
                                     <CheckBox Content="{Binding Localized.AutoStartWithSystem}" IsChecked="{Binding AutoStartWithSystem}"
                                               ToolTip.Tip="{Binding Localized.TooltipAutoStartWithSystem}"/>
                                     <CheckBox Content="{Binding Localized.AutoFitHeight}" IsChecked="{Binding AutoFitHeight}"/>
+                                    <CheckBox Content="{Binding Localized.HardwareMonitorEnabled}" IsChecked="{Binding HardwareMonitorEnabled}"
+                                              Click="HardwareMonitorEnabledClick"
+                                              ToolTip.Tip="{Binding Localized.TooltipHardwareMonitorEnabled}"/>
 
                                     <Border BorderBrush="{DynamicResource DataPathForegroundBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,8" Padding="0,10,0,0">
                                         <StackPanel>
@@ -1078,6 +1025,40 @@
                          directly above the log when the settings panel is hidden (maximized log). -->
                     <Border Grid.Row="1" x:Name="ServerControlPanel" Margin="5,5,5,0" Padding="10,6" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                 <StackPanel>
+                    <WrapPanel HorizontalAlignment="Center" Margin="0,0,0,4" IsVisible="{Binding HasHardwarePanel}">
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,2,12,2" IsVisible="{Binding HasCpu}">
+                            <TextBlock Text="{Binding Localized.HwCpu}" FontSize="10" Opacity="0.75" VerticalAlignment="Center"/>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding CpuPercent}" Width="42" MinWidth="42" Height="8"
+                                         CornerRadius="4" Foreground="#1FB2A6" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding CpuText}" FontSize="10" MinWidth="28" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,2,12,2" IsVisible="{Binding HasRam}"
+                                    ToolTip.Tip="{Binding RamTooltip}">
+                            <TextBlock Text="{Binding Localized.HwRam}" FontSize="10" Opacity="0.75" VerticalAlignment="Center"/>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding RamPercent}" Width="42" MinWidth="42" Height="8"
+                                         CornerRadius="4" Foreground="#66BB6A" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding RamText}" FontSize="10" MinWidth="28" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,2,12,2" IsVisible="{Binding HasGpuUtil}">
+                            <TextBlock Text="{Binding Localized.HwGpu}" FontSize="10" Opacity="0.75" VerticalAlignment="Center"/>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding GpuPercent}" Width="42" MinWidth="42" Height="8"
+                                         CornerRadius="4" Foreground="#42A5F5" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding GpuText}" FontSize="10" MinWidth="28" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,2,12,2" IsVisible="{Binding HasVram}"
+                                    ToolTip.Tip="{Binding VramTooltip}">
+                            <TextBlock Text="{Binding Localized.HwVram}" FontSize="10" Opacity="0.75" VerticalAlignment="Center"/>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding VramPercent}" Width="42" MinWidth="42" Height="8"
+                                         CornerRadius="4" Foreground="#2979FF" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding VramText}" FontSize="10" MinWidth="28" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,2,0,2" IsVisible="{Binding HasTemp}">
+                            <TextBlock Text="{Binding Localized.HwTemp}" FontSize="10" Opacity="0.75" VerticalAlignment="Center"/>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding TempPercent}" Width="42" MinWidth="42" Height="8"
+                                         CornerRadius="4" Foreground="#FFA726" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding TempText}" FontSize="10" MinWidth="28" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </WrapPanel>
                     <ItemsControl ItemsSource="{Binding RunningInstances}"
                                   HorizontalAlignment="Center" Margin="0,0,0,5"
                                   IsVisible="{Binding HasAnyInstances}">
@@ -1093,6 +1074,7 @@
                                         CornerRadius="4" Margin="2,0">
                                     <SplitButton Content="{Binding ProfileName}"
                                                   Classes.instanceError="{Binding StartFailed}"
+                                                  Classes.instanceLoading="{Binding IsLoading}"
                                                   Click="InstanceButtonClick"
                                                   PointerPressed="InstanceButtonPointerPressed"
                                                   ToolTip.Tip="{Binding $parent[Window].DataContext.Localized.TooltipInstanceSplitButton}"
@@ -1125,8 +1107,18 @@
                                                     <MenuItem IsVisible="False"/>
                                                 </MenuItem>
                                                 <MenuItem Header="{Binding $parent[Window].DataContext.Localized.OpenInBrowser}"
-                                                          IsEnabled="{Binding IsRunning}"
+                                                          IsEnabled="{Binding IsReady}"
                                                           Click="InstanceOpenInBrowserClick"/>
+                                                <Separator/>
+                                                <MenuItem Header="{Binding $parent[Window].DataContext.Localized.CopyEndpoint}"
+                                                          IsEnabled="{Binding IsRunning}">
+                                                    <MenuItem Header="{Binding $parent[Window].DataContext.Localized.CopyServerUrl}"
+                                                              Click="InstanceCopyUrlClick"/>
+                                                    <MenuItem Header="{Binding $parent[Window].DataContext.Localized.CopyOpenAiUrl}"
+                                                              Click="InstanceCopyOpenAiUrlClick"/>
+                                                    <MenuItem Header="{Binding $parent[Window].DataContext.Localized.CopyChatCurl}"
+                                                              Click="InstanceCopyCurlClick"/>
+                                                </MenuItem>
                                             </MenuFlyout>
                                         </SplitButton.Flyout>
                                     </SplitButton>
@@ -1134,17 +1126,22 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    <TextBlock Text="{Binding InferenceStatsText}" IsVisible="{Binding HasInferenceStats}"
+                               HorizontalAlignment="Center" FontSize="11" Opacity="0.8" Margin="0,0,0,4"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2">
                         <SplitButton Content="{Binding Localized.StartServer}" Click="StartServerClick"
+                                ToolTip.Tip="{Binding Localized.StartServer, StringFormat='{}{0} (F5)'}"
                                 Height="35" Margin="5" Padding="15,5">
                             <SplitButton.Flyout>
                                 <MenuFlyout Placement="Bottom">
                                     <MenuItem Header="{Binding Localized.RestartServer}" Click="RestartServerClick"
                                               IsEnabled="{Binding IsServerRunning}"/>
+                                    <MenuItem Header="{Binding Localized.BenchmarkRunSave}" Click="RunBenchmarkClick"/>
                                 </MenuFlyout>
                             </SplitButton.Flyout>
                         </SplitButton>
                         <Button Content="{Binding Localized.StopServer}" Click="StopServerClick"
+                                ToolTip.Tip="{Binding Localized.StopServer, StringFormat='{}{0} (Shift+F5)'}"
                                 IsEnabled="{Binding IsServerRunning}" Height="35" Margin="5" Padding="15,5"/>
                         <SplitButton Content="{Binding Localized.UnloadModel}" Click="UnloadModelClick"
                                 IsEnabled="{Binding IsServerRunning}" Height="35" Margin="5" Padding="15,5">
@@ -1164,29 +1161,16 @@
                         <CheckBox Content="{Binding Localized.EnableLog}" IsChecked="{Binding LogEnabled}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <ToggleButton Content="{Binding ToggleLogButtonText}" IsChecked="{Binding LogVisible}" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" IsVisible="{Binding ShowServerStartError}">
-                        <TextBlock Text="ERROR"
-                                   Margin="0,5,5,5" FontWeight="Bold"
-                                   Foreground="Red">
-                            <TextBlock.Styles>
-                                <Style Selector="TextBlock">
-                                    <Style.Animations>
-                                        <Animation IterationCount="Infinite" Duration="0:0:0.5">
-                                            <KeyFrame Cue="0%">
-                                                <Setter Property="Opacity" Value="1.0"/>
-                                            </KeyFrame>
-                                            <KeyFrame Cue="50%">
-                                                <Setter Property="Opacity" Value="0.0"/>
-                                            </KeyFrame>
-                                            <KeyFrame Cue="100%">
-                                                <Setter Property="Opacity" Value="1.0"/>
-                                            </KeyFrame>
-                                        </Animation>
-                                    </Style.Animations>
-                                </Style>
-                            </TextBlock.Styles>
-                        </TextBlock>
-                    </StackPanel>
+                    <Border HorizontalAlignment="Center" IsVisible="{Binding ShowServerStartError}"
+                            Background="#22E74C3C" BorderBrush="#E74C3C" BorderThickness="1" CornerRadius="4"
+                            Padding="8,3" Margin="0,4,0,2">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#x2716;" Foreground="#E74C3C" FontWeight="Bold"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding Localized.ServerErrorBadge}" Foreground="#E74C3C"
+                                       FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
                     <Expander Header="{Binding Localized.CommandPreview}" Margin="0,4,0,0" Padding="0">
                         <Border Background="{DynamicResource CommandBackgroundBrush}" CornerRadius="3" Padding="8"
                                 Cursor="Hand"
@@ -1216,7 +1200,8 @@
                     <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,5">
                         <Button Grid.Column="0" Click="ToggleLogMaximizeClick" VerticalAlignment="Center"
                                 Padding="6,4" Background="Transparent" BorderThickness="0"
-                                ToolTip.Tip="{Binding Localized.TooltipToggleLogMaximize}">
+                                ToolTip.Tip="{Binding Localized.TooltipToggleLogMaximize}"
+                                AutomationProperties.Name="{Binding Localized.TooltipToggleLogMaximize}">
                             <Panel>
                                 <PathIcon Data="{StaticResource LogMaximizeIcon}" Width="16" Height="16"
                                           IsVisible="{Binding !IsLogMaximized}"/>
@@ -1246,7 +1231,8 @@
         <!-- Toast Notifications Overlay -->
         <ItemsControl ItemsSource="{Binding Toasts.Toasts}"
                       HorizontalAlignment="Right" VerticalAlignment="Top"
-                      Margin="16" MaxWidth="420" x:Name="ToastOverlay">
+                      Margin="16" MaxWidth="420" x:Name="ToastOverlay"
+                      AutomationProperties.LiveSetting="Polite">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border CornerRadius="8" Padding="12,8"
@@ -1273,7 +1259,7 @@
                                     </TextBlock.Foreground>
                                 </TextBlock>
                             </StackPanel>
-                            <Button Grid.Column="1" Content="✕" FontSize="12"
+                            <Button Grid.Column="1" Content="&#x2715;" FontSize="12"
                                     Background="Transparent"
                                     Padding="4,2" Margin="8,0,0,0"
                                     Click="DismissToastClick">
@@ -1303,9 +1289,9 @@
                                 FontSize="48" 
                                 Foreground="{DynamicResource OverlayDropForegroundBrush}" 
                                 HorizontalAlignment="Center"/>
-                    <TextBlock Text="Drop profile file here" 
-                                FontSize="18" 
-                                Foreground="{DynamicResource OverlayTextForegroundBrush}" 
+                    <TextBlock Text="{Binding Localized.DropOverlayTitle}"
+                                FontSize="18"
+                                Foreground="{DynamicResource OverlayTextForegroundBrush}"
                                 HorizontalAlignment="Center"
                                 Margin="0,10,0,5"/>
                     <TextBlock Text="{Binding Localized.DropOverlaySupported}" 

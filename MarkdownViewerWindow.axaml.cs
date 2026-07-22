@@ -34,6 +34,32 @@ public partial class MarkdownViewerWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private bool _showActionButton;
+    public bool ShowActionButton
+    {
+        get => _showActionButton;
+        private set
+        {
+            if (_showActionButton == value) return;
+            _showActionButton = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowActionButton)));
+        }
+    }
+
+    private string _actionButtonText = "";
+    public string ActionButtonText
+    {
+        get => _actionButtonText;
+        private set
+        {
+            if (_actionButtonText == value) return;
+            _actionButtonText = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActionButtonText)));
+        }
+    }
+
+    private bool _actionRequested;
+
     public new event PropertyChangedEventHandler? PropertyChanged;
 
     public MarkdownViewerWindow()
@@ -47,6 +73,12 @@ public partial class MarkdownViewerWindow : Window, INotifyPropertyChanged
         if (!string.IsNullOrWhiteSpace(title))
             WindowTitle = title!;
         ContentHost.Content = MarkdownRenderer.Render(markdown);
+    }
+
+    public void SetActionButton(string text)
+    {
+        ActionButtonText = text;
+        ShowActionButton = true;
     }
 
     public static Task ShowAsync(Window owner, string markdown, string? title = null,
@@ -74,6 +106,16 @@ public partial class MarkdownViewerWindow : Window, INotifyPropertyChanged
         return ShowCore(dialog, owner, geometryDict, onClosed);
     }
 
+    public static async Task<bool> ShowWithActionAsync(Window owner, string markdown, string actionButtonText,
+        string? title = null, Dictionary<string, DialogGeometry>? geometryDict = null, Action? onClosed = null)
+    {
+        var dialog = new MarkdownViewerWindow();
+        dialog.SetContent(markdown, title);
+        dialog.SetActionButton(actionButtonText);
+        await ShowCore(dialog, owner, geometryDict, onClosed);
+        return dialog._actionRequested;
+    }
+
     private static async Task ShowCore(MarkdownViewerWindow dialog, Window owner,
         Dictionary<string, DialogGeometry>? geometryDict, Action? onClosed)
     {
@@ -88,6 +130,12 @@ public partial class MarkdownViewerWindow : Window, INotifyPropertyChanged
     }
 
     private void CloseClick(object? sender, RoutedEventArgs e) => Close();
+
+    private void ActionClick(object? sender, RoutedEventArgs e)
+    {
+        _actionRequested = true;
+        Close();
+    }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {

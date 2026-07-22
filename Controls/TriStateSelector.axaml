@@ -1,0 +1,13 @@
+<UserControl x:Class="LlamaServerLauncher.Controls.TriStateSelector"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock x:Name="LabelText" VerticalAlignment="Center" Margin="0,0,8,0"/>
+        <StackPanel x:Name="Segments" Orientation="Horizontal" Spacing="2">
+            <ToggleButton x:Name="OffButton" Content="{Binding Localized.TriStateOff}" Click="OnSegmentClick" Padding="9,2" MinWidth="42" HorizontalContentAlignment="Center"/>
+            <ToggleButton x:Name="AutoButton" Content="{Binding Localized.TriStateAuto}" Click="OnSegmentClick" Padding="9,2" MinWidth="42" HorizontalContentAlignment="Center"/>
+            <ToggleButton x:Name="OnButton" Content="{Binding Localized.TriStateOn}" Click="OnSegmentClick" Padding="9,2" MinWidth="42" HorizontalContentAlignment="Center"/>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

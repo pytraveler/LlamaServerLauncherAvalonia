@@ -55,7 +55,13 @@
                 <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Foreground="Orange" Margin="0,0,0,5"
                            IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 
-                <TextBlock Grid.Row="4" Text="{Binding Localized.SelectBuild}" FontWeight="Bold" Margin="0,0,0,5"/>
+                <Grid Grid.Row="4" ColumnDefinitions="Auto,*" Margin="0,0,0,5">
+                    <TextBlock Grid.Column="0" Text="{Binding Localized.SelectBuild}" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding DetectedBackendText}" IsVisible="{Binding HasDetectedBackend}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                               FontSize="11" Opacity="0.85" Foreground="{DynamicResource AccentForegroundBrush}"
+                               ToolTip.Tip="{Binding Localized.TooltipAutoDetectedBackend}"/>
+                </Grid>
 
                 <ListBox Grid.Row="5"
                          ItemsSource="{Binding AvailableAssets}"

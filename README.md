@@ -13,6 +13,7 @@ Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
 ### Server Configuration
 - **Executable Path** — Select the `llama-server` binary, or download llama.cpp directly from the app
 - **Model Selection** — Choose a specific model file (.gguf), set a models directory, or specify a HuggingFace repo (`--hf-repo`) and file (`--hf-file`)
+- **Model Picker** — Scan a folder (optionally recursive) for `.gguf` files and pick from a filterable list with metadata, file size, and an mmproj badge; the last folder is remembered
 - **Network Settings** — Configure host address (default: 127.0.0.1) and port (default: 8080)
 - **API Key** — Set authentication API key for the server
 - **Offline mode** — Force cache-only operation with no network access (`--offline`)
@@ -68,12 +69,33 @@ Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
 ### Feature Detection
 The app automatically parses `llama-server --help` to detect which flags your binary supports. Unsupported options are visually indicated in the UI.
 
+### GGUF Model Insights
+- **Model info badge** — architecture, quantization, parameter size, layer/expert count, and vision projector info are read directly from the GGUF file and shown next to the model path
+- **Max context detection** — the model's training context length is detected and displayed; the context-size slider is capped to it
+- **Smart hints** — a warning when an mmproj projector file is selected as the model, and a clickable "offload all N layers" GPU-layers suggestion
+
 ### Multi-Instance Server Management
 - Run multiple server instances simultaneously, each with its own profile/configuration
 - Per-instance controls: start, stop, restart, unload model, open in browser
+- **Model-load indicator** — after start, the app polls `/health` and shows "Loading model…" until the server is actually ready to serve
+- **Live inference stats** — prompt/generation tokens per second (parsed from server output) and busy/total slots (polled via `/slots`) shown per running instance
+- **Copy menu** — copy the server URL, the OpenAI-compatible base URL (`…/v1`), or a ready-to-run `curl` chat-completion command for any running instance
+- **Crash advisor** — recognizes pinned-memory / CUDA-init failures caused by `--no-mmap` and suggests disabling it in a sticky toast
 - Per-instance auto-restart on crash and log toggle
 - Short-lived server error indicator (shows if instance exits within 5 seconds of starting)
 - Instance view in system tray menu with full per-instance controls
+
+### Hardware Monitor
+- CPU, RAM, GPU utilization, VRAM, and GPU temperature gauges displayed above the instance list (multi-GPU aware)
+- NVIDIA GPUs via `nvidia-smi`, AMD GPUs via `rocm-smi`; CPU/RAM metrics on Windows, Linux, and macOS
+- Automatically pauses while a model is loading so GPU polling cannot interfere with CUDA/HIP initialization
+- Can be disabled on the **Behavior** tab
+
+### Benchmarks
+- **Run & save benchmark** — launch a profile in benchmark mode from the Start-server split-button flyout, with an editable llama-server argument line (with per-argument-group toggles)
+- Captures the server's `/metrics` endpoint (Prometheus) and tokens-per-second from the log; optionally drives a built-in standard HTTP workload against the live server
+- Each run is stored per profile in the data directory (`benchmarks/<profile>/<runId>/`: config, command line, server log, metrics, report)
+- **Comparison window** — compare saved runs side by side as Markdown tables, save named comparison sets, export reports as `.md`, and pin extra files to a run
 
 ### On-Demand Model Proxy (OpenAI-compatible)
 A built-in reverse proxy that loads the right profile on demand when an API request arrives — point a client like Cherry Studio at it and the matching model is loaded automatically, served, and unloaded when idle.
@@ -101,6 +123,7 @@ A built-in reverse proxy that loads the right profile on demand when an API requ
 - Server status display with process ID
 - Auto-restart on crash
 - Automatic log file rotation (configurable max file count and size)
+- Health/slots polling heartbeats are filtered out of the log view
 - **Built-in Log Stream Server** — WebSocket-based log streaming with HTTP API endpoints:
   - `/ws` — Real-time WebSocket log streaming with optional token authentication
   - `/api/logs/history` — JSON endpoint for log history
@@ -109,6 +132,7 @@ A built-in reverse proxy that loads the right profile on demand when an API requ
 
 ### llama.cpp Integration
 - **One-click download** — Download official llama.cpp releases directly from GitHub
+- **Backend auto-detect** — the download dialog detects the GPU vendor (NVIDIA / AMD / Intel / Apple) and pre-selects the best-matching build (CUDA / Vulkan / HIP / SYCL / CPU) with an "Auto-detected" hint; the choice can still be changed manually
 - **Update notifications** — Automatically checks for new llama.cpp releases
 - **Version management** — Install and switch between different versions
 - **PATH integration** — Optionally add llama.cpp directory to PATH
@@ -116,6 +140,7 @@ A built-in reverse proxy that loads the right profile on demand when an API requ
 
 ### App Updates
 - **Auto-update** — Automatically checks for new application releases and supports one-click update with restart
+- **Release notes** — the update prompt shows the GitHub release notes rendered as Markdown
 - **Version display** — The About dialog shows the installed version (stamped from the build) and, when the periodic check has already found one, the latest available release — without making any extra GitHub API calls
 
 ### System Integration
@@ -256,7 +281,7 @@ cd tests
 dotnet run -c Release   # exit code 0 = all checks passed
 ```
 
-Current coverage includes the command-line layer (`CommandLineParser`, `CommandLineBuilder`, `ServerConfiguration`), the optimization (HPO) engine, and the on-demand proxy protocol helpers (`ProxyProtocol`). Each area is a separate `*Tests.cs` file wired into `Program.cs`, so coverage grows incrementally.
+Current coverage includes the command-line layer (`CommandLineParser`, `CommandLineBuilder`, `ServerConfiguration`), the optimization (HPO) engine, the on-demand proxy protocol helpers (`ProxyProtocol`), GGUF metadata reading, model folder scanning, the inference/GPU/CPU stats parsers (NVIDIA + AMD), endpoint/curl snippet building, llama.cpp backend asset selection, server log filtering, the crash advisor, and the benchmark metrics/report pipeline. Each area is a separate `*Tests.cs` file wired into `Program.cs`, so coverage grows incrementally.
 
 ## Usage
 
@@ -294,6 +319,15 @@ Scenarios allow you to run multiple profiles in sequence with timed transitions:
 4. Set the interval (in seconds) between profile switches
 5. Optionally enable **Auto-start** to launch the scenario on application startup
 6. Save the scenario
+
+### Running Benchmarks
+
+Benchmark mode captures performance metrics for a profile so different settings can be compared later:
+
+1. Open the **Start Server** split-button flyout and choose **Run & save benchmark**
+2. Optionally edit the llama-server argument line and choose what to collect (`/metrics` scrape, built-in standard workload, repeats)
+3. Run the benchmark; when the server stops, the run is saved automatically under the profile
+4. Click **Benchmarks** to open the comparison window: select runs, compare them side by side as Markdown tables, save named comparison sets, and export reports as `.md`
 
 ### Log Stream Server
 
@@ -337,11 +371,23 @@ LlamaServerLauncher/
 │   ├── BrowserInfo                    # Detected browser (name + executable path)
 │   ├── HelpArgumentInfo               # Help argument metadata for feature detection
 │   ├── ProxyProtocol                  # HTTP/JSON helpers for the on-demand proxy (request parsing, model matching)
+│   ├── InferenceStatsParser           # Tokens-per-second parsing from server output
+│   ├── GpuStatsParser / AmdGpuParser  # nvidia-smi / rocm-smi output parsing
+│   ├── CpuUsage / HardwareSnapshot    # CPU usage math + combined hardware metrics snapshot
+│   ├── ServerLogFilter                # Filters health/slots polling noise out of the log view
+│   ├── ServerCrashAdvisor             # Detects --no-mmap pinned-memory crash signatures
+│   ├── ModelScanEntry                 # Model picker entry + GGUF metadata formatting
+│   ├── EndpointSnippets               # Endpoint URL / curl snippet builders
+│   ├── BackendAssetSelector           # Picks the best llama.cpp build for the detected GPU vendor
+│   ├── Benchmarking/                  # BenchmarkRun, BenchmarkMetrics, BenchmarkComparisonSet
 │   └── AppInfo                        # Application version accessor (reflection)
 ├── ViewModels/                        # MVVM view models
 │   ├── MainViewModel                  # Main application logic and state (multi-instance, scenarios)
 │   ├── ScenarioDialogViewModel        # Scenario creation/editing logic
 │   ├── ExperimentalRepoDialogViewModel # Add/edit experimental repository dialog logic
+│   ├── ModelPickerViewModel           # Model folder scan/pick dialog logic
+│   ├── BenchmarkLaunchViewModel       # Benchmark run configuration dialog logic
+│   ├── BenchmarkComparisonViewModel   # Benchmark comparison window logic
 │   ├── DownloadDialogViewModel
 │   ├── ArgumentPickerViewModel
 │   ├── IOnDemandProxyHost             # Bridge for the proxy to drive profile start/stop
@@ -362,12 +408,21 @@ LlamaServerLauncher/
 │   ├── AppUpdateService               # Application auto-update via GitHub releases
 │   ├── ExperimentalRepoService        # Experimental build repositories (custom GitHub release sources)
 │   ├── BrowserDetectionService        # Detects installed browsers for WebUI launch
+│   ├── GgufMetadataService            # Reads GGUF metadata (context, layers, quant, vision projector)
+│   ├── ModelScanService               # Recursive .gguf folder scan for the model picker
+│   ├── HardwareMonitorService         # CPU/RAM/GPU/VRAM polling (nvidia-smi + rocm-smi providers)
+│   ├── SystemMetrics                  # OS-level CPU/RAM metrics (Windows/Linux/macOS)
+│   ├── GpuVendorDetector              # One-shot GPU vendor probe for backend auto-detect
+│   ├── Benchmarking/                  # PrometheusMetricsParser, BenchmarkReportBuilder/Localizer,
+│   │                                  #   BenchmarkStorageService, BenchmarkRunController, ShellHelper
 │   ├── WindowsFileDialogs             # File/folder picker abstractions
 │   ├── DialogPositionHelper           # Dialog window position/size persistence
 │   └── DataPathResolver               # Data directory resolution and migration
 ├── Converters/                        # UI value converters
 ├── Controls/                          # Custom UI controls
-│   └── HistoryTextBox                 # TextBox with history navigation
+│   ├── HistoryTextBox                 # TextBox with history navigation
+│   ├── TriStateSelector               # Tri-state (on/off/default) option selector
+│   └── MarkdownRenderer               # Lightweight Markdown renderer (incl. GFM tables)
 ├── Resources/                         # Localization, themes, and assets
 │   ├── Strings.resx                   # English localization
 │   ├── Strings.ru.resx                # Russian localization
@@ -385,6 +440,10 @@ LlamaServerLauncher/
 ├── MainWindow.axaml                   # Main window with drag-and-drop support
 ├── ScenarioDialogWindow.axaml         # Scenario creation and editing dialog
 ├── ExperimentalRepoDialogWindow.axaml # Add/edit experimental repository dialog
+├── ModelPickerWindow.axaml            # GGUF model picker (folder scan + metadata list)
+├── BenchmarkLaunchWindow.axaml        # Benchmark run configuration dialog
+├── BenchmarkComparisonWindow.axaml    # Benchmark comparison window (Markdown tables)
+├── MarkdownViewerWindow.axaml         # Markdown viewer (release notes, reports)
 ├── DownloadDialogWindow.axaml
 ├── ArgumentPickerWindow.axaml
 ├── AboutDialogWindow.axaml

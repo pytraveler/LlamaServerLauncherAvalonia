@@ -12,6 +12,10 @@ public static class CommandLineTests
         Normalize(h);
         QuoteAndPath(h);
         Build(h);
+        SpecAndDraft(h);
+        HuggingFace(h);
+        CustomArgToggles(h);
+        ParseBack(h);
         RoundTrip(h);
     }
 
@@ -120,6 +124,102 @@ public static class CommandLineTests
 
         var fallback = CommandLineBuilder.BuildFullCommand(new ServerConfiguration());
         h.Check("full command falls back to llama-server", fallback.StartsWith("\"llama-server\""), fallback);
+
+        var moe = CommandLineBuilder.Build(new ServerConfiguration { CpuMoe = 3 });
+        h.Check("emits --n-cpu-moe for CpuMoe", moe.Contains("--n-cpu-moe 3"), moe);
+    }
+
+    private static void ParseBack(Harness h)
+    {
+        h.Section("ServerConfigurationExtensions.ParseFromCommandLine");
+
+        h.Check("empty input yields null", ServerConfigurationExtensions.ParseFromCommandLine("") == null, "<empty>");
+
+        var known = ServerConfigurationExtensions.ParseFromCommandLine("-t 8 -c 4096 --n-cpu-moe 3");
+        h.Check("threads parsed", known!.Threads == 8, $"threads={known.Threads}");
+        h.Check("ctx-size parsed", known.ContextSize == 4096, $"ctx={known.ContextSize}");
+        h.Check("n-cpu-moe parsed into CpuMoe", known.CpuMoe == 3, $"cpuMoe={known.CpuMoe}");
+
+        var plain = ServerConfigurationExtensions.ParseFromCommandLine("--unknown-flag value");
+        h.Check("unknown flag kept in custom args", plain!.CustomArguments.Contains("--unknown-flag value"), plain.CustomArguments);
+
+        var spaced = ServerConfigurationExtensions.ParseFromCommandLine("--unknown-flag \"two words\"");
+        h.Check("spaced unknown value re-quoted", spaced!.CustomArguments.Contains("\"two words\""), spaced.CustomArguments);
+    }
+
+    private static void SpecAndDraft(Harness h)
+    {
+        h.Section("CommandLineBuilder speculative-decoding args");
+
+        var spec = CommandLineBuilder.Build(new ServerConfiguration { SpecType = "draft" });
+        h.Check("spec-type emitted", spec.Contains("--spec-type draft"), spec);
+
+        var specNone = CommandLineBuilder.Build(new ServerConfiguration { SpecType = "none" });
+        h.Check("spec-type=none suppressed", !specNone.Contains("--spec-type"), specNone);
+
+        var specEmpty = CommandLineBuilder.Build(new ServerConfiguration { SpecType = "" });
+        h.Check("spec-type empty suppressed", !specEmpty.Contains("--spec-type"), specEmpty);
+
+        var draft = CommandLineBuilder.Build(new ServerConfiguration { SpecDraftModel = @"C:\m\draft.gguf" });
+        h.Check("draft model emitted as -md", draft.Contains("-md "), draft);
+        h.Check("draft model path backslashes escaped", draft.Contains(@"C:\\m\\draft.gguf"), draft);
+
+        var dp = CommandLineBuilder.Build(new ServerConfiguration
+        {
+            SpecDraftGpuLayers = "10",
+            SpecDraftNMax = 8,
+            SpecDraftNMin = 2,
+            SpecDraftPSplit = 0.5,
+            SpecDraftPMin = 0.1
+        });
+        h.Check("ngld emitted", dp.Contains("-ngld 10"), dp);
+        h.Check("spec-draft-n-max emitted", dp.Contains("--spec-draft-n-max 8"), dp);
+        h.Check("spec-draft-n-min emitted", dp.Contains("--spec-draft-n-min 2"), dp);
+        h.Check("spec-draft-p-split uses invariant culture", dp.Contains("--spec-draft-p-split 0.5"), dp);
+        h.Check("spec-draft-p-min uses invariant culture", dp.Contains("--spec-draft-p-min 0.1"), dp);
+    }
+
+    private static void HuggingFace(Harness h)
+    {
+        h.Section("CommandLineBuilder HuggingFace args");
+
+        var hf = CommandLineBuilder.Build(new ServerConfiguration
+        {
+            HfRepo = "org/model",
+            HfFile = "model.gguf",
+            HfRepoDraft = "org/draft",
+            Offline = true
+        });
+        h.Check("hf repo emitted as -hf", hf.Contains("-hf org/model"), hf);
+        h.Check("hf file emitted as -hff", hf.Contains("-hff model.gguf"), hf);
+        h.Check("hf draft repo emitted as -hfd", hf.Contains("-hfd org/draft"), hf);
+        h.Check("offline emitted as bare --offline", hf.Contains("--offline"), hf);
+
+        var online = CommandLineBuilder.Build(new ServerConfiguration { Offline = false });
+        h.Check("offline=false omits --offline", !online.Contains("--offline"), online);
+    }
+
+    private static void CustomArgToggles(Harness h)
+    {
+        h.Section("CommandLineBuilder custom-arg toggle states");
+
+        var enabled = CommandLineBuilder.Build(new ServerConfiguration { CustomArguments = "--my-custom foo" });
+        h.Check("custom flag present by default", enabled.Contains("--my-custom foo"), enabled);
+
+        var disabled = CommandLineBuilder.Build(new ServerConfiguration
+        {
+            CustomArguments = "--my-custom foo",
+            CustomArgumentToggleStates = new Dictionary<string, bool> { ["--my-custom"] = false }
+        });
+        h.Check("disabled custom flag skipped", !disabled.Contains("--my-custom"), disabled);
+        h.Check("disabled custom flag value skipped", !disabled.Contains("foo"), disabled);
+
+        var toggledOn = CommandLineBuilder.Build(new ServerConfiguration
+        {
+            CustomArguments = "--my-custom foo",
+            CustomArgumentToggleStates = new Dictionary<string, bool> { ["--my-custom"] = true }
+        });
+        h.Check("explicitly enabled custom flag present", toggledOn.Contains("--my-custom foo"), toggledOn);
     }
 
     private static void RoundTrip(Harness h)
