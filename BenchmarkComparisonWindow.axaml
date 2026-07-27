@@ -27,27 +27,65 @@
         <Grid Grid.Row="1" ColumnDefinitions="320,6,*" Margin="0,10,0,0">
 
             <DockPanel Grid.Column="0">
-                <DropDownButton DockPanel.Dock="Top" Margin="0,0,0,8" Padding="8,4"
-                                Content="{Binding Localized.BenchmarkProfileFilter}"
-                                HorizontalAlignment="Left">
-                    <DropDownButton.Flyout>
-                        <Flyout Placement="BottomEdgeAlignedLeft">
-                            <StackPanel MinWidth="220" Spacing="4">
-                                <Button Content="{Binding Localized.BenchmarkProfileFilterAll}"
-                                        Click="ProfileFilterAllClick" HorizontalAlignment="Stretch"/>
-                                <ItemsControl ItemsSource="{Binding ProfileFilters}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <CheckBox IsChecked="{Binding IsChecked}" Margin="0,1">
-                                                <TextBlock Text="{Binding Name}"/>
-                                            </CheckBox>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Flyout>
-                    </DropDownButton.Flyout>
-                </DropDownButton>
+                <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <DropDownButton Margin="0,0,6,0" Padding="8,4"
+                                    Content="{Binding Localized.BenchmarkProfileFilter}">
+                        <DropDownButton.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft">
+                                <StackPanel MinWidth="220" Spacing="4">
+                                    <Button Content="{Binding Localized.BenchmarkProfileFilterAll}"
+                                            Click="ProfileFilterAllClick" HorizontalAlignment="Stretch"/>
+                                    <ItemsControl ItemsSource="{Binding ProfileFilters}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsChecked}" Margin="0,1">
+                                                    <TextBlock Text="{Binding Name}"/>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Flyout>
+                        </DropDownButton.Flyout>
+                    </DropDownButton>
+
+                    <DropDownButton Padding="8,4"
+                                    Content="{Binding MetricFilterCaption}"
+                                    ToolTip.Tip="{Binding Localized.BenchmarkMetricFilterTooltip}">
+                        <DropDownButton.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft">
+                                <DockPanel MinWidth="260" MaxHeight="460">
+                                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                                        <Button Content="{Binding Localized.BenchmarkProfileFilterAll}"
+                                                Click="MetricFilterAllClick"/>
+                                        <Button Content="{Binding Localized.BenchmarkMetricFilterNone}"
+                                                Click="MetricFilterNoneClick"/>
+                                    </StackPanel>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding MetricGroups}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Margin="0,0,0,6">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Opacity="0.75" Margin="0,2,0,2"/>
+                                                        <ItemsControl ItemsSource="{Binding Items}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <CheckBox IsChecked="{Binding IsChecked}" Margin="8,1,0,1">
+                                                                        <TextBlock Text="{Binding Label}"/>
+                                                                    </CheckBox>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </Flyout>
+                        </DropDownButton.Flyout>
+                    </DropDownButton>
+                </WrapPanel>
 
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="6">
                     <TextBlock Text="{Binding Localized.BenchmarkSavedSets}" FontWeight="Bold"/>

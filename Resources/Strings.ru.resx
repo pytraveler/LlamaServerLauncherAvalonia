@@ -1923,6 +1923,27 @@
   <data name="BenchmarkProfileFilterAll" xml:space="preserve">
     <value>Выбрать все</value>
   </data>
+  <data name="BenchmarkMetricFilter" xml:space="preserve">
+    <value>Строки</value>
+  </data>
+  <data name="BenchmarkMetricFilterNone" xml:space="preserve">
+    <value>Снять все</value>
+  </data>
+  <data name="BenchmarkMetricFilterTooltip" xml:space="preserve">
+    <value>Выберите, какие строки показывать в таблице сравнения. Выбор запоминается и сохраняется вместе с сохранённым сравнением.</value>
+  </data>
+  <data name="BenchmarkMetricGroupResults" xml:space="preserve">
+    <value>Результаты</value>
+  </data>
+  <data name="BenchmarkMetricGroupServer" xml:space="preserve">
+    <value>Метрики сервера</value>
+  </data>
+  <data name="BenchmarkMetricGroupConfig" xml:space="preserve">
+    <value>Конфигурация</value>
+  </data>
+  <data name="BenchmarkMetricGroupEnvironment" xml:space="preserve">
+    <value>Окружение</value>
+  </data>
   <data name="BenchmarkReportNoSelection" xml:space="preserve">
     <value>Бенчмарки не выбраны.</value>
   </data>

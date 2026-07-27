@@ -34,7 +34,8 @@ Every run is written to the data directory, grouped by profile: `benchmarks/<pro
 
 - On the left is the run list; the **Profiles** filter narrows it down.
 - Tick several runs and a side-by-side table comparison appears on the right.
-- **Saved comparisons** — name the current selection and save it to come back to it later.
+- The **Rows** filter picks which rows (metrics, launch parameters, environment) end up in the table — handy when you only care about two or three values instead of all three dozen. The choice is remembered between sessions; **Select all** / **Clear** reset it wholesale.
+- **Saved comparisons** — name the current selection and save it to come back to it later. The row selection is stored with it, so loading a comparison brings the table back exactly as you left it.
 - **Export .md** writes the comparison report as Markdown; **Export ZIP** does the same plus all run files.
 - The 📌 icon on a run attaches arbitrary files to it (screenshots, logs); 📁 opens its folder.
 - **Delete run** removes the ticked runs from disk permanently.

@@ -90,6 +90,76 @@ public sealed class ProfileFilterRow : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
+public sealed class MetricFilterRow : INotifyPropertyChanged
+{
+    private readonly Action _onChanged;
+    private bool _isChecked;
+
+    public string Key { get; }
+    public string RawLabel { get; }
+
+    public MetricFilterRow(string key, string rawLabel, bool isChecked, Action onChanged)
+    {
+        Key = key;
+        RawLabel = rawLabel;
+        _isChecked = isChecked;
+        _onChanged = onChanged;
+    }
+
+    public string Label => BenchmarkReportLocalizer.Localize(RawLabel);
+
+    public bool IsChecked
+    {
+        get => _isChecked;
+        set
+        {
+            if (_isChecked == value) return;
+            _isChecked = value;
+            OnPropertyChanged();
+            _onChanged();
+        }
+    }
+
+    public void RefreshLabel() => OnPropertyChanged(nameof(Label));
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
+public sealed class MetricFilterGroup : INotifyPropertyChanged
+{
+    public string RawName { get; }
+    public ObservableCollection<MetricFilterRow> Items { get; } = new();
+
+    public MetricFilterGroup(string rawName)
+    {
+        RawName = rawName;
+    }
+
+    public string Name => RawName switch
+    {
+        BenchmarkReportBuilder.GroupResults => LocalizedStrings.Instance.BenchmarkMetricGroupResults,
+        BenchmarkReportBuilder.GroupServer => LocalizedStrings.Instance.BenchmarkMetricGroupServer,
+        BenchmarkReportBuilder.GroupConfig => LocalizedStrings.Instance.BenchmarkMetricGroupConfig,
+        BenchmarkReportBuilder.GroupEnvironment => LocalizedStrings.Instance.BenchmarkMetricGroupEnvironment,
+        _ => RawName,
+    };
+
+    public void RefreshName()
+    {
+        OnPropertyChanged(nameof(Name));
+        foreach (var item in Items)
+            item.RefreshLabel();
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
 public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
 {
     private readonly BenchmarkStorageService _storage;
@@ -97,12 +167,14 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
 
     private List<BenchmarkComparisonSet> _sets = new();
     private readonly List<BenchmarkRunRow> _allRows = new();
+    private readonly List<MetricFilterRow> _metricRows = new();
     private Control _comparisonView = new StackPanel();
     private string _comparisonMarkdown = string.Empty;
     private string _setName = string.Empty;
     private string? _selectedSetName;
     private bool _suppressSetLoad;
     private bool _suppressFilter;
+    private bool _suppressMetricFilter;
 
     public LocalizedStrings Localized => LocalizedStrings.Instance;
     public event Action? RequestClose;
@@ -111,6 +183,7 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
 
     public ObservableCollection<BenchmarkRunRow> Runs { get; } = new();
     public ObservableCollection<ProfileFilterRow> ProfileFilters { get; } = new();
+    public ObservableCollection<MetricFilterGroup> MetricGroups { get; } = new();
     public ObservableCollection<string> SavedSetNames { get; } = new();
 
     public BenchmarkComparisonViewModel(BenchmarkStorageService storage, LogService log)
@@ -118,13 +191,20 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
         _storage = storage;
         _log = log;
         LocalizedStrings.CultureChanged += OnCultureChanged;
+        BuildMetricFilters();
         Refresh();
         LoadSets();
     }
 
     public void Detach() => LocalizedStrings.CultureChanged -= OnCultureChanged;
 
-    private void OnCultureChanged() => UpdateComparison();
+    private void OnCultureChanged()
+    {
+        foreach (var group in MetricGroups)
+            group.RefreshName();
+        OnPropertyChanged(nameof(MetricFilterCaption));
+        UpdateComparison();
+    }
 
     public Control ComparisonView
     {
@@ -211,12 +291,82 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
         ApplyFilter();
     }
 
+    public string MetricFilterCaption =>
+        $"{LocalizedStrings.Instance.BenchmarkMetricFilter} ({_metricRows.Count(m => m.IsChecked)}/{_metricRows.Count})";
+
+    private void BuildMetricFilters()
+    {
+        var saved = _storage.LoadMetricSelection();
+        var wanted = saved is { Count: > 0 }
+            ? new HashSet<string>(saved, StringComparer.OrdinalIgnoreCase)
+            : null;
+
+        _suppressMetricFilter = true;
+        foreach (var row in BenchmarkReportBuilder.AvailableRows)
+        {
+            var item = new MetricFilterRow(row.Key, row.Label,
+                wanted == null || wanted.Contains(row.Key), OnMetricFilterChanged);
+            _metricRows.Add(item);
+
+            var group = MetricGroups.FirstOrDefault(g => g.RawName == row.Group);
+            if (group == null)
+            {
+                group = new MetricFilterGroup(row.Group);
+                MetricGroups.Add(group);
+            }
+            group.Items.Add(item);
+        }
+        _suppressMetricFilter = false;
+    }
+
+    private List<string> SelectedMetricKeys() =>
+        _metricRows.Where(m => m.IsChecked).Select(m => m.Key).ToList();
+
+    private void OnMetricFilterChanged()
+    {
+        if (!_suppressMetricFilter)
+            ApplyMetricFilter();
+    }
+
+    private void ApplyMetricFilter()
+    {
+        _storage.SaveMetricSelection(SelectedMetricKeys());
+        OnPropertyChanged(nameof(MetricFilterCaption));
+        UpdateComparison();
+    }
+
+    public void SelectAllMetrics() => SetAllMetrics(true);
+
+    public void ClearMetrics() => SetAllMetrics(false);
+
+    private void SetAllMetrics(bool value)
+    {
+        _suppressMetricFilter = true;
+        foreach (var m in _metricRows)
+            m.IsChecked = value;
+        _suppressMetricFilter = false;
+        ApplyMetricFilter();
+    }
+
+    private void ApplyMetricKeys(IReadOnlyCollection<string>? keys)
+    {
+        if (keys == null || keys.Count == 0)
+            return;
+        var wanted = new HashSet<string>(keys, StringComparer.OrdinalIgnoreCase);
+        _suppressMetricFilter = true;
+        foreach (var m in _metricRows)
+            m.IsChecked = wanted.Contains(m.Key);
+        _suppressMetricFilter = false;
+        ApplyMetricFilter();
+    }
+
     private void OnRowSelectionChanged() => UpdateComparison();
 
     private void UpdateComparison()
     {
         var selected = Runs.Where(r => r.IsSelected).Select(r => r.Run).ToList();
-        _comparisonMarkdown = BenchmarkReportBuilder.BuildComparison(selected, BenchmarkReportLocalizer.Localize);
+        _comparisonMarkdown = BenchmarkReportBuilder.BuildComparison(
+            selected, BenchmarkReportLocalizer.Localize, SelectedMetricKeys());
         ComparisonView = MarkdownRenderer.Render(_comparisonMarkdown);
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(HasRuns));
@@ -246,6 +396,7 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
         _suppressFilter = false;
         foreach (var row in _allRows)
             row.IsSelected = wanted.Contains(Key(row.Run));
+        ApplyMetricKeys(set.Metrics);
         ApplyFilter();
         SetName = name;
     }
@@ -259,11 +410,17 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
             .Select(r => new BenchmarkRunRef { ProfileName = r.Run.ProfileName, RunId = r.Run.Id })
             .ToList();
 
+        var metrics = SelectedMetricKeys();
         var existing = _sets.FirstOrDefault(s => string.Equals(s.Name, SetName, StringComparison.OrdinalIgnoreCase));
         if (existing != null)
+        {
             existing.Runs = refs;
+            existing.Metrics = metrics;
+        }
         else
-            _sets.Add(new BenchmarkComparisonSet { Name = SetName.Trim(), Runs = refs });
+        {
+            _sets.Add(new BenchmarkComparisonSet { Name = SetName.Trim(), Runs = refs, Metrics = metrics });
+        }
 
         await _storage.SaveComparisonsAsync(_sets);
         LoadSets();

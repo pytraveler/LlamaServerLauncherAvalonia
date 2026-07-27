@@ -8,49 +8,74 @@ using LlamaServerLauncher.Models.Benchmarking;
 
 namespace LlamaServerLauncher.Services.Benchmarking;
 
+public sealed class BenchmarkMetricRow
+{
+    public string Key { get; }
+    public string Label { get; }
+    public string Group { get; }
+
+    public BenchmarkMetricRow(string key, string label, string group)
+    {
+        Key = key;
+        Label = label;
+        Group = group;
+    }
+}
+
 public static class BenchmarkReportBuilder
 {
-    private static readonly (string Label, Func<BenchmarkRun, string> Value)[] Rows =
+    public const string GroupResults = "Results";
+    public const string GroupServer = "Server metrics";
+    public const string GroupConfig = "Configuration";
+    public const string GroupEnvironment = "Environment";
+
+    private static readonly (string Key, string Label, string Group, Func<BenchmarkRun, string> Value)[] Rows =
     {
-        ("Profile", r => r.ProfileName),
-        ("Date", r => r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
-        ("Model", r => ModelName(r)),
-        ("Gen tok/s", r => Num(r.Metrics.StdGenTps ?? r.Metrics.LogGenTps ?? r.Metrics.PredictedTokensSeconds)),
-        ("Prompt tok/s", r => Num(r.Metrics.StdPromptTps ?? r.Metrics.LogPromptTps ?? r.Metrics.PromptTokensSeconds)),
-        ("TTFT, ms", r => Num(r.Metrics.StdTtftMs)),
-        ("predicted_tokens_seconds", r => Num(r.Metrics.PredictedTokensSeconds)),
-        ("prompt_tokens_seconds", r => Num(r.Metrics.PromptTokensSeconds)),
-        ("kv_cache_usage_ratio", r => Num(r.Metrics.KvCacheUsageRatio, 4)),
-        ("kv_cache_tokens", r => Prom(r, "llamacpp:kv_cache_tokens", 0)),
-        ("tokens_predicted_total", r => Num(r.Metrics.TokensPredictedTotal, 0)),
-        ("prompt_tokens_total", r => Num(r.Metrics.PromptTokensTotal, 0)),
-        ("n_decode_total", r => Prom(r, "llamacpp:n_decode_total", 0)),
-        ("n_busy_slots_per_decode", r => Prom(r, "llamacpp:n_busy_slots_per_decode")),
-        ("requests_processing", r => Prom(r, "llamacpp:requests_processing", 0)),
-        ("requests_deferred", r => Prom(r, "llamacpp:requests_deferred", 0)),
-        ("Duration, s", r => Num(r.Metrics.DurationSeconds, 1)),
-        ("ngl", r => Str(r.ConfigSnapshot.GpuLayers)),
-        ("ctx", r => Str(r.ConfigSnapshot.ContextSize)),
-        ("batch", r => Str(r.ConfigSnapshot.BatchSize)),
-        ("ubatch", r => Str(r.ConfigSnapshot.UBatchSize)),
-        ("threads", r => Str(r.ConfigSnapshot.Threads)),
-        ("flash-attn", r => Flag(r.ConfigSnapshot.FlashAttention)),
-        ("n-cpu-moe", r => Str(r.ConfigSnapshot.CpuMoe)),
-        ("cache K/V", r => CacheTypes(r)),
-        ("seed", r => Str(r.ConfigSnapshot.Seed)),
-        ("temp", r => Num(r.ConfigSnapshot.Temperature)),
-        ("parallel", r => Str(r.ConfigSnapshot.ParallelSlots)),
-        ("mmap", r => Flag(r.ConfigSnapshot.Mmap)),
-        ("mlock", r => Flag(r.ConfigSnapshot.Mlock)),
-        ("mmproj", r => FileNameOr(r.ConfigSnapshot.MmprojPath)),
-        ("Draft model", r => FileNameOr(r.ConfigSnapshot.SpecDraftModel)),
-        ("Custom args", r => string.IsNullOrWhiteSpace(r.ConfigSnapshot.CustomArguments) ? "—" : r.ConfigSnapshot.CustomArguments.Trim()),
-        ("docker", r => r.RunInDocker ? "yes" : "no"),
-        ("llama.cpp", r => string.IsNullOrWhiteSpace(r.LlamaVersion) ? "—" : r.LlamaVersion!),
-        ("Hardware", r => string.IsNullOrWhiteSpace(r.HardwareSummary) ? "—" : r.HardwareSummary!),
+        ("profile", "Profile", GroupResults, r => r.ProfileName),
+        ("date", "Date", GroupResults, r => r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
+        ("model", "Model", GroupResults, r => ModelName(r)),
+        ("gen-tps", "Gen tok/s", GroupResults, r => Num(r.Metrics.StdGenTps ?? r.Metrics.LogGenTps ?? r.Metrics.PredictedTokensSeconds)),
+        ("prompt-tps", "Prompt tok/s", GroupResults, r => Num(r.Metrics.StdPromptTps ?? r.Metrics.LogPromptTps ?? r.Metrics.PromptTokensSeconds)),
+        ("ttft", "TTFT, ms", GroupResults, r => Num(r.Metrics.StdTtftMs)),
+        ("predicted-tokens-seconds", "predicted_tokens_seconds", GroupServer, r => Num(r.Metrics.PredictedTokensSeconds)),
+        ("prompt-tokens-seconds", "prompt_tokens_seconds", GroupServer, r => Num(r.Metrics.PromptTokensSeconds)),
+        ("kv-cache-usage-ratio", "kv_cache_usage_ratio", GroupServer, r => Num(r.Metrics.KvCacheUsageRatio, 4)),
+        ("kv-cache-tokens", "kv_cache_tokens", GroupServer, r => Prom(r, "llamacpp:kv_cache_tokens", 0)),
+        ("tokens-predicted-total", "tokens_predicted_total", GroupServer, r => Num(r.Metrics.TokensPredictedTotal, 0)),
+        ("prompt-tokens-total", "prompt_tokens_total", GroupServer, r => Num(r.Metrics.PromptTokensTotal, 0)),
+        ("n-decode-total", "n_decode_total", GroupServer, r => Prom(r, "llamacpp:n_decode_total", 0)),
+        ("n-busy-slots-per-decode", "n_busy_slots_per_decode", GroupServer, r => Prom(r, "llamacpp:n_busy_slots_per_decode")),
+        ("requests-processing", "requests_processing", GroupServer, r => Prom(r, "llamacpp:requests_processing", 0)),
+        ("requests-deferred", "requests_deferred", GroupServer, r => Prom(r, "llamacpp:requests_deferred", 0)),
+        ("duration", "Duration, s", GroupResults, r => Num(r.Metrics.DurationSeconds, 1)),
+        ("ngl", "ngl", GroupConfig, r => Str(r.ConfigSnapshot.GpuLayers)),
+        ("ctx", "ctx", GroupConfig, r => Str(r.ConfigSnapshot.ContextSize)),
+        ("batch", "batch", GroupConfig, r => Str(r.ConfigSnapshot.BatchSize)),
+        ("ubatch", "ubatch", GroupConfig, r => Str(r.ConfigSnapshot.UBatchSize)),
+        ("threads", "threads", GroupConfig, r => Str(r.ConfigSnapshot.Threads)),
+        ("flash-attn", "flash-attn", GroupConfig, r => Flag(r.ConfigSnapshot.FlashAttention)),
+        ("n-cpu-moe", "n-cpu-moe", GroupConfig, r => Str(r.ConfigSnapshot.CpuMoe)),
+        ("cache-kv", "cache K/V", GroupConfig, r => CacheTypes(r)),
+        ("seed", "seed", GroupConfig, r => Str(r.ConfigSnapshot.Seed)),
+        ("temp", "temp", GroupConfig, r => Num(r.ConfigSnapshot.Temperature)),
+        ("parallel", "parallel", GroupConfig, r => Str(r.ConfigSnapshot.ParallelSlots)),
+        ("mmap", "mmap", GroupConfig, r => Flag(r.ConfigSnapshot.Mmap)),
+        ("mlock", "mlock", GroupConfig, r => Flag(r.ConfigSnapshot.Mlock)),
+        ("mmproj", "mmproj", GroupConfig, r => FileNameOr(r.ConfigSnapshot.MmprojPath)),
+        ("draft-model", "Draft model", GroupConfig, r => FileNameOr(r.ConfigSnapshot.SpecDraftModel)),
+        ("custom-args", "Custom args", GroupConfig, r => string.IsNullOrWhiteSpace(r.ConfigSnapshot.CustomArguments) ? "—" : r.ConfigSnapshot.CustomArguments.Trim()),
+        ("docker", "docker", GroupEnvironment, r => r.RunInDocker ? "yes" : "no"),
+        ("llama-cpp", "llama.cpp", GroupEnvironment, r => string.IsNullOrWhiteSpace(r.LlamaVersion) ? "—" : r.LlamaVersion!),
+        ("hardware", "Hardware", GroupEnvironment, r => string.IsNullOrWhiteSpace(r.HardwareSummary) ? "—" : r.HardwareSummary!),
     };
 
-    public static string BuildComparison(IReadOnlyList<BenchmarkRun> runs, Func<string, string>? localize = null)
+    public static IReadOnlyList<BenchmarkMetricRow> AvailableRows { get; } =
+        Rows.Select(r => new BenchmarkMetricRow(r.Key, r.Label, r.Group)).ToArray();
+
+    public static IReadOnlyList<string> AllRowKeys { get; } = Rows.Select(r => r.Key).ToArray();
+
+    public static string BuildComparison(IReadOnlyList<BenchmarkRun> runs, Func<string, string>? localize = null,
+        IReadOnlyCollection<string>? rowKeys = null)
     {
         string L(string s) => localize?.Invoke(s) ?? s;
 
@@ -74,7 +99,7 @@ public static class BenchmarkReportBuilder
             sb.Append(" --- |");
         sb.AppendLine();
 
-        foreach (var (label, value) in Rows)
+        foreach (var (_, label, _, value) in SelectRows(rowKeys))
         {
             sb.Append("| ").Append(Cell(L(label))).Append(" |");
             foreach (var run in runs)
@@ -83,6 +108,15 @@ public static class BenchmarkReportBuilder
         }
 
         return sb.ToString();
+    }
+
+    private static IEnumerable<(string Key, string Label, string Group, Func<BenchmarkRun, string> Value)> SelectRows(
+        IReadOnlyCollection<string>? rowKeys)
+    {
+        if (rowKeys == null)
+            return Rows;
+        var wanted = new HashSet<string>(rowKeys, StringComparer.OrdinalIgnoreCase);
+        return Rows.Where(r => wanted.Contains(r.Key));
     }
 
     public static string BuildRunReport(BenchmarkRun run, Func<string, string>? localize = null)
@@ -100,7 +134,7 @@ public static class BenchmarkReportBuilder
 
         sb.Append("| ").Append(Cell(L("Metric"))).Append(" | ").Append(Cell(L("Value"))).AppendLine(" |");
         sb.AppendLine("| --- | --- |");
-        foreach (var (label, value) in Rows)
+        foreach (var (_, label, _, value) in Rows)
             sb.Append("| ").Append(Cell(L(label))).Append(" | ").Append(Cell(value(run))).AppendLine(" |");
 
         sb.AppendLine();

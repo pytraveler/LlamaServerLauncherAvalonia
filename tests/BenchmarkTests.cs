@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using LlamaServerLauncher.Models;
 using LlamaServerLauncher.Models.Benchmarking;
 using LlamaServerLauncher.Services.Benchmarking;
@@ -91,6 +92,30 @@ public static class BenchmarkTests
 
         var empty = BenchmarkReportBuilder.BuildComparison(new List<BenchmarkRun>());
         h.Check("empty comparison message", empty.Contains("No benchmarks selected"), "ok");
+
+        h.Section("BenchmarkReportBuilder row selection");
+
+        h.Check("row keys unique", BenchmarkReportBuilder.AllRowKeys.Count == new HashSet<string>(BenchmarkReportBuilder.AllRowKeys).Count, "ok");
+        h.Check("rows exposed with groups", BenchmarkReportBuilder.AvailableRows.Count == BenchmarkReportBuilder.AllRowKeys.Count
+            && BenchmarkReportBuilder.AvailableRows.All(r => !string.IsNullOrEmpty(r.Group)), "ok");
+
+        var subset = BenchmarkReportBuilder.BuildComparison(
+            new List<BenchmarkRun> { run1, run2 }, null, new List<string> { "gen-tps", "ctx" });
+        h.Check("subset keeps chosen rows", subset.Contains("| Gen tok/s |") && subset.Contains("| ctx |"), "ok");
+        h.Check("subset drops other rows", !subset.Contains("| ngl |") && !subset.Contains("| Hardware |"), "ok");
+        h.Check("subset keeps header", subset.Contains("| Metric |") && subset.Contains("qwen / A"), "ok");
+
+        var reordered = BenchmarkReportBuilder.BuildComparison(
+            new List<BenchmarkRun> { run1 }, null, new List<string> { "ctx", "gen-tps" });
+        h.Check("selection order ignored", reordered.IndexOf("| Gen tok/s |", StringComparison.Ordinal) < reordered.IndexOf("| ctx |", StringComparison.Ordinal), "ok");
+
+        var unknownKeys = BenchmarkReportBuilder.BuildComparison(
+            new List<BenchmarkRun> { run1 }, null, new List<string> { "no-such-row" });
+        h.Check("unknown keys yield header only", !unknownKeys.Contains("| ngl |") && unknownKeys.Contains("| Metric |"), "ok");
+
+        var allKeys = BenchmarkReportBuilder.BuildComparison(
+            new List<BenchmarkRun> { run1, run2 }, null, BenchmarkReportBuilder.AllRowKeys);
+        h.Check("all keys equal default", allKeys == BenchmarkReportBuilder.BuildComparison(new List<BenchmarkRun> { run1, run2 }), "ok");
 
         h.Section("BenchmarkReportBuilder.BuildRunReport");
 

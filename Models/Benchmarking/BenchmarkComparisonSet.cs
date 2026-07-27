@@ -19,4 +19,7 @@ public class BenchmarkComparisonSet
 
     [JsonPropertyName("runs")]
     public List<BenchmarkRunRef> Runs { get; set; } = new();
+
+    [JsonPropertyName("metrics")]
+    public List<string> Metrics { get; set; } = new();
 }

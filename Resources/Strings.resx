@@ -1923,6 +1923,27 @@ Stop and continue?</value>
   <data name="BenchmarkProfileFilterAll" xml:space="preserve">
     <value>Select all</value>
   </data>
+  <data name="BenchmarkMetricFilter" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="BenchmarkMetricFilterNone" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="BenchmarkMetricFilterTooltip" xml:space="preserve">
+    <value>Pick which rows are shown in the comparison table. The selection is remembered and is stored with a saved comparison.</value>
+  </data>
+  <data name="BenchmarkMetricGroupResults" xml:space="preserve">
+    <value>Results</value>
+  </data>
+  <data name="BenchmarkMetricGroupServer" xml:space="preserve">
+    <value>Server metrics</value>
+  </data>
+  <data name="BenchmarkMetricGroupConfig" xml:space="preserve">
+    <value>Configuration</value>
+  </data>
+  <data name="BenchmarkMetricGroupEnvironment" xml:space="preserve">
+    <value>Environment</value>
+  </data>
   <data name="BenchmarkReportNoSelection" xml:space="preserve">
     <value>No benchmarks selected.</value>
   </data>

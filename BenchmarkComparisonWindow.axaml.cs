@@ -44,6 +44,10 @@ public partial class BenchmarkComparisonWindow : Window
 
     private void ProfileFilterAllClick(object? sender, RoutedEventArgs e) => _viewModel?.SelectAllProfiles();
 
+    private void MetricFilterAllClick(object? sender, RoutedEventArgs e) => _viewModel?.SelectAllMetrics();
+
+    private void MetricFilterNoneClick(object? sender, RoutedEventArgs e) => _viewModel?.ClearMetrics();
+
     private async void ExportMdClick(object? sender, RoutedEventArgs e)
     {
         if (_viewModel != null)

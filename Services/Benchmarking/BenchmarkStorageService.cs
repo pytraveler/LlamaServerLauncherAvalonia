@@ -228,6 +228,36 @@ public class BenchmarkStorageService
         await File.WriteAllTextAsync(file, JsonSerializer.Serialize(comparisons, JsonOptions));
     }
 
+    public List<string>? LoadMetricSelection()
+    {
+        try
+        {
+            var file = Path.Combine(BenchmarksRoot, "metric-selection.json");
+            if (!File.Exists(file))
+                return null;
+            return JsonSerializer.Deserialize<List<string>>(File.ReadAllText(file), JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _log?.Error($"Failed to load benchmark metric selection: {ex.Message}");
+            return null;
+        }
+    }
+
+    public void SaveMetricSelection(IReadOnlyList<string> keys)
+    {
+        try
+        {
+            Directory.CreateDirectory(BenchmarksRoot);
+            var file = Path.Combine(BenchmarksRoot, "metric-selection.json");
+            File.WriteAllText(file, JsonSerializer.Serialize(keys, JsonOptions));
+        }
+        catch (Exception ex)
+        {
+            _log?.Error($"Failed to save benchmark metric selection: {ex.Message}");
+        }
+    }
+
     private static void CopyDirectory(string source, string dest)
     {
         Directory.CreateDirectory(dest);
