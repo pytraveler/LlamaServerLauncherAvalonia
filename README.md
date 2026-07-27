@@ -69,6 +69,13 @@ Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
 ### Feature Detection
 The app automatically parses `llama-server --help` to detect which flags your binary supports. Unsupported options are visually indicated in the UI.
 
+### Built-in Help
+- **Section help** — a button at the bottom of the navigation rail (or the `F1` key) opens a short guide for the section you are currently on: what its fields do, what changing them costs, and where to start
+- The **Benchmarks**, **Benchmark launch**, **Scenarios** and **Optimization** windows have their own help buttons
+- Help ships inside the executable and works offline; its language follows the UI language. Each page ends with a link to the full README on GitHub
+- **Meaningful empty states** — with no runs recorded yet, the benchmark comparison window explains where runs come from and offers to start the first one right there
+- `Ctrl+F1` — the keyboard shortcut list
+
 ### GGUF Model Insights
 - **Model info badge** — architecture, quantization, parameter size, layer/expert count, and vision projector info are read directly from the GGUF file and shown next to the model path
 - **Max context detection** — the model's training context length is detected and displayed; the context-size slider is capped to it
@@ -95,7 +102,7 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 - **Run & save benchmark** — launch a profile in benchmark mode from the Start-server split-button flyout, with an editable llama-server argument line (with per-argument-group toggles)
 - Captures the server's `/metrics` endpoint (Prometheus) and tokens-per-second from the log; optionally drives a built-in standard HTTP workload against the live server
 - Each run is stored per profile in the data directory (`benchmarks/<profile>/<runId>/`: config, command line, server log, metrics, report)
-- **Comparison window** — compare saved runs side by side as Markdown tables, save named comparison sets, export reports as `.md`, and pin extra files to a run
+- **Comparison window** — compare saved runs side by side as Markdown tables, pick which rows (metrics, launch parameters, environment) the table shows, save named comparison sets together with that row selection, export reports as `.md`, and pin extra files to a run
 
 ### On-Demand Model Proxy (OpenAI-compatible)
 A built-in reverse proxy that loads the right profile on demand when an API request arrives — point a client like Cherry Studio at it and the matching model is loaded automatically, served, and unloaded when idle.
@@ -327,7 +334,7 @@ Benchmark mode captures performance metrics for a profile so different settings 
 1. Open the **Start Server** split-button flyout and choose **Run & save benchmark**
 2. Optionally edit the llama-server argument line and choose what to collect (`/metrics` scrape, built-in standard workload, repeats)
 3. Run the benchmark; when the server stops, the run is saved automatically under the profile
-4. Click **Benchmarks** to open the comparison window: select runs, compare them side by side as Markdown tables, save named comparison sets, and export reports as `.md`
+4. Click **Benchmarks** to open the comparison window: select runs, compare them side by side as Markdown tables, narrow the table down with the **Rows** filter, save named comparison sets (runs + row selection), and export reports as `.md`
 
 ### Log Stream Server
 
@@ -416,6 +423,7 @@ LlamaServerLauncher/
 │   ├── Benchmarking/                  # PrometheusMetricsParser, BenchmarkReportBuilder/Localizer,
 │   │                                  #   BenchmarkStorageService, BenchmarkRunController, ShellHelper
 │   ├── WindowsFileDialogs             # File/folder picker abstractions
+│   ├── HelpService                    # Loads and shows the built-in per-section help
 │   ├── DialogPositionHelper           # Dialog window position/size persistence
 │   └── DataPathResolver               # Data directory resolution and migration
 ├── Converters/                        # UI value converters
@@ -427,6 +435,7 @@ LlamaServerLauncher/
 │   ├── Strings.resx                   # English localization
 │   ├── Strings.ru.resx                # Russian localization
 │   ├── LocalizedStrings.cs            # Strongly-typed localization accessor
+│   ├── Docs/                          # Built-in help pages (Markdown, en + ru)
 │   ├── Themes/
 │   │   ├── Dark.xaml                  # Dark theme
 │   │   ├── Light.xaml                 # Light theme
