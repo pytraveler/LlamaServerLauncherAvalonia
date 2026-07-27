@@ -29,6 +29,11 @@ public class ReleaseAsset
     public string Name { get; set; } = "";
     public long Size { get; set; }
     public string DownloadUrl { get; set; } = "";
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Digest { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
     public double SizeMB => Size / (1024.0 * 1024.0);
 }
 
@@ -40,8 +45,11 @@ public class LlamaCppDownloadService
     };
     internal static readonly SemaphoreSlim SharedHttpLock = new(1, 1);
 
-    private const string RepoApiUrl = "https://api.github.com/repos/ggml-org/llama.cpp/releases";
+    private const string RepoOwner = "ggml-org";
+    private const string RepoName = "llama.cpp";
     private readonly string _installDir;
+
+    public GitHubReleaseResult? LastReleaseFetch { get; private set; }
 
     static LlamaCppDownloadService()
     {
@@ -59,42 +67,26 @@ public class LlamaCppDownloadService
 
     public string InstallDirectory => _installDir;
 
+    private static readonly TimeSpan ReleaseCacheLifetime = TimeSpan.FromMinutes(30);
+
     public async Task<List<ReleaseInfo>> GetLatestReleasesAsync(int count = 10)
     {
-        var url = $"{RepoApiUrl}?per_page={count}";
-        await SharedHttpLock.WaitAsync();
-        try
-        {
-            using var resp = await _http.GetAsync(url);
-            resp.EnsureSuccessStatusCode();
+        var result = await GitHubReleaseSource.GetReleasesAsync(
+            RepoOwner, RepoName, count, freshFor: ReleaseCacheLifetime);
+        LastReleaseFetch = result;
 
-            var json = await resp.Content.ReadAsStringAsync();
-            return ParseReleases(json);
-        }
-        finally
-        {
-                SharedHttpLock.Release();
-        }
+        if (!result.HasData && result.Error != null)
+            throw new InvalidOperationException(result.Error);
+
+        return result.Releases;
     }
 
     public async Task<ReleaseInfo?> GetReleaseByTagAsync(string tag)
     {
-        var url = $"{RepoApiUrl}/tags/{Uri.EscapeDataString(tag)}";
-        await SharedHttpLock.WaitAsync();
-        try
-        {
-            using var resp = await _http.GetAsync(url);
-            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
-                return null;
-            resp.EnsureSuccessStatusCode();
-
-            var json = await resp.Content.ReadAsStringAsync();
-            return ParseSingleRelease(json);
-        }
-        finally
-        {
-                SharedHttpLock.Release();
-        }
+        var result = await GitHubReleaseSource.GetReleaseByTagAsync(
+            RepoOwner, RepoName, tag, freshFor: ReleaseCacheLifetime);
+        LastReleaseFetch = result;
+        return result.Releases.FirstOrDefault();
     }
 
     public List<ReleaseAsset> FilterAssetsForCurrentOS(List<ReleaseAsset> assets)
@@ -535,53 +527,6 @@ public class LlamaCppDownloadService
                 Directory.CreateDirectory(targetDir);
             File.Copy(file, targetPath, overwrite: true);
         }
-    }
-
-    private static List<ReleaseInfo> ParseReleases(string json)
-    {
-        var result = new List<ReleaseInfo>();
-        using var doc = JsonDocument.Parse(json);
-        foreach (var el in doc.RootElement.EnumerateArray())
-            result.Add(ParseReleaseElement(el));
-        return result;
-    }
-
-    private static ReleaseInfo? ParseSingleRelease(string json)
-    {
-        using var doc = JsonDocument.Parse(json);
-        return ParseReleaseElement(doc.RootElement);
-    }
-
-    private static ReleaseInfo ParseReleaseElement(JsonElement el)
-    {
-        var info = new ReleaseInfo
-        {
-            Tag = el.TryGetProperty("tag_name", out var tag) ? tag.GetString() ?? "" : "",
-            Name = el.TryGetProperty("name", out var name) ? name.GetString() ?? "" : "",
-            Body = el.TryGetProperty("body", out var body) ? body.GetString() ?? "" : "",
-        };
-
-        if (el.TryGetProperty("published_at", out var pubAt))
-        {
-            var pubStr = pubAt.GetString();
-            if (pubStr != null && DateTime.TryParse(pubStr, out var dt))
-                info.PublishedAt = dt;
-        }
-
-        if (el.TryGetProperty("assets", out var assetsEl))
-        {
-            foreach (var a in assetsEl.EnumerateArray())
-            {
-                info.Assets.Add(new ReleaseAsset
-                {
-                    Name = a.TryGetProperty("name", out var an) ? an.GetString() ?? "" : "",
-                    Size = a.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0,
-                    DownloadUrl = a.TryGetProperty("browser_download_url", out var url) ? url.GetString() ?? "" : ""
-                });
-            }
-        }
-
-        return info;
     }
 
     private static class NativeMethods

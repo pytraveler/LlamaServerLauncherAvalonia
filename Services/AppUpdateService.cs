@@ -1,11 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,76 +25,54 @@ public class AppUpdateService
     {
         Timeout = TimeSpan.FromMinutes(10)
     };
-    private const string RepoApiUrl = "https://api.github.com/repos/pytraveler/LlamaServerLauncherAvalonia/releases";
+    private const string RepoOwner = "pytraveler";
+    private const string RepoName = "LlamaServerLauncherAvalonia";
 
     static AppUpdateService()
     {
         _http.DefaultRequestHeaders.UserAgent.ParseAdd($"LlamaServerLauncher/{Models.AppInfo.Version}");
     }
 
-    public async Task<AppUpdateInfo?> CheckForUpdateAsync()
+    public async Task<AppUpdateInfo?> CheckForUpdateAsync(TimeSpan? freshFor = null, bool forceRefresh = false)
     {
         try
         {
-            var localHash = ComputeLocalBinaryHash();
-            if (localHash == null) return null;
+            var result = await GitHubReleaseSource.GetReleasesAsync(
+                RepoOwner, RepoName, 1, freshFor: freshFor, forceRefresh: forceRefresh);
+            if (result.Releases.Count == 0) return null;
 
-            var url = $"{RepoApiUrl}?per_page=1";
-            await LlamaCppDownloadService.SharedHttpLock.WaitAsync();
-            try
+            var latestRelease = result.Releases[0];
+            var asset = FindAssetForCurrentOS(latestRelease.Assets);
+            if (asset == null) return null;
+
+            if (!IsUpdateAvailable(latestRelease.Tag, asset)) return null;
+
+            return new AppUpdateInfo
             {
-                using var resp = await _http.GetAsync(url);
-                resp.EnsureSuccessStatusCode();
-
-                var json = await resp.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.GetArrayLength() == 0) return null;
-
-                var latestRelease = doc.RootElement[0];
-                var tag = latestRelease.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() ?? "" : "";
-                var body = latestRelease.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "" : "";
-                var publishedAt = DateTime.MinValue;
-                if (latestRelease.TryGetProperty("published_at", out var pubEl))
-                {
-                    var pubStr = pubEl.GetString();
-                    if (pubStr != null && DateTime.TryParse(pubStr, out var dt))
-                        publishedAt = dt;
-                }
-
-                if (!latestRelease.TryGetProperty("assets", out var assetsEl)) return null;
-
-                var targetAsset = FindAssetForCurrentOS(assetsEl);
-                if (targetAsset == null) return null;
-
-                var remoteHash = ExtractDigest(targetAsset.Value);
-                if (remoteHash == null) return null;
-
-                if (string.Equals(localHash, remoteHash, StringComparison.OrdinalIgnoreCase))
-                    return null;
-
-                var assetEl = targetAsset.Value;
-                return new AppUpdateInfo
-                {
-                    Tag = tag,
-                    PublishedAt = publishedAt,
-                    Body = body,
-                    Asset = new ReleaseAsset
-                    {
-                        Name = assetEl.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
-                        Size = assetEl.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0,
-                        DownloadUrl = assetEl.TryGetProperty("browser_download_url", out var dl) ? dl.GetString() ?? "" : ""
-                    }
-                };
-            }
-            finally
-            {
-                LlamaCppDownloadService.SharedHttpLock.Release();
-            }
+                Tag = latestRelease.Tag,
+                PublishedAt = latestRelease.PublishedAt,
+                Body = latestRelease.Body,
+                Asset = asset
+            };
         }
         catch
         {
             return null;
         }
+    }
+
+    private static bool IsUpdateAvailable(string tag, ReleaseAsset asset)
+    {
+        if (!string.IsNullOrEmpty(asset.Digest))
+        {
+            var localHash = ComputeLocalBinaryHash();
+            if (localHash == null) return false;
+            return !string.Equals(localHash, asset.Digest, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return GitHubReleaseSource.TryParseVersionTag(tag, out var remote) &&
+               GitHubReleaseSource.TryParseVersionTag(Models.AppInfo.Version, out var local) &&
+               remote > local;
     }
 
     public async Task<string> DownloadUpdateAsync(ReleaseAsset asset, IProgress<double>? progress, CancellationToken ct)
@@ -221,7 +199,7 @@ public class AppUpdateService
         }
     }
 
-    private static JsonElement? FindAssetForCurrentOS(JsonElement assetsEl)
+    private static ReleaseAsset? FindAssetForCurrentOS(List<ReleaseAsset> assets)
     {
         string osPrefix;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -244,33 +222,11 @@ public class AppUpdateService
         if (archSuffix != null)
         {
             var exactPrefix = osPrefix + archSuffix;
-            foreach (var asset in assetsEl.EnumerateArray())
-            {
-                var name = asset.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-                if (name.StartsWith(exactPrefix, StringComparison.OrdinalIgnoreCase))
-                    return asset;
-            }
+            var exact = assets.FirstOrDefault(a => a.Name.StartsWith(exactPrefix, StringComparison.OrdinalIgnoreCase));
+            if (exact != null) return exact;
         }
 
         // Fallback: return first asset matching OS prefix without architecture
-        foreach (var asset in assetsEl.EnumerateArray())
-        {
-            var name = asset.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-            if (name.StartsWith(osPrefix, StringComparison.OrdinalIgnoreCase))
-                return asset;
-        }
-        return null;
-    }
-
-    private static string? ExtractDigest(JsonElement asset)
-    {
-        if (asset.TryGetProperty("digest", out var digestEl))
-        {
-            var digest = digestEl.GetString() ?? "";
-            var prefix = "sha256:";
-            if (digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return digest[prefix.Length..];
-        }
-        return null;
+        return assets.FirstOrDefault(a => a.Name.StartsWith(osPrefix, StringComparison.OrdinalIgnoreCase));
     }
 }

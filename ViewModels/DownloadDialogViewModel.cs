@@ -311,6 +311,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
                 releases = await _experimentalRepoService.FetchReleasesAsync(_selectedExperimentalRepo);
                 _selectedExperimentalRepo.CachedReleases = releases;
                 _selectedExperimentalRepo.CachedReleasesTimestamp = DateTime.Now;
+                StatusMessage = DescribeReleaseSource(_experimentalRepoService.LastReleaseFetch);
             }
             catch
             {
@@ -386,7 +387,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
                 }
 
                 IsLoading = false;
-                StatusMessage = "";
+                StatusMessage = DescribeReleaseSource(_downloadService.LastReleaseFetch);
             });
         }
         catch (Exception ex)
@@ -401,6 +402,18 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
                 StatusMessage = string.Format(LocalizedStrings.GetString("DownloadFailed"), ex.Message);
             });
         }
+    }
+
+    private static string DescribeReleaseSource(GitHubReleaseResult? fetch)
+    {
+        if (fetch == null) return "";
+        if (fetch.UsedWebFallback)
+            return LocalizedStrings.GetString("ReleasesViaWebFallback");
+        if (fetch.IsStale)
+            return string.Format(
+                LocalizedStrings.GetString("ReleasesFromCache"),
+                fetch.FetchedAt.ToString("yyyy-MM-dd HH:mm"));
+        return "";
     }
 
     private void PopulateReleasesList(IReadOnlyList<ReleaseInfo> releases, string? preselectedTag)

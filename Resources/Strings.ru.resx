@@ -635,6 +635,12 @@
   <data name="DownloadFailed" xml:space="preserve">
     <value>Ошибка загрузки: {0}</value>
   </data>
+  <data name="ReleasesViaWebFallback" xml:space="preserve">
+    <value>Лимит GitHub API исчерпан — список релизов получен со страниц github.com</value>
+  </data>
+  <data name="ReleasesFromCache" xml:space="preserve">
+    <value>GitHub недоступен — показан кэш от {0}</value>
+  </data>
   <data name="PromptDownloadLlama" xml:space="preserve">
     <value>Исполняемый файл llama-server не указан. Загрузить скомпилированные файлы llama.cpp?</value>
   </data>

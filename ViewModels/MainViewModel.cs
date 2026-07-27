@@ -1339,6 +1339,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _dataPathResolver = new DataPathResolver();
         var resolvedPath = _dataPathResolver.ResolveDataPath();
 
+        GitHubReleaseSource.ConfigureCacheDirectory(resolvedPath);
+
         _logService = new LogService(resolvedPath);
         _logService.LogReceived += OnLogReceived;
         if (_dataPathResolver.ConfiguredCustomPathMissing)
@@ -6896,7 +6898,7 @@ public void RebuildCustomArgumentsFromToggles()
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                await TryRunUpdateChecksAsync();
+                await TryRunUpdateChecksAsync(startupPass: true);
             });
 
             while (!ct.IsCancellationRequested)
@@ -6918,13 +6920,13 @@ public void RebuildCustomArgumentsFromToggles()
         }, ct);
     }
 
-    private async Task TryRunUpdateChecksAsync()
+    private async Task TryRunUpdateChecksAsync(bool startupPass = false)
     {
         try
         {
             var now = DateTime.Now;
-            if (now - _lastAppUpdateCheck >= TimeSpan.FromMinutes(_appUpdateCheckInterval))
-                await CheckForAppUpdateAsync();
+            if (startupPass || now - _lastAppUpdateCheck >= TimeSpan.FromMinutes(_appUpdateCheckInterval))
+                await CheckForAppUpdateAsync(startupPass);
             if (now - _lastLlamaUpdateCheck >= TimeSpan.FromMinutes(_llamaUpdateCheckInterval))
                 await CheckForLlamaUpdateAsync();
             if (_experimentalReposEnabled && now - _lastExperimentalUpdateCheck >= TimeSpan.FromMinutes(_experimentalUpdateCheckInterval))
@@ -7023,15 +7025,16 @@ public void RebuildCustomArgumentsFromToggles()
         }
     }
 
-    private async Task CheckForAppUpdateAsync()
+    private async Task CheckForAppUpdateAsync(bool force = false)
     {
         try
         {
-            if (DateTime.Now - _lastAppUpdateCheck < TimeSpan.FromMinutes(_appUpdateCheckInterval)) return;
+            var interval = TimeSpan.FromMinutes(_appUpdateCheckInterval);
+            if (!force && DateTime.Now - _lastAppUpdateCheck < interval) return;
             _lastAppUpdateCheck = DateTime.Now;
 
             _logService.Log(LogLevel.Info, $"Checking for application updates on GitHub (interval: {_appUpdateCheckInterval} min)...");
-            var updateInfo = await _appUpdateService.CheckForUpdateAsync();
+            var updateInfo = await _appUpdateService.CheckForUpdateAsync(freshFor: interval);
             if (updateInfo != null)
             {
                 _pendingAppUpdate = updateInfo;
@@ -7093,7 +7096,7 @@ public void RebuildCustomArgumentsFromToggles()
         {
             if (string.IsNullOrEmpty(_pendingAppUpdate.Asset?.DownloadUrl))
             {
-                var freshUpdate = await _appUpdateService.CheckForUpdateAsync();
+                var freshUpdate = await _appUpdateService.CheckForUpdateAsync(forceRefresh: true);
                 if (freshUpdate == null)
                 {
                     _isAppUpdateAvailable = false;

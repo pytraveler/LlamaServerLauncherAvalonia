@@ -16,14 +16,11 @@ public class ExperimentalRepoService
         @"https?://(www\.)?github\.com/(?<author>[^/]+)/(?<repo>[^/]+)/?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    private static readonly System.Net.Http.HttpClient SharedHttpClient = CreateHttpClient();
+    private const int ReleaseCount = 15;
 
-    private static System.Net.Http.HttpClient CreateHttpClient()
-    {
-        var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromMinutes(2) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("LlamaServerLauncher/1.0");
-        return http;
-    }
+    private static readonly TimeSpan ReleaseCacheLifetime = TimeSpan.FromMinutes(30);
+
+    public GitHubReleaseResult? LastReleaseFetch { get; private set; }
 
     public static bool TryParseGitHubUrl(string url, out string author, out string repo)
     {
@@ -39,7 +36,7 @@ public class ExperimentalRepoService
 
     public static string BuildApiUrl(string author, string repo)
     {
-        return $"https://api.github.com/repos/{author}/{repo}/releases?per_page=15";
+        return $"https://api.github.com/repos/{author}/{repo}/releases?per_page={ReleaseCount}";
     }
 
     public static string GetDefaultFilterTags()
@@ -99,54 +96,13 @@ public class ExperimentalRepoService
         if (!TryParseGitHubUrl(repo.RepoUrl, out var author, out var repoName))
             return new List<ReleaseInfo>();
 
-        var url = BuildApiUrl(author, repoName);
+        var result = await GitHubReleaseSource.GetReleasesAsync(
+            author, repoName, ReleaseCount, includeBody: false, freshFor: ReleaseCacheLifetime);
+        LastReleaseFetch = result;
 
-        await LlamaCppDownloadService.SharedHttpLock.WaitAsync();
-        try
-        {
-            using var resp = await SharedHttpClient.GetAsync(url);
-            resp.EnsureSuccessStatusCode();
-            var json = await resp.Content.ReadAsStringAsync();
-            return ParseReleases(json);
-        }
-        finally
-        {
-            LlamaCppDownloadService.SharedHttpLock.Release();
-        }
-    }
+        if (!result.HasData && result.Error != null)
+            throw new InvalidOperationException(result.Error);
 
-    private static List<ReleaseInfo> ParseReleases(string json)
-    {
-        var result = new List<ReleaseInfo>();
-        using var doc = JsonDocument.Parse(json);
-        foreach (var el in doc.RootElement.EnumerateArray())
-        {
-            var info = new ReleaseInfo
-            {
-                Tag = el.TryGetProperty("tag_name", out var tag) ? tag.GetString() ?? "" : "",
-                Name = el.TryGetProperty("name", out var name) ? name.GetString() ?? "" : "",
-                // Body intentionally not cached: the experimental UI never displays it.
-            };
-            if (el.TryGetProperty("published_at", out var pubAt))
-            {
-                var pubStr = pubAt.GetString();
-                if (pubStr != null && DateTime.TryParse(pubStr, out var dt))
-                    info.PublishedAt = dt;
-            }
-            if (el.TryGetProperty("assets", out var assetsEl))
-            {
-                foreach (var a in assetsEl.EnumerateArray())
-                {
-                    info.Assets.Add(new ReleaseAsset
-                    {
-                        Name = a.TryGetProperty("name", out var an) ? an.GetString() ?? "" : "",
-                        Size = a.TryGetProperty("size", out var sz) ? sz.GetInt64() : 0,
-                        DownloadUrl = a.TryGetProperty("browser_download_url", out var dlUrl) ? dlUrl.GetString() ?? "" : ""
-                    });
-                }
-            }
-            result.Add(info);
-        }
-        return result;
+        return result.Releases;
     }
 }

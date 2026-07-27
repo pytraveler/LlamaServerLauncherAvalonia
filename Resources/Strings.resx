@@ -635,6 +635,12 @@
   <data name="DownloadFailed" xml:space="preserve">
     <value>Download failed: {0}</value>
   </data>
+  <data name="ReleasesViaWebFallback" xml:space="preserve">
+    <value>GitHub API limit reached — release list read from github.com pages</value>
+  </data>
+  <data name="ReleasesFromCache" xml:space="preserve">
+    <value>GitHub unavailable — showing the cached list from {0}</value>
+  </data>
   <data name="PromptDownloadLlama" xml:space="preserve">
     <value>llama-server executable not set. Download llama.cpp prebuilt binaries?</value>
   </data>

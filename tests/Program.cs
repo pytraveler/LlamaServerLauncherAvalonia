@@ -15,6 +15,7 @@ BackendAssetSelectorTests.Run(harness);
 ServerLogFilterTests.Run(harness);
 ServerCrashAdvisorTests.Run(harness);
 BenchmarkTests.Run(harness);
+GitHubReleaseSourceTests.Run(harness);
 return harness.Report();
 
 public sealed class Harness
