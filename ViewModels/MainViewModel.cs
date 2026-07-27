@@ -227,8 +227,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public bool HasRam => _hw.RamPercent.HasValue;
     public double RamPercent => _hw.RamPercent ?? 0;
     public string RamText => _hw.RamPercent is double r ? $"{r:0}%" : string.Empty;
-    public string RamTooltip => _hw.RamUsedGb is double u && _hw.RamTotalGb is double t
-        ? string.Format(CultureInfo.InvariantCulture, Localized.GpuVramValue, u, t) : string.Empty;
+    public string? RamTooltip => _hw.RamUsedGb is double u && _hw.RamTotalGb is double t
+        ? string.Format(CultureInfo.InvariantCulture, Localized.GpuVramValue, u, t) : null;
 
     public bool HasGpuUtil => Gpu0?.UtilPercent is not null;
     public double GpuPercent => Gpu0?.UtilPercent ?? 0;
@@ -238,8 +238,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public double VramPercent => Gpu0 is { MemUsedMb: int used, MemTotalMb: int total } && total > 0
         ? (double)used / total * 100.0 : 0;
     public string VramText => HasVram ? $"{VramPercent:0}%" : string.Empty;
-    public string VramTooltip => Gpu0 is { MemUsedMb: int mu, MemTotalMb: int mt }
-        ? string.Format(CultureInfo.InvariantCulture, Localized.GpuVramValue, mu / 1024.0, mt / 1024.0) : string.Empty;
+    public string? VramTooltip => Gpu0 is { MemUsedMb: int mu, MemTotalMb: int mt }
+        ? string.Format(CultureInfo.InvariantCulture, Localized.GpuVramValue, mu / 1024.0, mt / 1024.0) : null;
 
     public bool HasTemp => Gpu0?.TempC is not null;
     public double TempPercent => Gpu0?.TempC is int tc ? (tc < 0 ? 0 : tc > 100 ? 100 : tc) : 0;
@@ -2462,7 +2462,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public string MmprojToolTip => HasMissingMmprojFile
         ? LocalizedStrings.Instance.ValidationFileNotFound
         : (LocalizedStrings.Instance.TooltipMMProj ?? "");
-    public string ExecutableToolTip => HasMissingExecutable ? LocalizedStrings.Instance.ValidationFileNotFound : "";
+    public string? ExecutableToolTip => HasMissingExecutable ? LocalizedStrings.Instance.ValidationFileNotFound : null;
     public string ModelToolTip => HasMissingModelFile
         ? LocalizedStrings.Instance.ValidationFileNotFound
         : (LocalizedStrings.Instance.TooltipModelPath ?? "");
@@ -3191,8 +3191,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
     }
 
-    private string _llamaUpdateTooltip = "";
-    public string LlamaUpdateTooltip
+    private string? _llamaUpdateTooltip;
+    public string? LlamaUpdateTooltip
     {
         get => _llamaUpdateTooltip;
         set { _llamaUpdateTooltip = value; OnPropertyChanged(); }
@@ -3205,23 +3205,23 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         ? LocalizedStrings.Instance.UpdateLlama
         : LocalizedStrings.Instance.DownloadLlama;
 
-    public string LlamaInstalledVersionTooltip
+    public string? LlamaInstalledVersionTooltip
     {
         get
         {
-            if (string.IsNullOrEmpty(_llamaCppInstalledTag)) return "";
+            if (string.IsNullOrEmpty(_llamaCppInstalledTag)) return null;
             return string.Format(LocalizedStrings.GetString("InstalledVersionTooltip"), _llamaCppInstalledTag);
         }
     }
 
     private bool _isAppUpdateAvailable;
-    private string _appUpdateTooltip = "";
+    private string? _appUpdateTooltip;
     private AppUpdateInfo? _pendingAppUpdate;
 
     public bool ShowAppUpdateButton => _isAppUpdateAvailable;
 
     public string? AvailableAppUpdateTag => _isAppUpdateAvailable ? _pendingAppUpdate?.Tag : null;
-    public string AppUpdateTooltip
+    public string? AppUpdateTooltip
     {
         get => _appUpdateTooltip;
         set { _appUpdateTooltip = value; OnPropertyChanged(); }
@@ -4513,6 +4513,11 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         var vm = new BenchmarkComparisonViewModel(_benchmarkStorage, _logService);
         var win = new LlamaServerLauncher.BenchmarkComparisonWindow();
         win.SetViewModel(vm, DialogGeometryDict);
+        vm.RequestRunBenchmark += async () =>
+        {
+            win.Close();
+            await OpenBenchmarkLaunchDialog();
+        };
         win.Closed += async (_, _) =>
         {
             if (win.CapturedGeometry != null)

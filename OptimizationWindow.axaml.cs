@@ -63,6 +63,12 @@ public partial class OptimizationWindow : Window
             e.Handled = true;
             return;
         }
+        if (e.Key == Key.F1 && e.KeyModifiers == KeyModifiers.None)
+        {
+            OpenGuideClick(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
         base.OnKeyDown(e);
     }
 

@@ -1998,4 +1998,58 @@
   <data name="BenchmarkSaveFailedToast" xml:space="preserve">
     <value>Не удалось сохранить прогон бенчмарка.</value>
   </data>
+  <data name="HelpButton" xml:space="preserve">
+    <value>Справка</value>
+  </data>
+  <data name="HelpSectionTooltip" xml:space="preserve">
+    <value>Справка по текущему разделу (F1)</value>
+  </data>
+  <data name="HelpDialogTooltip" xml:space="preserve">
+    <value>Справка по этому окну (F1)</value>
+  </data>
+  <data name="HelpMoreInReadme" xml:space="preserve">
+    <value>Полная документация — README на GitHub</value>
+  </data>
+  <data name="HelpTitleMain" xml:space="preserve">
+    <value>Справка — Основное</value>
+  </data>
+  <data name="HelpTitleCustom" xml:space="preserve">
+    <value>Справка — Пользовательские аргументы</value>
+  </data>
+  <data name="HelpTitleGeneration" xml:space="preserve">
+    <value>Справка — Генерация</value>
+  </data>
+  <data name="HelpTitleOptions" xml:space="preserve">
+    <value>Справка — Параметры</value>
+  </data>
+  <data name="HelpTitleSpeculative" xml:space="preserve">
+    <value>Справка — Спекулятивное декодирование</value>
+  </data>
+  <data name="HelpTitleDocker" xml:space="preserve">
+    <value>Справка — Docker</value>
+  </data>
+  <data name="HelpTitleSettings" xml:space="preserve">
+    <value>Справка — Настройки</value>
+  </data>
+  <data name="HelpTitleBenchmarks" xml:space="preserve">
+    <value>Справка — Бенчмарки</value>
+  </data>
+  <data name="HelpTitleScenarios" xml:space="preserve">
+    <value>Справка — Сценарии</value>
+  </data>
+  <data name="BenchmarkNoRunsTitle" xml:space="preserve">
+    <value>Прогонов бенчмарка ещё нет</value>
+  </data>
+  <data name="BenchmarkNoRunsText" xml:space="preserve">
+    <value>Это окно сравнивает сохранённые прогоны. Чтобы сделать первый, откройте меню рядом с кнопкой «Запустить сервер» в главном окне и выберите «Запустить и сохранить бенчмарк». После завершения прогон сохранится в текущем профиле и появится в списке слева.</value>
+  </data>
+  <data name="BenchmarkNoRunsAction" xml:space="preserve">
+    <value>Запустить бенчмарк…</value>
+  </data>
+  <data name="BenchmarkPickHintTitle" xml:space="preserve">
+    <value>Выберите прогоны для сравнения</value>
+  </data>
+  <data name="BenchmarkPickHintText" xml:space="preserve">
+    <value>Отметьте галочками один или несколько прогонов в списке слева — они сравнятся здесь бок о бок.</value>
+  </data>
 </root>

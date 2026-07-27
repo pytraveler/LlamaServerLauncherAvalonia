@@ -12,6 +12,7 @@ namespace LlamaServerLauncher;
 public partial class BenchmarkComparisonWindow : Window
 {
     private BenchmarkComparisonViewModel? _viewModel;
+    private Dictionary<string, DialogGeometry>? _dialogGeometryDict;
 
     public DialogGeometry? CapturedGeometry { get; private set; }
 
@@ -23,6 +24,7 @@ public partial class BenchmarkComparisonWindow : Window
     public void SetViewModel(BenchmarkComparisonViewModel vm, Dictionary<string, DialogGeometry>? dialogGeometryDict = null)
     {
         _viewModel = vm;
+        _dialogGeometryDict = dialogGeometryDict;
         DataContext = vm;
         vm.RequestClose += Close;
         Closed += (_, _) => vm.Detach();
@@ -31,6 +33,14 @@ public partial class BenchmarkComparisonWindow : Window
     }
 
     private void RefreshClick(object? sender, RoutedEventArgs e) => _viewModel?.Refresh();
+
+    private void RunBenchmarkClick(object? sender, RoutedEventArgs e) => _viewModel?.RunBenchmark();
+
+    private async void HelpClick(object? sender, RoutedEventArgs e)
+    {
+        await HelpService.ShowAsync(this, HelpService.TopicBenchmarks,
+            LocalizedStrings.Instance.HelpTitleBenchmarks, _dialogGeometryDict);
+    }
 
     private void ProfileFilterAllClick(object? sender, RoutedEventArgs e) => _viewModel?.SelectAllProfiles();
 
@@ -95,6 +105,12 @@ public partial class BenchmarkComparisonWindow : Window
         if (e.Key == Key.Escape)
         {
             Close();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.F1 && e.KeyModifiers == KeyModifiers.None)
+        {
+            HelpClick(this, new RoutedEventArgs());
             e.Handled = true;
             return;
         }

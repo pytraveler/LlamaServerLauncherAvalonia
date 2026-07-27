@@ -94,9 +94,13 @@
             </Border>
         </Grid>
 
-        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
-            <Button Content="{Binding Localized.BenchmarkRunButton}" Click="RunClick" Padding="15,6"/>
-            <Button Content="{Binding Localized.Cancel}" Click="CancelClick" Padding="15,6"/>
-        </StackPanel>
+        <Grid Grid.Row="8" ColumnDefinitions="Auto,*,Auto">
+            <Button Grid.Column="0" Content="{Binding Localized.HelpButton}" Click="HelpClick" Padding="15,6"
+                    ToolTip.Tip="{Binding Localized.HelpDialogTooltip}"/>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="{Binding Localized.BenchmarkRunButton}" Click="RunClick" Padding="15,6"/>
+                <Button Content="{Binding Localized.Cancel}" Click="CancelClick" Padding="15,6"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

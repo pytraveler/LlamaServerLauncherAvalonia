@@ -1998,4 +1998,58 @@ Stop and continue?</value>
   <data name="BenchmarkSaveFailedToast" xml:space="preserve">
     <value>Failed to save benchmark run.</value>
   </data>
+  <data name="HelpButton" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="HelpSectionTooltip" xml:space="preserve">
+    <value>Help for the current section (F1)</value>
+  </data>
+  <data name="HelpDialogTooltip" xml:space="preserve">
+    <value>Help for this window (F1)</value>
+  </data>
+  <data name="HelpMoreInReadme" xml:space="preserve">
+    <value>Full documentation — README on GitHub</value>
+  </data>
+  <data name="HelpTitleMain" xml:space="preserve">
+    <value>Help — Main</value>
+  </data>
+  <data name="HelpTitleCustom" xml:space="preserve">
+    <value>Help — Custom arguments</value>
+  </data>
+  <data name="HelpTitleGeneration" xml:space="preserve">
+    <value>Help — Generation</value>
+  </data>
+  <data name="HelpTitleOptions" xml:space="preserve">
+    <value>Help — Options</value>
+  </data>
+  <data name="HelpTitleSpeculative" xml:space="preserve">
+    <value>Help — Speculative decoding</value>
+  </data>
+  <data name="HelpTitleDocker" xml:space="preserve">
+    <value>Help — Docker</value>
+  </data>
+  <data name="HelpTitleSettings" xml:space="preserve">
+    <value>Help — Settings</value>
+  </data>
+  <data name="HelpTitleBenchmarks" xml:space="preserve">
+    <value>Help — Benchmarks</value>
+  </data>
+  <data name="HelpTitleScenarios" xml:space="preserve">
+    <value>Help — Scenarios</value>
+  </data>
+  <data name="BenchmarkNoRunsTitle" xml:space="preserve">
+    <value>No benchmark runs yet</value>
+  </data>
+  <data name="BenchmarkNoRunsText" xml:space="preserve">
+    <value>This window compares saved runs. To make one, open the dropdown next to "Start server" in the main window and choose "Run and save benchmark". Once the run finishes it is stored in the current profile and appears in the list on the left.</value>
+  </data>
+  <data name="BenchmarkNoRunsAction" xml:space="preserve">
+    <value>Run a benchmark…</value>
+  </data>
+  <data name="BenchmarkPickHintTitle" xml:space="preserve">
+    <value>Pick runs to compare</value>
+  </data>
+  <data name="BenchmarkPickHintText" xml:space="preserve">
+    <value>Tick one or more runs in the list on the left — they will be compared side by side here.</value>
+  </data>
 </root>

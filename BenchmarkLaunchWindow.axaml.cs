@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using LlamaServerLauncher.Models;
+using LlamaServerLauncher.Resources;
 using LlamaServerLauncher.Services;
 using LlamaServerLauncher.ViewModels;
 
@@ -11,6 +12,7 @@ namespace LlamaServerLauncher;
 public partial class BenchmarkLaunchWindow : Window
 {
     private BenchmarkLaunchViewModel? _viewModel;
+    private Dictionary<string, DialogGeometry>? _dialogGeometryDict;
 
     public DialogGeometry? CapturedGeometry { get; private set; }
 
@@ -22,10 +24,17 @@ public partial class BenchmarkLaunchWindow : Window
     public void SetViewModel(BenchmarkLaunchViewModel viewModel, Dictionary<string, DialogGeometry>? dialogGeometryDict = null)
     {
         _viewModel = viewModel;
+        _dialogGeometryDict = dialogGeometryDict;
         DataContext = viewModel;
         viewModel.RequestClose += OnRequestClose;
         if (dialogGeometryDict != null)
             DialogPositionHelper.ApplySavedGeometry(this, dialogGeometryDict, "BenchmarkLaunch");
+    }
+
+    private async void HelpClick(object? sender, RoutedEventArgs e)
+    {
+        await HelpService.ShowAsync(this, HelpService.TopicBenchmarks,
+            LocalizedStrings.Instance.HelpTitleBenchmarks, _dialogGeometryDict);
     }
 
     private void OnRequestClose()
@@ -50,6 +59,12 @@ public partial class BenchmarkLaunchWindow : Window
         if (e.Key == Key.Escape)
         {
             Close();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.F1 && e.KeyModifiers == KeyModifiers.None)
+        {
+            HelpClick(this, new RoutedEventArgs());
             e.Handled = true;
             return;
         }

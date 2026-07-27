@@ -106,6 +106,7 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
 
     public LocalizedStrings Localized => LocalizedStrings.Instance;
     public event Action? RequestClose;
+    public event Action? RequestRunBenchmark;
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<BenchmarkRunRow> Runs { get; } = new();
@@ -151,7 +152,11 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
     }
 
     public bool HasSelection => Runs.Any(r => r.IsSelected);
-    public bool HasRuns => Runs.Count > 0;
+    public bool HasRuns => _allRows.Count > 0;
+
+    public bool ShowComparison => HasSelection;
+    public bool ShowNoRunsHint => !HasRuns;
+    public bool ShowPickHint => HasRuns && !HasSelection;
 
     public void Refresh()
     {
@@ -194,7 +199,6 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
         foreach (var row in _allRows)
             if (allowed.Contains(row.Run.ProfileName))
                 Runs.Add(row);
-        OnPropertyChanged(nameof(HasRuns));
         UpdateComparison();
     }
 
@@ -215,6 +219,10 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
         _comparisonMarkdown = BenchmarkReportBuilder.BuildComparison(selected, BenchmarkReportLocalizer.Localize);
         ComparisonView = MarkdownRenderer.Render(_comparisonMarkdown);
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(HasRuns));
+        OnPropertyChanged(nameof(ShowComparison));
+        OnPropertyChanged(nameof(ShowNoRunsHint));
+        OnPropertyChanged(nameof(ShowPickHint));
     }
 
     private void LoadSets()
@@ -337,6 +345,8 @@ public sealed class BenchmarkComparisonViewModel : INotifyPropertyChanged
             _storage.DeleteRun(run);
         Refresh();
     }
+
+    public void RunBenchmark() => RequestRunBenchmark?.Invoke();
 
     public void Close() => RequestClose?.Invoke();
 

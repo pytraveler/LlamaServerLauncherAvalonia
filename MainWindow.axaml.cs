@@ -700,12 +700,41 @@ public partial class MainWindow : Window
         }
         else if (noMods && e.Key == Key.F1)
         {
+            SectionHelpClick(this, args);
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.F1)
+        {
             ShowHotkeyMap();
             e.Handled = true;
         }
     }
 
     private void KeyboardShortcutsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => ShowHotkeyMap();
+
+    private async void SectionHelpClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var loc = LocalizedStrings.Instance;
+        var (topic, title) = (_viewModel?.SelectedTabIndex ?? 0) switch
+        {
+            0 => (HelpService.TopicMain, loc.HelpTitleMain),
+            1 => (HelpService.TopicCustom, loc.HelpTitleCustom),
+            2 => (HelpService.TopicGeneration, loc.HelpTitleGeneration),
+            3 => (HelpService.TopicOptions, loc.HelpTitleOptions),
+            4 => (HelpService.TopicSpeculative, loc.HelpTitleSpeculative),
+            5 => (HelpService.TopicDocker, loc.HelpTitleDocker),
+            _ => (HelpService.TopicSettings, loc.HelpTitleSettings)
+        };
+
+        if (_viewModel == null)
+        {
+            await HelpService.ShowAsync(this, topic, title);
+            return;
+        }
+
+        await HelpService.ShowAsync(this, topic, title, _viewModel.DialogGeometryDict);
+        await _viewModel.SaveSettingsAsync();
+    }
 
     private void ShowHotkeyMap()
     {
@@ -716,7 +745,8 @@ public partial class MainWindow : Window
             ("F5", loc.StartServer),
             ("Shift+F5", loc.StopServer),
             ("Ctrl+R", loc.RestartServer),
-            ("F1", loc.HotkeyMapTitle),
+            ("F1", loc.HelpButton),
+            ("Ctrl+F1", loc.HotkeyMapTitle),
         };
 
         var grid = new Grid

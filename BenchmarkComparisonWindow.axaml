@@ -20,6 +20,8 @@
                     IsEnabled="{Binding HasSelection}"/>
             <Button Content="{Binding Localized.BenchmarkDeleteRun}" Click="DeleteRunClick" Margin="0,0,6,0" Padding="8,4"
                     IsEnabled="{Binding HasSelection}"/>
+            <Button Content="{Binding Localized.HelpButton}" Click="HelpClick" Padding="8,4"
+                    ToolTip.Tip="{Binding Localized.HelpDialogTooltip}"/>
         </WrapPanel>
 
         <Grid Grid.Row="1" ColumnDefinitions="320,6,*" Margin="0,10,0,0">
@@ -102,9 +104,32 @@
             <GridSplitter Grid.Column="1" Width="6" Background="Transparent"/>
 
             <Border Grid.Column="2" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="4" Padding="12">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-                    <ContentControl Content="{Binding ComparisonView}"/>
-                </ScrollViewer>
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                  IsVisible="{Binding ShowComparison}">
+                        <ContentControl Content="{Binding ComparisonView}"/>
+                    </ScrollViewer>
+
+                    <StackPanel IsVisible="{Binding ShowNoRunsHint}" MaxWidth="460" Spacing="10"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Localized.BenchmarkNoRunsTitle}"
+                                   FontSize="17" FontWeight="Bold" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource AccentForegroundBrush}"/>
+                        <TextBlock Text="{Binding Localized.BenchmarkNoRunsText}" TextWrapping="Wrap" Opacity="0.85"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="{Binding Localized.BenchmarkNoRunsAction}" Click="RunBenchmarkClick" Padding="12,5"/>
+                            <Button Content="{Binding Localized.HelpButton}" Click="HelpClick" Padding="12,5"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel IsVisible="{Binding ShowPickHint}" MaxWidth="460" Spacing="10"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Localized.BenchmarkPickHintTitle}"
+                                   FontSize="17" FontWeight="Bold" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource AccentForegroundBrush}"/>
+                        <TextBlock Text="{Binding Localized.BenchmarkPickHintText}" TextWrapping="Wrap" Opacity="0.85"/>
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
     </Grid>

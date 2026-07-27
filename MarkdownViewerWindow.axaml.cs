@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using LlamaServerLauncher.Controls;
 using LlamaServerLauncher.Models;
@@ -135,6 +136,17 @@ public partial class MarkdownViewerWindow : Window, INotifyPropertyChanged
     {
         _actionRequested = true;
         Close();
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            Close();
+            e.Handled = true;
+            return;
+        }
+        base.OnKeyDown(e);
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
