@@ -8,6 +8,12 @@ release workflow refuses a tag whose version disagrees with
 screenshots and other per-release extras live in `.github/release-notes/`.
 Nothing is written by hand at tag time.
 
+## v1.7 - 2026-08-16
+
+- **The three-way option toggles show what is selected** — the "Off / Auto / On" toggles on the "Options" tab no longer depend on the accent colour of the system: the selected position is marked with a border and a caption in the theme colour and reads the same on every machine. Where the Windows accent happens to be close to the button grey nothing was visible at all before, and where that accent is red the selected value looked like an error. Options the current llama-server build does not support now show their value dimmed instead of fully grey - you can still see what is set even when it cannot be changed.
+
+- **The app picks its accent colour, the system no longer does** — under the default colour scheme, checkboxes, switches, sliders, progress bars and the selected tab were painted with the accent colour from the Windows settings, so the app looked different from machine to machine, sometimes to the point of being unreadable. The dark theme now uses teal and the light theme blue, while a chosen colour scheme ("Ocean", "Forest", "Sunset", "Ubuntu") still sets its own accent as before.
+
 ## v1.6 - 2026-07-27
 
 - **Built-in help** — a button at the bottom of the navigation rail (or the `F1` key) opens a short guide for the section you are currently on: what its fields do, what changing them costs, and where to start. The "Benchmarks", "Benchmark launch", "Scenarios" and "Optimization" windows gained their own help buttons, and `Ctrl+F1` lists the keyboard shortcuts. Help ships inside the executable and works offline, its language follows the UI language, and every page ends with a link to the full README. Empty states became clearer too: with no runs recorded yet, the benchmark comparison window explains where runs come from and offers to start the first one right there; when runs exist but none are selected, it says what to tick.

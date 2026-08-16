@@ -2,6 +2,29 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Name="Root">
+    <UserControl.Styles>
+        <Style Selector="ToggleButton">
+            <Setter Property="BorderThickness" Value="1.5"/>
+        </Style>
+        <Style Selector="ToggleButton:checked /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentForegroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentForegroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton:checked:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentForegroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton:checked:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </UserControl.Styles>
     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
         <TextBlock x:Name="LabelText" VerticalAlignment="Center" Margin="0,0,8,0"/>
         <StackPanel x:Name="Segments" Orientation="Horizontal" Spacing="2">

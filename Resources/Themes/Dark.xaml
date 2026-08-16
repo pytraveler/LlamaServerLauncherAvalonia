@@ -1,5 +1,16 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="SystemAccentColor">#17836F</Color>
+    <Color x:Key="SystemAccentColorDark1">#136C5B</Color>
+    <Color x:Key="SystemAccentColorDark2">#0F5548</Color>
+    <Color x:Key="SystemAccentColorDark3">#0B3F35</Color>
+    <Color x:Key="SystemAccentColorLight1">#1E9C85</Color>
+    <Color x:Key="SystemAccentColorLight2">#26B49A</Color>
+    <Color x:Key="SystemAccentColorLight3">#35C7AC</Color>
+    <SolidColorBrush x:Key="SystemControlHighlightAccentBrush">#17836F</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlHighlightAltAccentBrush">#17836F</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlForegroundAccentBrush">#17836F</SolidColorBrush>
+    <SolidColorBrush x:Key="SystemControlBackgroundAccentBrush">#17836F</SolidColorBrush>
     <SolidColorBrush x:Key="WindowBackgroundBrush">#1E1E1E</SolidColorBrush>
     <SolidColorBrush x:Key="PanelBackgroundBrush">#252526</SolidColorBrush>
     <SolidColorBrush x:Key="CommandBackgroundBrush">#2D2D30</SolidColorBrush>
@@ -11,6 +22,7 @@
     <SolidColorBrush x:Key="OverlayBorderBrush">#4FCCFF</SolidColorBrush>
     <SolidColorBrush x:Key="OverlayHintForegroundBrush">#888888</SolidColorBrush>
     <SolidColorBrush x:Key="SeparatorBrush">#333333</SolidColorBrush>
+    <SolidColorBrush x:Key="SelectionBackgroundBrush">#37373D</SolidColorBrush>
     <SolidColorBrush x:Key="WarningForegroundBrush">Orange</SolidColorBrush>
     <SolidColorBrush x:Key="SuccessBackgroundBrush">#3A6B4A</SolidColorBrush>
     <SolidColorBrush x:Key="DataPathForegroundBrush">#9CDCFE</SolidColorBrush>
