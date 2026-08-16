@@ -941,7 +941,21 @@
                                               ToolTip.Tip="{Binding Localized.TooltipMiniWindowEnable}" Margin="0,0,0,8"/>
 
                                     <TextBlock Text="{Binding OnDemandProxyStatusText}" FontSize="12" Margin="0,0,0,3"/>
-                                    <TextBlock Text="{Binding OnDemandProxyUrlHint}" FontSize="11" Foreground="{DynamicResource DataPathForegroundBrush}" Margin="0,0,0,3" IsVisible="{Binding OnDemandProxyRunning}"/>
+                                    <StackPanel IsVisible="{Binding OnDemandProxyRunning}" Margin="0,5,0,3">
+                                        <TextBlock Text="{Binding Localized.OnDemandProxyAddressLabel}" Margin="0,0,0,5"
+                                                   ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyAddress}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <ComboBox ItemsSource="{Binding OnDemandProxyAddresses}"
+                                                      SelectedValue="{Binding OnDemandProxyAddress}"
+                                                      SelectedValueBinding="{Binding Address}"
+                                                      DisplayMemberBinding="{Binding DisplayName}"
+                                                      Width="260"
+                                                      ToolTip.Tip="{Binding Localized.TooltipOnDemandProxyAddress}"/>
+                                            <Button Content="{Binding Localized.CopyAddress}" Click="CopyOnDemandProxyUrlClick"
+                                                    Height="32" VerticalContentAlignment="Center" Padding="12,0"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding OnDemandProxyUrlHint}" FontSize="11" Foreground="{DynamicResource DataPathForegroundBrush}" Margin="0,5,0,0"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </ScrollViewer>
                         </TabItem>

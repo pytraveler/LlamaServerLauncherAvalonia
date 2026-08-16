@@ -1352,6 +1352,21 @@
   <data name="OnDemandProxyApiKeyLabel" xml:space="preserve">
     <value>API-ключ (необязательно)</value>
   </data>
+  <data name="OnDemandProxyAddressLabel" xml:space="preserve">
+    <value>Адрес для клиентов</value>
+  </data>
+  <data name="TooltipOnDemandProxyAddress" xml:space="preserve">
+    <value>Какой из адресов этого компьютера отдавать клиенту. Сначала идут адреса сети со шлюзом, затем сам компьютер, затем имя в сети, затем VPN и виртуальные адаптеры</value>
+  </data>
+  <data name="AddressThisComputer" xml:space="preserve">
+    <value>этот компьютер</value>
+  </data>
+  <data name="AddressNetworkName" xml:space="preserve">
+    <value>имя в сети</value>
+  </data>
+  <data name="CopyAddress" xml:space="preserve">
+    <value>Копировать</value>
+  </data>
   <data name="ComfyUiSection" xml:space="preserve">
     <value>ComfyUI</value>
   </data>

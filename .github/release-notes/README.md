@@ -12,6 +12,13 @@ builds the notes for tag `vX.Y` in this order:
 4. `footer.md`, if it exists — the part that repeats in every release;
 5. `**Full Changelog**: <compare link against the previous v* tag>`.
 
+Screenshots live in this folder next to the `vX.Y.md` that uses them and are
+referenced by their bare file name (`src="main_window.png"`). Release notes do
+not resolve relative paths, so the workflow expands such a name into a full URL
+pinned to the tag being released; a link that already carries a host is left
+alone. The image has to be committed along with the notes, or the published
+link points at nothing.
+
 Both changelogs must have a section for the tag, and the tag must agree with
 `<Version>` / `<InformationalVersion>` in `LlamaServerLauncher.csproj` —
 otherwise the workflow stops before building anything.

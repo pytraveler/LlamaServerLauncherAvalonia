@@ -1063,6 +1063,12 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void CopyOnDemandProxyUrlClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await CopyToClipboardWithToastAsync(_viewModel.OnDemandProxyUrlHint);
+    }
+
     private async System.Threading.Tasks.Task CopyToClipboardWithToastAsync(string text)
     {
         if (string.IsNullOrEmpty(text)) return;

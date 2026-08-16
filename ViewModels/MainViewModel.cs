@@ -544,6 +544,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private void OnCultureChanged()
     {
         RebuildColorSchemeOptions();
+        RefreshOnDemandProxyAddresses();
         OnPropertyChanged(nameof(ColorSchemeOptions));
         OnPropertyChanged(nameof(ColorScheme));
         OnPropertyChanged(nameof(ModelMaxContextText));
@@ -918,15 +919,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         get
         {
-            try
-            {
-                var host = System.Net.Dns.GetHostName();
-                return $"http://{host}:{_logStreamPort}";
-            }
-            catch
-            {
-                return $"http://<hostname>:{_logStreamPort}";
-            }
+            var host = LocalAddressService.Enumerate().FirstOrDefault()?.Address ?? LocalAddressPicker.Loopback;
+            return $"http://{host}:{_logStreamPort}";
         }
     }
 
@@ -982,6 +976,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private int _onDemandProxyIdleSeconds = 300;
     private int _onDemandProxyHealthTimeoutSeconds = 120;
     private string _onDemandProxyApiKey = string.Empty;
+    private string _onDemandProxyAddress = string.Empty;
     private bool _onDemandProxyMiniWindowEnabled;
     private bool _comfyUiFreeEnabled;
     private string _comfyUiUrl = "http://127.0.0.1:8188";
@@ -1144,21 +1139,67 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
     }
 
-    public string OnDemandProxyUrlHint
+    public record ProxyAddressOption
     {
-        get
+        public string Address { get; init; } = "";
+        public string DisplayName { get; init; } = "";
+    }
+
+    public ObservableCollection<ProxyAddressOption> OnDemandProxyAddresses { get; } = new();
+
+    public string OnDemandProxyAddress
+    {
+        get => _onDemandProxyAddress;
+        set
         {
-            try
+            var address = value ?? "";
+            if (_onDemandProxyAddress != address)
             {
-                var host = System.Net.Dns.GetHostName();
-                return $"http://{host}:{_onDemandProxyPort}/v1";
-            }
-            catch
-            {
-                return $"http://<hostname>:{_onDemandProxyPort}/v1";
+                _onDemandProxyAddress = address;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(OnDemandProxyUrlHint));
+                _ = SaveSettingsAsync();
             }
         }
     }
+
+    public void RefreshOnDemandProxyAddresses()
+    {
+        var entries = LocalAddressService.Enumerate();
+
+        OnDemandProxyAddresses.Clear();
+        foreach (var entry in entries)
+        {
+            OnDemandProxyAddresses.Add(new ProxyAddressOption
+            {
+                Address = entry.Address,
+                DisplayName = DescribeAddress(entry)
+            });
+        }
+
+        if (!OnDemandProxyAddresses.Any(a => a.Address == _onDemandProxyAddress))
+            _onDemandProxyAddress = OnDemandProxyAddresses.FirstOrDefault()?.Address ?? LocalAddressPicker.Loopback;
+
+        OnPropertyChanged(nameof(OnDemandProxyAddresses));
+        OnPropertyChanged(nameof(OnDemandProxyAddress));
+        OnPropertyChanged(nameof(OnDemandProxyUrlHint));
+    }
+
+    private static string DescribeAddress(LocalAddressEntry entry)
+    {
+        var note = entry.Kind switch
+        {
+            LocalAddressKind.Loopback => LocalizedStrings.GetString("AddressThisComputer"),
+            LocalAddressKind.HostName => LocalizedStrings.GetString("AddressNetworkName"),
+            _ => entry.InterfaceName
+        };
+        return string.IsNullOrWhiteSpace(note) ? entry.Address : $"{entry.Address} - {note}";
+    }
+
+    public string OnDemandProxyUrlHint =>
+        EndpointSnippets.OpenAiBaseUrl(
+            string.IsNullOrWhiteSpace(_onDemandProxyAddress) ? LocalAddressPicker.Loopback : _onDemandProxyAddress,
+            _onDemandProxyPort);
 
     private void ApplyOnDemandProxyState()
     {
@@ -1184,6 +1225,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         {
             _onDemandProxyService.Stop();
         }
+        RefreshOnDemandProxyAddresses();
         OnPropertyChanged(nameof(OnDemandProxyRunning));
         OnPropertyChanged(nameof(OnDemandProxyStatusText));
         OnPropertyChanged(nameof(OnDemandProxyUrlHint));
@@ -1193,6 +1235,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         if (_onDemandProxyEnabled)
             ApplyOnDemandProxyState();
+        else
+            RefreshOnDemandProxyAddresses();
         OnPropertyChanged(nameof(OnDemandProxyEnabled));
         OnPropertyChanged(nameof(OnDemandProxyPort));
         OnPropertyChanged(nameof(OnDemandProxyIdleSeconds));
@@ -1210,6 +1254,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _onDemandProxyService.Stop();
         if (_onDemandProxyEnabled)
             ApplyOnDemandProxyState();
+        else
+            RefreshOnDemandProxyAddresses();
         OnPropertyChanged(nameof(OnDemandProxyRunning));
         OnPropertyChanged(nameof(OnDemandProxyStatusText));
         OnPropertyChanged(nameof(OnDemandProxyUrlHint));
@@ -1637,6 +1683,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _onDemandProxyIdleSeconds = settings.OnDemandProxyIdleSeconds;
         _onDemandProxyHealthTimeoutSeconds = settings.OnDemandProxyHealthTimeoutSeconds > 0 ? settings.OnDemandProxyHealthTimeoutSeconds : 120;
         _onDemandProxyApiKey = settings.OnDemandProxyApiKey ?? "";
+        _onDemandProxyAddress = settings.OnDemandProxyAddress ?? "";
         _onDemandProxyMiniWindowEnabled = settings.OnDemandProxyMiniWindowEnabled;
         _onDemandProxyEnabled = settings.OnDemandProxyEnabled;
         _comfyUiFreeEnabled = settings.ComfyUiFreeEnabled;
@@ -2072,6 +2119,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             OnDemandProxyIdleSeconds = _onDemandProxyIdleSeconds,
             OnDemandProxyHealthTimeoutSeconds = _onDemandProxyHealthTimeoutSeconds,
             OnDemandProxyApiKey = _onDemandProxyApiKey,
+            OnDemandProxyAddress = _onDemandProxyAddress,
             OnDemandProxyMiniWindowEnabled = _onDemandProxyMiniWindowEnabled,
             ComfyUiFreeEnabled = _comfyUiFreeEnabled,
             ComfyUiUrl = _comfyUiUrl,

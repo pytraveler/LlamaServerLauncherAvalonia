@@ -70,6 +70,8 @@ jobs:
           fi
           ru_date=$(echo "$date" | awk -F- '{print $3 "." $2 "." $1}')
 
+          images="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/raw/$tag/.github/release-notes"
+
           prev=$(git tag --list 'v*' --sort=-v:refname | awk -v cur="$tag" 'found {print; exit} $0 == cur {found=1}')
           if [ -n "$prev" ]; then
             compare="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$prev...$tag"
@@ -98,7 +100,9 @@ jobs:
             echo "</details>"
             echo
             if [ -f ".github/release-notes/$tag.md" ]; then
-              cat ".github/release-notes/$tag.md"
+              sed -E -e "s#src=\"([^\"/]+\.(png|jpg|jpeg|gif|webp))\"#src=\"$images/\1\"#g" \
+                     -e "s#\]\(([^)/]+\.(png|jpg|jpeg|gif|webp))\)#](${images}/\1)#g" \
+                     ".github/release-notes/$tag.md"
               echo
             fi
             if [ -f ".github/release-notes/footer.md" ]; then

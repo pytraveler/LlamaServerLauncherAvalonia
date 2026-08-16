@@ -38,6 +38,7 @@
     <Compile Include="..\Services\GitHubReleaseSource.cs" />
     <Compile Include="..\Services\LlamaCppDownloadService.cs" />
     <Compile Include="..\Models\AppInfo.cs" />
+    <Compile Include="..\Models\LocalAddresses.cs" />
     <Compile Include="CommandLineTests.cs" />
     <Compile Include="OptimizationTests.cs" />
     <Compile Include="ProxyProtocolTests.cs" />
@@ -53,6 +54,7 @@
     <Compile Include="ServerCrashAdvisorTests.cs" />
     <Compile Include="BenchmarkTests.cs" />
     <Compile Include="GitHubReleaseSourceTests.cs" />
+    <Compile Include="LocalAddressTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>

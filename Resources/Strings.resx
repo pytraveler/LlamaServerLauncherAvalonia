@@ -1352,6 +1352,21 @@
   <data name="OnDemandProxyApiKeyLabel" xml:space="preserve">
     <value>API key (optional)</value>
   </data>
+  <data name="OnDemandProxyAddressLabel" xml:space="preserve">
+    <value>Address for clients</value>
+  </data>
+  <data name="TooltipOnDemandProxyAddress" xml:space="preserve">
+    <value>Which of this machine's addresses to hand to a client. Addresses of a network with a gateway come first, then this machine itself, then the network name, then VPN and virtual adapters</value>
+  </data>
+  <data name="AddressThisComputer" xml:space="preserve">
+    <value>this computer</value>
+  </data>
+  <data name="AddressNetworkName" xml:space="preserve">
+    <value>network name</value>
+  </data>
+  <data name="CopyAddress" xml:space="preserve">
+    <value>Copy</value>
+  </data>
   <data name="ComfyUiSection" xml:space="preserve">
     <value>ComfyUI</value>
   </data>
