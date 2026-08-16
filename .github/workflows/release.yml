@@ -1,10 +1,5 @@
 name: Release
 
-# Builds all self-contained single-file binaries, generates SHA256SUMS,
-# attaches GitHub build-provenance attestations, and publishes a Release.
-#
-# Trigger by pushing a version tag:   git tag v1.2.3 && git push origin v1.2.3
-# Or run manually from the Actions tab (workflow_dispatch).
 
 on:
   push:
@@ -13,16 +8,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write       # create the GitHub Release + upload assets
-  id-token: write       # required by attest-build-provenance
-  attestations: write   # required by attest-build-provenance
+  contents: write       
+  id-token: write       
+  attestations: write   
 
 jobs:
   release:
     runs-on: ubuntu-latest
 
-    # GPG signing is optional: it only runs if the GPG_PRIVATE_KEY secret is set.
-    # Without the secret the workflow still produces unsigned binaries + checksums.
     env:
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -30,6 +23,94 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    
+
+      - name: The tag and the csproj must agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          num="${tag#v}"
+          info=$(sed -n 's:.*<InformationalVersion>\(.*\)</InformationalVersion>.*:\1:p' LlamaServerLauncher.csproj | head -1)
+          ver=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' LlamaServerLauncher.csproj | head -1)
+          echo "tag $tag; csproj says Version=$ver, InformationalVersion=$info"
+          if [ "$info" != "$tag" ]; then
+            echo "::error::tag $tag does not match <InformationalVersion>$info</InformationalVersion> in LlamaServerLauncher.csproj"
+            exit 1
+          fi
+          case "$ver" in
+            "$num"|"$num".*) ;;
+            *) echo "::error::tag $tag does not match <Version>$ver</Version> in LlamaServerLauncher.csproj"; exit 1 ;;
+          esac
+
+      - name: Release notes out of the changelogs
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+
+          # the body of the '## <tag> - <date>' section, without its blank edges
+          section() {
+            awk -v v="$tag" '$1 == "##" && $2 == v {f=1; next} f && $1 == "##" {exit} f {print}' "$1" \
+              | awk 'NF {p=1} p' \
+              | awk '{l[NR]=$0} END {for (i=NR; i>0 && l[i] ~ /^[[:space:]]*$/; i--); for (j=1; j<=i; j++) print l[j]}'
+          }
+
+          section CHANGELOG.ru.md > /tmp/ru.md
+          section CHANGELOG.md    > /tmp/en.md
+          date=$(awk -v v="$tag" '$1 == "##" && $2 == v {print $NF; exit}' CHANGELOG.md)
+          case "$date" in
+            [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
+            *) date="" ;;
+          esac
+          if [ ! -s /tmp/ru.md ] || [ ! -s /tmp/en.md ] || [ -z "$date" ]; then
+            echo "::error::no '## $tag - YYYY-MM-DD' section in CHANGELOG.md or CHANGELOG.ru.md"
+            exit 1
+          fi
+          ru_date=$(echo "$date" | awk -F- '{print $3 "." $2 "." $1}')
+
+          prev=$(git tag --list 'v*' --sort=-v:refname | awk -v cur="$tag" 'found {print; exit} $0 == cur {found=1}')
+          if [ -n "$prev" ]; then
+            compare="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$prev...$tag"
+          else
+            compare="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commits/$tag"
+          fi
+
+          {
+            echo "## Обновление от $ru_date"
+            echo
+            echo "## Список изменений"
+            echo
+            cat /tmp/ru.md
+            echo
+            echo "---"
+            echo
+            echo "<details>"
+            echo "<summary>🇬🇧 English version (click to expand)</summary>"
+            echo
+            echo "## Update as of $date"
+            echo
+            echo "## Changelog"
+            echo
+            cat /tmp/en.md
+            echo
+            echo "</details>"
+            echo
+            if [ -f ".github/release-notes/$tag.md" ]; then
+              cat ".github/release-notes/$tag.md"
+              echo
+            fi
+            if [ -f ".github/release-notes/footer.md" ]; then
+              cat ".github/release-notes/footer.md"
+              echo
+            fi
+            echo "**Full Changelog**: $compare"
+          } > /tmp/notes.md
+
+          echo "::group::release notes"
+          cat /tmp/notes.md
+          echo "::endgroup::"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -90,9 +171,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" dist/* \
-            --title "${{ github.ref_name }}" \
-            --generate-notes \
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/notes.md \
+            --verify-tag \
             --draft
 
       - name: Upload artifacts (manual runs)

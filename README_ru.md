@@ -1,6 +1,6 @@
 # LlamaServerLauncher
 
-[English](README.md)
+[English](README.md) | [История изменений](CHANGELOG.ru.md)
 
 ![LlamaServerLauncher](docs/images/preview.png)
 
