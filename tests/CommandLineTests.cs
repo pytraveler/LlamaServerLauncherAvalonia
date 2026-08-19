@@ -15,6 +15,7 @@ public static class CommandLineTests
         SpecAndDraft(h);
         HuggingFace(h);
         CustomArgToggles(h);
+        CustomArgAliases(h);
         ParseBack(h);
         RoundTrip(h);
     }
@@ -220,6 +221,56 @@ public static class CommandLineTests
             CustomArgumentToggleStates = new Dictionary<string, bool> { ["--my-custom"] = true }
         });
         h.Check("explicitly enabled custom flag present", toggledOn.Contains("--my-custom foo"), toggledOn);
+    }
+
+    private static void CustomArgAliases(Harness h)
+    {
+        h.Section("CommandLineBuilder custom-arg alias dedup");
+
+        var ngl = CommandLineBuilder.Build(new ServerConfiguration
+        {
+            GpuLayers = 65,
+            CustomArguments = "--n-gpu-layers 99"
+        });
+        h.Check("aliased -ngl emitted once", CountOccurrences(ngl, "99") == 1, ngl);
+        h.Check("custom value wins over UI value", ngl.Contains("-ngl 99") && !ngl.Contains("-ngl 65"), ngl);
+        h.Check("alias not appended a second time", !ngl.Contains("--n-gpu-layers"), ngl);
+
+        var gpuLayers = CommandLineBuilder.Build(new ServerConfiguration { CustomArguments = "--gpu-layers 40" });
+        h.Check("--gpu-layers collapses into -ngl", gpuLayers.Contains("-ngl 40") && !gpuLayers.Contains("--gpu-layers"), gpuLayers);
+
+        var fa = CommandLineBuilder.Build(new ServerConfiguration
+        {
+            FlashAttention = true,
+            CustomArguments = "--flash-attn on"
+        });
+        h.Check("flash-attn alias emitted once", CountOccurrences(fa, "on") == 1, fa);
+
+        var mmproj = CommandLineBuilder.Build(new ServerConfiguration
+        {
+            MmprojPath = "/models/mm.gguf",
+            CustomArguments = "--mmproj /other/mm.gguf"
+        });
+        h.Check("mmproj alias emitted once", CountOccurrences(mmproj, "mm.gguf") == 1, mmproj);
+
+        var unrelated = CommandLineBuilder.Build(new ServerConfiguration
+        {
+            GpuLayers = 65,
+            CustomArguments = "--n-gpu-layers 99 --my-custom foo"
+        });
+        h.Check("unknown custom args survive dedup", unrelated.Contains("--my-custom foo"), unrelated);
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        int count = 0;
+        int idx = haystack.IndexOf(needle, System.StringComparison.Ordinal);
+        while (idx >= 0)
+        {
+            count++;
+            idx = haystack.IndexOf(needle, idx + needle.Length, System.StringComparison.Ordinal);
+        }
+        return count;
     }
 
     private static void RoundTrip(Harness h)

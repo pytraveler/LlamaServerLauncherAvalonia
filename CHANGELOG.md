@@ -8,6 +8,10 @@ release workflow refuses a tag whose version disagrees with
 screenshots and other per-release extras live in `.github/release-notes/`.
 Nothing is written by hand at tag time.
 
+## v1.8.2 - 2026-08-19
+
+- **A custom argument no longer lands in the command twice** — when the custom arguments carried the long form of a flag while the matching field was filled in, the server was handed both: `-ngl 99 --n-gpu-layers 99`. The app writes known arguments in their short form (`-ngl`), did not recognise the long one (`--n-gpu-layers`, `--gpu-layers`) as the same thing, and appended it as a separate entry — the command line ended up carrying the same argument twice, leaving it to guesswork which of the two llama-server would take. The GPU layer count showed it most often, being the flag people usually copy in its long form out of someone else's command. `--flash-attn` next to `-fa`, `--mmproj` next to `-mm`, `--ctx-size` next to `-c` and every other pair of synonyms doubled up the same way. Synonyms of one argument now count as one argument and it reaches the command line exactly once — in the preview, when the server is started, in the docker command and in the benchmarks. The value from the custom arguments still wins over the value in the field.
+
 ## v1.8.1 - 2026-08-19
 
 - **The llama.cpp build list no longer stops short on a fresh release** — llama.cpp publishes the tag first and keeps uploading archives for the next couple of minutes, and the app could remember a half-uploaded release: the dialog showed the CPU builds and a single CUDA one, while Vulkan, SYCL, ROCm, OpenVINO and CUDA 13 stayed missing until the half-hour cache expired. Picking a release in the dialog now rereads it by tag with a short freshness window, so the list fills itself in. A build already picked by hand stays picked, and the auto-detection still prefers CUDA 12.4 over the newer 13.3 - the one that runs on an older driver.

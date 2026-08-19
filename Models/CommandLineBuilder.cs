@@ -442,6 +442,31 @@ public static class CommandLineBuilder
 
     public static bool IsPathProperty(string propertyName) => PathProperties.Contains(propertyName);
 
+    private static bool IsFlagAlreadyEmitted(List<string> args, string flag)
+    {
+        var equivalents = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { flag };
+
+        string? propertyName = GetPropertyNameForFlag(flag);
+        if (propertyName != null)
+        {
+            foreach (var kvp in ServerConfiguration.KnownArguments)
+            {
+                if (kvp.Value.PropertyName.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+                    equivalents.Add(kvp.Key);
+            }
+        }
+
+        foreach (var existing in args)
+        {
+            int sep = existing.IndexOfAny(new[] { ' ', '\t' });
+            string emitted = sep >= 0 ? existing.Substring(0, sep) : existing;
+            if (equivalents.Contains(emitted))
+                return true;
+        }
+
+        return false;
+    }
+
     private static void AddRemainingCustomArgs(List<string> args, string normalizedCustomArgs, Dictionary<string, string?> usedCustomValues, HashSet<string> disabledCustomArgs)
     {
         if (string.IsNullOrEmpty(normalizedCustomArgs))
@@ -462,17 +487,12 @@ public static class CommandLineBuilder
                 continue;
             }
 
-            bool alreadyInArgs = false;
-            foreach (var existing in args)
+            if (IsFlagAlreadyEmitted(args, arg))
             {
-                if (existing == arg || existing.StartsWith(arg + " ") || existing.StartsWith(arg + "\t"))
-                {
-                    alreadyInArgs = true;
-                    break;
-                }
-            }
-            if (alreadyInArgs)
+                if (i + 1 < parsed.Count && !CommandLineParser.IsFlag(parsed[i + 1]))
+                    i++;
                 continue;
+            }
 
             if (i + 1 < parsed.Count && !CommandLineParser.IsFlag(parsed[i + 1]))
             {
