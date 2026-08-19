@@ -8,6 +8,10 @@ release workflow refuses a tag whose version disagrees with
 screenshots and other per-release extras live in `.github/release-notes/`.
 Nothing is written by hand at tag time.
 
+## v1.8.1 - 2026-08-19
+
+- **The llama.cpp build list no longer stops short on a fresh release** — llama.cpp publishes the tag first and keeps uploading archives for the next couple of minutes, and the app could remember a half-uploaded release: the dialog showed the CPU builds and a single CUDA one, while Vulkan, SYCL, ROCm, OpenVINO and CUDA 13 stayed missing until the half-hour cache expired. Picking a release in the dialog now rereads it by tag with a short freshness window, so the list fills itself in. A build already picked by hand stays picked, and the auto-detection still prefers CUDA 12.4 over the newer 13.3 - the one that runs on an older driver.
+
 ## v1.8 - 2026-08-19
 
 - **The toggle positions differ in colour, and the toggles line up on a grid** — the selected position is coloured by meaning: "Off" red, "Auto" blue, "On" green, so a glance across the panel is enough to tell what is switched off, what is left to the server, and what is forced on. All three positions used to light up the same way. Every option now occupies a cell of equal width on a plate of its own: the groups of three line up in columns, and a label stays attached to its own buttons instead of blending into the neighbouring ones. Under the "Custom" colour scheme all three highlight colours are configurable alongside the rest - the appearance section gained "Toggle: Off / Auto / On".

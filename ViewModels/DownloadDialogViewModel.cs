@@ -80,6 +80,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
                 _selectedRelease = value;
                 OnPropertyChanged();
                 PopulateAssets();
+                if (value != null) _ = RefreshSelectedReleaseAssetsAsync(value);
                 UpdateReleaseDescription();
                 OnPropertyChanged(nameof(CanDownload));
             }
@@ -437,6 +438,8 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
     private void PopulateAssets()
     {
+        var previousChoice = SelectedAsset?.Name;
+
         AvailableAssets.Clear();
         SelectedAsset = null;
         IsReleaseNotFound = false;
@@ -449,12 +452,39 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
         if (AvailableAssets.Count > 0)
         {
-            ApplyBackendSelection();
+            var kept = previousChoice == null
+                ? null
+                : AvailableAssets.FirstOrDefault(a => a.Name == previousChoice);
+            if (kept != null)
+                SelectedAsset = kept;
+            else
+                ApplyBackendSelection();
         }
         else
         {
             DetectedBackendText = "";
             StatusMessage = LocalizedStrings.GetString("NoAssetsForOS");
+        }
+    }
+
+    private async Task RefreshSelectedReleaseAssetsAsync(ReleaseInfo release)
+    {
+        try
+        {
+            var fresh = await _downloadService.GetReleaseByTagAsync(release.Tag, TimeSpan.FromMinutes(2));
+            if (fresh == null || fresh.Assets.Count <= release.Assets.Count) return;
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!ReferenceEquals(_selectedRelease, release)) return;
+                release.Assets.Clear();
+                release.Assets.AddRange(fresh.Assets);
+                PopulateAssets();
+            });
+        }
+        catch
+        {
+            // oh nooo...
         }
     }
 

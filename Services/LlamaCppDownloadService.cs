@@ -81,10 +81,10 @@ public class LlamaCppDownloadService
         return result.Releases;
     }
 
-    public async Task<ReleaseInfo?> GetReleaseByTagAsync(string tag)
+    public async Task<ReleaseInfo?> GetReleaseByTagAsync(string tag, TimeSpan? freshFor = null)
     {
         var result = await GitHubReleaseSource.GetReleaseByTagAsync(
-            RepoOwner, RepoName, tag, freshFor: ReleaseCacheLifetime);
+            RepoOwner, RepoName, tag, freshFor: freshFor ?? ReleaseCacheLifetime);
         LastReleaseFetch = result;
         return result.Releases.FirstOrDefault();
     }
