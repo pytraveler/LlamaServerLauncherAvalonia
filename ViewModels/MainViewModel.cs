@@ -34,7 +34,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private readonly LogService _logService;
     private readonly LlamaCppDownloadService _downloadService;
     private readonly DockerCliService _dockerService;
-    private readonly AppUpdateService _appUpdateService = new();
+    private readonly AppUpdateService _appUpdateService;
     private readonly AutoStartService _autoStartService;
     private readonly DataPathResolver _dataPathResolver;
     private LlamaServerLauncher.Services.Benchmarking.BenchmarkStorageService _benchmarkStorage = null!;
@@ -405,7 +405,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         { "PanelBackgroundBrush", "#252526" },
         { "CommandBackgroundBrush", "#2D2D30" },
         { "AccentForegroundBrush", "#4EC9B0" },
-        { "SeparatorBrush", "#333333" }
+        { "SeparatorBrush", "#333333" },
+        { "OptionOffBrush", "#E05561" },
+        { "OptionAutoBrush", "#4FC1E9" },
+        { "OptionOnBrush", "#4CD964" }
     };
     private static readonly Dictionary<string, string> LightCustomDefaults = new()
     {
@@ -413,7 +416,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         { "PanelBackgroundBrush", "#F3F3F3" },
         { "CommandBackgroundBrush", "#E5E5E5" },
         { "AccentForegroundBrush", "#007ACC" },
-        { "SeparatorBrush", "#CCCCCC" }
+        { "SeparatorBrush", "#CCCCCC" },
+        { "OptionOffBrush", "#C62828" },
+        { "OptionAutoBrush", "#0277BD" },
+        { "OptionOnBrush", "#2E7D32" }
     };
 
     public string ColorScheme
@@ -466,6 +472,22 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         set => SetCustomColor("SeparatorBrush", nameof(CustomSeparator), value);
     }
 
+    public Color CustomOptionOff
+    {
+        get => GetCustomColor("OptionOffBrush");
+        set => SetCustomColor("OptionOffBrush", nameof(CustomOptionOff), value);
+    }
+    public Color CustomOptionAuto
+    {
+        get => GetCustomColor("OptionAutoBrush");
+        set => SetCustomColor("OptionAutoBrush", nameof(CustomOptionAuto), value);
+    }
+    public Color CustomOptionOn
+    {
+        get => GetCustomColor("OptionOnBrush");
+        set => SetCustomColor("OptionOnBrush", nameof(CustomOptionOn), value);
+    }
+
     private void EnsureCustomDefaultsSeeded()
     {
         var defaults = _themeVariant == "Light" ? LightCustomDefaults : DarkCustomDefaults;
@@ -501,6 +523,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(CustomCommandBackground));
         OnPropertyChanged(nameof(CustomAccent));
         OnPropertyChanged(nameof(CustomSeparator));
+        OnPropertyChanged(nameof(CustomOptionOff));
+        OnPropertyChanged(nameof(CustomOptionAuto));
+        OnPropertyChanged(nameof(CustomOptionOn));
     }
 
     private void ResetCustomColors()
@@ -555,6 +580,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         LocalizedStrings.CultureChanged -= OnCultureChanged;
         _customColorSaveTimer?.Stop();
+        _profileLoadTimer?.Stop();
         _onDemandProxyService?.Dispose();
     }
 
@@ -841,6 +867,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private string _selectedProfile = string.Empty;
     private string _profileNameInput = string.Empty;
     private bool _suppressProfileAutoLoad;
+    private DispatcherTimer? _profileLoadTimer;
     private bool _isServerRunning;
     private string _serverStatus = "Stopped";
     private string _currentLog = string.Empty;
@@ -1388,6 +1415,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         GitHubReleaseSource.ConfigureCacheDirectory(resolvedPath);
 
         _logService = new LogService(resolvedPath);
+        _appUpdateService = new AppUpdateService(msg => _logService.Log(LogLevel.Info, msg));
         _logService.LogReceived += OnLogReceived;
         if (_dataPathResolver.ConfiguredCustomPathMissing)
             _logService.Warning("Configured custom data folder is unavailable; using the default folder. Settings may appear reset until the drive is reconnected.");
@@ -3267,8 +3295,52 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private bool _isAppUpdateAvailable;
     private string? _appUpdateTooltip;
     private AppUpdateInfo? _pendingAppUpdate;
+    private bool _isAppUpdateBusy;
+    private bool _appUpdateCanCancel;
+    private bool _appUpdateProgressKnown;
+    private double _appUpdateProgress;
+    private string _appUpdateStatusText = string.Empty;
+    private CancellationTokenSource? _appUpdateCts;
 
-    public bool ShowAppUpdateButton => _isAppUpdateAvailable;
+    public bool ShowAppUpdateButton => _isAppUpdateAvailable && !_isAppUpdateBusy;
+
+    public bool IsAppUpdateBusy
+    {
+        get => _isAppUpdateBusy;
+        private set
+        {
+            if (_isAppUpdateBusy == value) return;
+            _isAppUpdateBusy = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowAppUpdateButton));
+        }
+    }
+
+    public bool AppUpdateCanCancel
+    {
+        get => _appUpdateCanCancel;
+        private set { if (_appUpdateCanCancel != value) { _appUpdateCanCancel = value; OnPropertyChanged(); }}
+    }
+
+    public bool AppUpdateProgressKnown
+    {
+        get => _appUpdateProgressKnown;
+        private set { if (_appUpdateProgressKnown != value) { _appUpdateProgressKnown = value; OnPropertyChanged(); } }
+    }
+
+    public double AppUpdateProgress
+    {
+        get => _appUpdateProgress;
+        private set { if (_appUpdateProgress != value) { _appUpdateProgress = value; OnPropertyChanged(); } }
+    }
+
+    public string AppUpdateStatusText
+    {
+        get => _appUpdateStatusText;
+        private set { if (_appUpdateStatusText != value) { _appUpdateStatusText = value; OnPropertyChanged(); } }
+    }
+
+    public void CancelAppUpdate() => _appUpdateCts?.Cancel();
 
     public string? AvailableAppUpdateTag => _isAppUpdateAvailable ? _pendingAppUpdate?.Tag : null;
     public string? AppUpdateTooltip
@@ -6301,6 +6373,31 @@ public void RebuildCustomArgumentsFromToggles()
         await dialog.ShowDialog(MainWindow.Instance!);
     }
 
+    public void RequestProfileLoad(bool immediate)
+    {
+        if (_suppressProfileAutoLoad) return;
+
+        _profileLoadTimer?.Stop();
+
+        if (immediate)
+        {
+            _ = OnProfileSelectedAsync();
+            return;
+        }
+
+        if (_profileLoadTimer == null)
+        {
+            _profileLoadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+            _profileLoadTimer.Tick += (_, _) =>
+            {
+                _profileLoadTimer!.Stop();
+                _ = OnProfileSelectedAsync();
+            };
+        }
+
+        _profileLoadTimer.Start();
+    }
+
     public async Task OnProfileSelectedAsync()
     {
         if (_suppressProfileAutoLoad) return;
@@ -7088,11 +7185,26 @@ public void RebuildCustomArgumentsFromToggles()
                 _pendingAppUpdate = updateInfo;
                 _isAppUpdateAvailable = true;
                 var desc = updateInfo.Body.Length > 200 ? updateInfo.Body[..200] + "..." : updateInfo.Body;
-                AppUpdateTooltip = $"{updateInfo.Tag}\n{updateInfo.PublishedAt:yyyy-MM-dd HH:mm}\n{desc}";
+                var source = DescribeUpdateSource(updateInfo);
+                AppUpdateTooltip = string.IsNullOrEmpty(source)
+                    ? $"{updateInfo.Tag}\n{updateInfo.PublishedAt:yyyy-MM-dd HH:mm}\n{desc}"
+                    : $"{updateInfo.Tag}\n{updateInfo.PublishedAt:yyyy-MM-dd HH:mm}\n{source}\n{desc}";
                 OnPropertyChanged(nameof(ShowAppUpdateButton));
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logService.Error($"App update check failed: {ex.Message}");
+        }
+    }
+
+    private static string DescribeUpdateSource(AppUpdateInfo info)
+    {
+        if (info.UsedWebFallback) return LocalizedStrings.GetString("ReleasesViaWebFallback");
+        if (info.FromStaleCache)
+            return string.Format(LocalizedStrings.GetString("ReleasesFromCache"),
+                info.FetchedAt.ToString("yyyy-MM-dd HH:mm"));
+        return "";
     }
 
     private async Task CheckForExperimentalUpdatesAsync()
@@ -7172,13 +7284,36 @@ public void RebuildCustomArgumentsFromToggles()
             if (!confirm) return;
 
             ServerStatus = LocalizedStrings.GetString("AppUpdateDownloading");
-            var cts = new System.Threading.CancellationTokenSource();
-            var progress = new Progress<double>();
+            AppUpdateStatusText = LocalizedStrings.GetString("AppUpdateDownloading");
+            AppUpdateProgress = 0;
+            AppUpdateProgressKnown = false;
+            AppUpdateCanCancel = true;
+            IsAppUpdateBusy = true;
 
-            var tempFile = await _appUpdateService.DownloadUpdateAsync(
-                _pendingAppUpdate.Asset, progress, cts.Token);
+            _appUpdateCts = new System.Threading.CancellationTokenSource();
+            var cts = _appUpdateCts;
+            var progress = new Progress<double>(p =>
+            {
+                AppUpdateProgressKnown = true;
+                AppUpdateProgress = p;
+                AppUpdateStatusText = string.Format(
+                    LocalizedStrings.GetString("AppUpdateDownloadingPercent"), (int)Math.Round(p));
+            });
+
+            string tempFile;
+            try
+            {
+                tempFile = await _appUpdateService.DownloadUpdateAsync(
+                    _pendingAppUpdate.Asset, progress, cts.Token);
+            }
+            finally
+            {
+                AppUpdateCanCancel = false;
+            }
 
             ServerStatus = LocalizedStrings.GetString("AppUpdateRestarting");
+            AppUpdateStatusText = LocalizedStrings.GetString("AppUpdateRestarting");
+            AppUpdateProgressKnown = false;
 
             await SaveSettingsAsync();
             await StopAllInstancesAsync();
@@ -7186,6 +7321,10 @@ public void RebuildCustomArgumentsFromToggles()
             await Task.Delay(500);
 
             _appUpdateService.PerformUpdateAndRestart(tempFile);
+        }
+        catch (OperationCanceledException)
+        {
+            // cancelled from the header
         }
         catch (Exception ex)
         {
@@ -7198,6 +7337,13 @@ public void RebuildCustomArgumentsFromToggles()
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             });
+        }
+        finally
+        {
+            IsAppUpdateBusy = false;
+            AppUpdateCanCancel = false;
+            _appUpdateCts?.Dispose();
+            _appUpdateCts = null;
         }
     }
 

@@ -17,6 +17,7 @@ ServerCrashAdvisorTests.Run(harness);
 BenchmarkTests.Run(harness);
 GitHubReleaseSourceTests.Run(harness);
 LocalAddressTests.Run(harness);
+AppUpdateDecisionTests.Run(harness);
 return harness.Report();
 
 public sealed class Harness

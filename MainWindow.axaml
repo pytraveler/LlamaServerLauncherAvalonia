@@ -115,6 +115,15 @@
                         <Button Content="{Binding Localized.UpdateApp}" IsVisible="{Binding ShowAppUpdateButton}"
                                 Background="{DynamicResource SuccessBackgroundBrush}" Foreground="White" Click="UpdateAppClick"
                                 ToolTip.Tip="{Binding AppUpdateTooltip}" Margin="0,0,5,0"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0"
+                                    IsVisible="{Binding IsAppUpdateBusy}">
+                            <TextBlock Text="{Binding AppUpdateStatusText}" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding AppUpdateProgress}"
+                                         IsIndeterminate="{Binding !AppUpdateProgressKnown}"
+                                         Width="90" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <Button Content="{Binding Localized.Cancel}" Click="CancelAppUpdateClick" 
+                                    IsVisible="{Binding AppUpdateCanCancel}" FontSize="11" Padding="8,2"/>
+                        </StackPanel>
                         <Button Content="{Binding LlamaButtonText}" IsVisible="{Binding ShowLlamaUpdateButton}"
                                 Background="{DynamicResource SuccessBackgroundBrush}" Foreground="White" Click="LlamaDownloadClick"
                                 ToolTip.Tip="{Binding LlamaUpdateTooltip}" Margin="0,0,5,0"/>
@@ -547,7 +556,7 @@
                             <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                                 <StackPanel>
                                     <TextBlock Text="{Binding Localized.AdditionalOptions}" FontWeight="Bold" Margin="0,0,0,10"/>
-                                    <WrapPanel>
+                                    <WrapPanel ItemWidth="318">
                                         <ctrl:TriStateSelector Label="{Binding Localized.FlashAttention}" Value="{Binding FlashAttention, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipFlashAttention}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.WebUI}" Value="{Binding EnableWebUI, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipWebUI}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.Embedding}" Value="{Binding EmbeddingMode, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipEmbedding}"/>
@@ -826,7 +835,7 @@
                                               IsExpanded="True"
                                               Margin="0,15,0,0" Padding="0">
                                         <StackPanel Margin="8,8,8,4">
-                                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.CustomColorWindow}"   VerticalAlignment="Center" Margin="0,0,12,8"/>
                                                 <ColorPicker Grid.Row="0" Grid.Column="1" Color="{Binding CustomWindowBackground, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
                                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.CustomColorPanel}"   VerticalAlignment="Center" Margin="0,0,12,8"/>
@@ -835,8 +844,14 @@
                                                 <ColorPicker Grid.Row="2" Grid.Column="1" Color="{Binding CustomCommandBackground, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
                                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding Localized.CustomColorAccent}"  VerticalAlignment="Center" Margin="0,0,12,8"/>
                                                 <ColorPicker Grid.Row="3" Grid.Column="1" Color="{Binding CustomAccent, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
-                                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding Localized.CustomColorSeparator}" VerticalAlignment="Center" Margin="0,0,12,4"/>
-                                                <ColorPicker Grid.Row="4" Grid.Column="1" Color="{Binding CustomSeparator, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,4"/>
+                                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding Localized.CustomColorSeparator}" VerticalAlignment="Center" Margin="0,0,12,8"/>
+                                                <ColorPicker Grid.Row="4" Grid.Column="1" Color="{Binding CustomSeparator, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                                                <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding Localized.CustomColorOptionOff}" VerticalAlignment="Center" Margin="0,0,12,8"/>
+                                                <ColorPicker Grid.Row="5" Grid.Column="1" Color="{Binding CustomOptionOff, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                                                <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding Localized.CustomColorOptionAuto}" VerticalAlignment="Center" Margin="0,0,12,8"/>
+                                                <ColorPicker Grid.Row="6" Grid.Column="1" Color="{Binding CustomOptionAuto, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                                                <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding Localized.CustomColorOptionOn}" VerticalAlignment="Center" Margin="0,0,12,4"/>
+                                                <ColorPicker Grid.Row="7" Grid.Column="1" Color="{Binding CustomOptionOn, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,4"/>
                                             </Grid>
                                             <Button Content="{Binding Localized.ResetCustomColors}"
                                                     Click="ResetCustomColorsClick"

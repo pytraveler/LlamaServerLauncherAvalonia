@@ -23,6 +23,9 @@
     <SolidColorBrush x:Key="OverlayHintForegroundBrush">#888888</SolidColorBrush>
     <SolidColorBrush x:Key="SeparatorBrush">#333333</SolidColorBrush>
     <SolidColorBrush x:Key="SelectionBackgroundBrush">#37373D</SolidColorBrush>
+    <SolidColorBrush x:Key="OptionOffBrush">#E05561</SolidColorBrush>
+    <SolidColorBrush x:Key="OptionAutoBrush">#4FC1E9</SolidColorBrush>
+    <SolidColorBrush x:Key="OptionOnBrush">#4CD964</SolidColorBrush>
     <SolidColorBrush x:Key="WarningForegroundBrush">Orange</SolidColorBrush>
     <SolidColorBrush x:Key="SuccessBackgroundBrush">#3A6B4A</SolidColorBrush>
     <SolidColorBrush x:Key="DataPathForegroundBrush">#9CDCFE</SolidColorBrush>

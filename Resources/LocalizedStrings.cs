@@ -263,6 +263,9 @@ public string English => GetString("English");
     public string CustomColorCommand => GetString("CustomColorCommand");
     public string CustomColorAccent => GetString("CustomColorAccent");
     public string CustomColorSeparator => GetString("CustomColorSeparator");
+    public string CustomColorOptionOff => GetString("CustomColorOptionOff");
+    public string CustomColorOptionAuto => GetString("CustomColorOptionAuto");
+    public string CustomColorOptionOn => GetString("CustomColorOptionOn");
     public string ResetCustomColors => GetString("ResetCustomColors");
 
     public string AutoFitHeight => GetString("AutoFitHeight");

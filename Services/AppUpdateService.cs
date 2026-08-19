@@ -17,7 +17,20 @@ public class AppUpdateInfo
     public DateTime PublishedAt { get; set; }
     public string Body { get; set; } = "";
     public ReleaseAsset Asset { get; set; } = new();
+
+    public bool UsedWebFallback { get; set; }
+    public bool FromStaleCache { get; set; }
+    public DateTime FetchedAt { get; set; }
 }
+
+public enum AppUpdateVerdict
+{
+    Newer,
+    Rebuilt,
+    NotNewer,
+    Unknown
+}
+
 
 public class AppUpdateService
 {
@@ -27,6 +40,10 @@ public class AppUpdateService
     };
     private const string RepoOwner = "pytraveler";
     private const string RepoName = "LlamaServerLauncherAvalonia";
+
+    private readonly Action<string>? _log;
+
+    public AppUpdateService(Action<string>? log = null) => _log = log;
 
     static AppUpdateService()
     {
@@ -39,40 +56,71 @@ public class AppUpdateService
         {
             var result = await GitHubReleaseSource.GetReleasesAsync(
                 RepoOwner, RepoName, 1, freshFor: freshFor, forceRefresh: forceRefresh);
-            if (result.Releases.Count == 0) return null;
+
+            var source = result.UsedWebFallback ? "github.com pages" : result.Origin.ToString();
+            if (result.Releases.Count == 0)
+            {
+                _log?.Invoke($"App update check: source={source}, no releases returned"
+                    + (string.IsNullOrEmpty(result.Error) ? "" : $" ({result.Error})"));
+                return null;
+            }
 
             var latestRelease = result.Releases[0];
             var asset = FindAssetForCurrentOS(latestRelease.Assets);
-            if (asset == null) return null;
+            if (asset == null)
+            {
+                _log?.Invoke($"App update check: source={source}, latest={latestRelease.Tag}, no asset for this OS");
+                return null;
+            }
 
-            if (!IsUpdateAvailable(latestRelease.Tag, asset)) return null;
+            var verdict = Decide(latestRelease.Tag, Models.AppInfo.Version, asset.Digest, ComputeLocalBinaryHash);
+            var digestNote = string.IsNullOrEmpty(asset.Digest) ? "no digest" : "digest available";
+            _log?.Invoke($"App update check: source={source}, latest={latestRelease.Tag}, "
+                + $"local={Models.AppInfo.Version}, {digestNote}, verdict={verdict}");
+
+            if (verdict != AppUpdateVerdict.Newer && verdict != AppUpdateVerdict.Rebuilt) return null;
 
             return new AppUpdateInfo
             {
                 Tag = latestRelease.Tag,
                 PublishedAt = latestRelease.PublishedAt,
                 Body = latestRelease.Body,
-                Asset = asset
+                Asset = asset,
+                UsedWebFallback = result.UsedWebFallback,
+                FromStaleCache = result.IsStale,
+                FetchedAt = result.FetchedAt
             };
         }
-        catch
+        catch (Exception ex)
         {
+            _log?.Invoke($"App update check failed: {ex.Message}");
             return null;
         }
     }
 
-    private static bool IsUpdateAvailable(string tag, ReleaseAsset asset)
+    public static AppUpdateVerdict Decide(string? remoteTag, string? localVersion, string? assetDigest,
+                                          Func<string?> localBinaryHash)
     {
-        if (!string.IsNullOrEmpty(asset.Digest))
+        var remoteOk = GitHubReleaseSource.TryParseVersionTag(remoteTag ?? "", out var remote);
+        var localOk = GitHubReleaseSource.TryParseVersionTag(localVersion ?? "", out var local);
+
+        if (remoteOk && localOk)
         {
-            var localHash = ComputeLocalBinaryHash();
-            if (localHash == null) return false;
-            return !string.Equals(localHash, asset.Digest, StringComparison.OrdinalIgnoreCase);
+            if (remote > local) return AppUpdateVerdict.Newer;
+            if (remote < local) return AppUpdateVerdict.NotNewer;
+            return BinaryDiffers(assetDigest, localBinaryHash) ? AppUpdateVerdict.Rebuilt : AppUpdateVerdict.NotNewer;
         }
 
-        return GitHubReleaseSource.TryParseVersionTag(tag, out var remote) &&
-               GitHubReleaseSource.TryParseVersionTag(Models.AppInfo.Version, out var local) &&
-               remote > local;
+        if (BinaryDiffers(assetDigest, localBinaryHash)) return AppUpdateVerdict.Rebuilt;
+        return string.IsNullOrEmpty(assetDigest) ? AppUpdateVerdict.Unknown : AppUpdateVerdict.NotNewer;
+    }
+
+    private static bool BinaryDiffers(string? assetDigest, Func<string?> localBinaryHash)
+    {
+        if (string.IsNullOrEmpty(assetDigest)) return false;
+        var local = localBinaryHash();
+        if (string.IsNullOrEmpty(local)) return false;
+        return !string.Equals(local, assetDigest, StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<string> DownloadUpdateAsync(ReleaseAsset asset, IProgress<double>? progress, CancellationToken ct)
@@ -99,7 +147,7 @@ public class AppUpdateService
                     await fileStream.WriteAsync(buffer, 0, read, ct);
                     bytesRead += read;
                     if (totalBytes > 0)
-                        progress?.Report((double)bytesRead / totalBytes);
+                        progress?.Report((double)bytesRead / totalBytes * 100);
                 }
             }
         }

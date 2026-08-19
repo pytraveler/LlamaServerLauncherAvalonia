@@ -923,6 +923,15 @@
   <data name="CustomColorSeparator" xml:space="preserve">
     <value>Separators</value>
   </data>
+  <data name="CustomColorOptionOff" xml:space="preserve">
+    <value>Toggle: Off</value>
+  </data>
+  <data name="CustomColorOptionAuto" xml:space="preserve">
+    <value>Toggle: Auto</value>
+  </data>
+  <data name="CustomColorOptionOn" xml:space="preserve">
+    <value>Toggle: On</value>
+  </data>
   <data name="ResetCustomColors" xml:space="preserve">
     <value>Reset to theme defaults</value>
   </data>
@@ -955,6 +964,9 @@
   </data>
   <data name="AppUpdateDownloading" xml:space="preserve">
     <value>Downloading update...</value>
+  </data>
+  <data name="AppUpdateDownloadingPercent" xml:space="preserve">
+    <value>Downloading update... {0}%</value>
   </data>
   <data name="AppUpdateRestarting" xml:space="preserve">
     <value>Restarting application...</value>

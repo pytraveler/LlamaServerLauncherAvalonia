@@ -440,23 +440,47 @@ public partial class MainWindow : Window
         await _viewModel.SaveSettingsAsync();
     }
 
+    private bool _profileDropDownOpen;
+    private string? _profileSelectionOnOpen;
+
     private void InitializeProfileComboBox()
     {
         var comboBox = this.FindControl<ComboBox>("ProfileComboBox");
         if (comboBox == null) return;
 
         comboBox.SelectionChanged += ProfileComboBox_SelectionChanged;
+        comboBox.DropDownOpened += ProfileComboBox_DropDownOpened;
+        comboBox.DropDownClosed += ProfileComboBox_DropDownClosed;
         comboBox.AddHandler(PointerWheelChangedEvent, ProfileComboBox_PointerWheelChanged, RoutingStrategies.Tunnel);
+    }
+
+    private void ProfileComboBox_DropDownOpened(object? sender, EventArgs e)
+    {
+        _profileDropDownOpen = true;
+        _profileSelectionOnOpen = (sender as ComboBox)?.SelectedItem as string;
+    }
+
+    private void ProfileComboBox_DropDownClosed(object? sender, EventArgs e)
+    {
+        _profileDropDownOpen = false;
+
+        var selected = (sender as ComboBox)?.SelectedItem as string;
+        if (selected == _profileSelectionOnOpen) return;
+
+        _viewModel?.RequestProfileLoad(immediate: true);
     }
 
     private void ProfileComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        _ = _viewModel?.OnProfileSelectedAsync();
+        if (_profileDropDownOpen) return;
+        _viewModel?.RequestProfileLoad(immediate: false);
     }
 
     private void ProfileComboBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (_viewModel == null) return;
+
+        if (_profileDropDownOpen) return;
 
         var comboBox = sender as ComboBox;
         if (comboBox == null) return;
@@ -1150,6 +1174,11 @@ public partial class MainWindow : Window
     {
         if (_viewModel == null) return;
         await _viewModel.UpdateAppAsync();
+    }
+
+    private void CancelAppUpdateClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.CancelAppUpdate();
     }
 
     private async void AboutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

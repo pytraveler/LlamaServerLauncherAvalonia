@@ -8,29 +8,47 @@
         </Style>
         <Style Selector="ToggleButton:checked /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentForegroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}"/>
         </Style>
         <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentForegroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}"/>
         </Style>
         <Style Selector="ToggleButton:checked:pressed /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentForegroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}"/>
         </Style>
+
+        <Style Selector="ToggleButton#OffButton:checked /template/ ContentPresenter,
+                         ToggleButton#OffButton:checked:pointerover /template/ ContentPresenter,
+                         ToggleButton#OffButton:checked:pressed /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource OptionOffBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OptionOffBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton#AutoButton:checked /template/ ContentPresenter,
+                         ToggleButton#AutoButton:checked:pointerover /template/ ContentPresenter,
+                         ToggleButton#AutoButton:checked:pressed /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource OptionAutoBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OptionAutoBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton#OnButton:checked /template/ ContentPresenter,
+                         ToggleButton#OnButton:checked:pointerover /template/ ContentPresenter,
+                         ToggleButton#OnButton:checked:pressed /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource OptionOnBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OptionOnBrush}"/>
+        </Style>
+
         <Style Selector="ToggleButton:checked:disabled /template/ ContentPresenter">
             <Setter Property="Opacity" Value="0.45"/>
         </Style>
     </UserControl.Styles>
-    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-        <TextBlock x:Name="LabelText" VerticalAlignment="Center" Margin="0,0,8,0"/>
-        <StackPanel x:Name="Segments" Orientation="Horizontal" Spacing="2">
-            <ToggleButton x:Name="OffButton" Content="{Binding Localized.TriStateOff}" Click="OnSegmentClick" Padding="9,2" MinWidth="42" HorizontalContentAlignment="Center"/>
-            <ToggleButton x:Name="AutoButton" Content="{Binding Localized.TriStateAuto}" Click="OnSegmentClick" Padding="9,2" MinWidth="42" HorizontalContentAlignment="Center"/>
-            <ToggleButton x:Name="OnButton" Content="{Binding Localized.TriStateOn}" Click="OnSegmentClick" Padding="9,2" MinWidth="42" HorizontalContentAlignment="Center"/>
-        </StackPanel>
-    </StackPanel>
+
+    <Border Background="{DynamicResource CommandBackgroundBrush}" CornerRadius="4" Padding="8,4">
+        <Grid ColumnDefinitions="132,Auto" VerticalAlignment="Center">
+            <TextBlock x:Name="LabelText" Grid.Column="0" VerticalAlignment="Center"
+                       Margin="0,0,8,0" TextTrimming="CharacterEllipsis"/>
+            <StackPanel x:Name="Segments" Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                <ToggleButton x:Name="OffButton" Content="{Binding Localized.TriStateOff}" Click="OnSegmentClick" Padding="9,2" MinWidth="46" HorizontalContentAlignment="Center"/>
+                <ToggleButton x:Name="AutoButton" Content="{Binding Localized.TriStateAuto}" Click="OnSegmentClick" Padding="9,2" MinWidth="46" HorizontalContentAlignment="Center"/>
+                <ToggleButton x:Name="OnButton" Content="{Binding Localized.TriStateOn}" Click="OnSegmentClick" Padding="9,2" MinWidth="46" HorizontalContentAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Border>
 </UserControl>
