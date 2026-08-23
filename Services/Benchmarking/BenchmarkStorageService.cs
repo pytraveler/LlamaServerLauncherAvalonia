@@ -37,7 +37,7 @@ public class BenchmarkStorageService
         return string.IsNullOrWhiteSpace(safe) ? "profile" : safe;
     }
 
-    public async Task<string> SaveRunAsync(BenchmarkRun run, string log, string? rawMetrics, string reportMd)
+    public async Task<string> SaveRunAsync(BenchmarkRun run, string log, string? rawMetrics, string reportMd, string? promptRunMd = null)
     {
         var root = BenchmarksRoot;
         var profileDir = Path.Combine(root, SafeName(run.ProfileName));
@@ -61,6 +61,8 @@ public class BenchmarkStorageService
         if (rawMetrics != null)
             await File.WriteAllTextAsync(Path.Combine(runDir, "metrics.txt"), rawMetrics);
         await File.WriteAllTextAsync(Path.Combine(runDir, "report.md"), reportMd ?? string.Empty);
+        if (!string.IsNullOrEmpty(promptRunMd))
+            await File.WriteAllTextAsync(Path.Combine(runDir, "prompt-run.md"), promptRunMd);
 
         return runDir;
     }

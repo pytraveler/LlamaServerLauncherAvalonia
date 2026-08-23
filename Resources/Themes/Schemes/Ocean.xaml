@@ -19,6 +19,7 @@
 
     <!-- Custom app brushes -->
     <SolidColorBrush x:Key="AccentForegroundBrush">#007ACC</SolidColorBrush>
+    <SolidColorBrush x:Key="ProgressBarForegroundBrush">#007ACC</SolidColorBrush>
     <SolidColorBrush x:Key="CommandForegroundBrush">#001080</SolidColorBrush>
     <SolidColorBrush x:Key="OverlayBorderBrush">#0078D4</SolidColorBrush>
     <SolidColorBrush x:Key="DataPathForegroundBrush">#0066CC</SolidColorBrush>

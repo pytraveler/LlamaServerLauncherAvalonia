@@ -34,9 +34,10 @@ public static class BenchmarkReportBuilder
         ("profile", "Profile", GroupResults, r => r.ProfileName),
         ("date", "Date", GroupResults, r => r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
         ("model", "Model", GroupResults, r => ModelName(r)),
-        ("gen-tps", "Gen tok/s", GroupResults, r => Num(r.Metrics.StdGenTps ?? r.Metrics.LogGenTps ?? r.Metrics.PredictedTokensSeconds)),
-        ("prompt-tps", "Prompt tok/s", GroupResults, r => Num(r.Metrics.StdPromptTps ?? r.Metrics.LogPromptTps ?? r.Metrics.PromptTokensSeconds)),
-        ("ttft", "TTFT, ms", GroupResults, r => Num(r.Metrics.StdTtftMs)),
+        ("gen-tps", "Gen tok/s", GroupResults, r => Num(r.Metrics.StdGenTps ?? r.Metrics.PromptRunGenTps ?? r.Metrics.LogGenTps ?? r.Metrics.PredictedTokensSeconds)),
+        ("prompt-tps", "Prompt tok/s", GroupResults, r => Num(r.Metrics.StdPromptTps ?? r.Metrics.PromptRunPromptTps ?? r.Metrics.LogPromptTps ?? r.Metrics.PromptTokensSeconds)),
+        ("ttft", "TTFT, ms", GroupResults, r => Num(r.Metrics.StdTtftMs ?? r.Metrics.PromptRunTtftMs)),
+        ("prompt-run-requests", "Prompt run requests", GroupResults, r => r.Metrics.PromptRunTurns is int n ? n.ToString(CultureInfo.InvariantCulture) : "-"),
         ("predicted-tokens-seconds", "predicted_tokens_seconds", GroupServer, r => Num(r.Metrics.PredictedTokensSeconds)),
         ("prompt-tokens-seconds", "prompt_tokens_seconds", GroupServer, r => Num(r.Metrics.PromptTokensSeconds)),
         ("kv-cache-usage-ratio", "kv_cache_usage_ratio", GroupServer, r => Num(r.Metrics.KvCacheUsageRatio, 4)),
@@ -136,6 +137,12 @@ public static class BenchmarkReportBuilder
         sb.AppendLine("| --- | --- |");
         foreach (var (_, label, _, value) in Rows)
             sb.Append("| ").Append(Cell(L(label))).Append(" | ").Append(Cell(value(run))).AppendLine(" |");
+
+        if (run.PromptRun != null && run.PromptRun.Turns.Count > 0)
+        {
+            sb.AppendLine();
+            sb.Append(PromptRunDocument.BuildSummarySection(run.PromptRun, localize));
+        }
 
         sb.AppendLine();
         sb.Append("## ").AppendLine(L("Command"));

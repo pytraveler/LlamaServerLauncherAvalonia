@@ -14,6 +14,12 @@ public sealed class BenchmarkLaunchResult
     public string FinalArgs { get; init; } = string.Empty;
     public bool RunStandardWorkload { get; init; }
     public bool StopAfterWorkload { get; init; }
+    public bool RunPromptWorkload { get; init; }
+    public string PromptSystem { get; init; } = string.Empty;
+    public string PromptsText { get; init; } = string.Empty;
+    public bool PromptKeepContext { get; init; }
+    public int PromptMaxTokens { get; init; }
+    public int PromptTimeoutSeconds { get; init; }
     public int StdPromptTokens { get; init; }
     public int StdNPredict { get; init; }
     public int StdRepeat { get; init; }
@@ -36,6 +42,12 @@ public sealed class BenchmarkLaunchViewModel : INotifyPropertyChanged
     private int _stdPromptTokens = 512;
     private int _stdNPredict = 128;
     private int _stdRepeat = 3;
+    private bool _runPromptWorkload;
+    private string _promptSystem = string.Empty;
+    private string _promptsText = string.Empty;
+    private bool _promptKeepContext = true;
+    private int _promptMaxTokens;
+    private int _promptTimeoutSeconds = 600;
     private string _label = string.Empty;
     private string _notes = string.Empty;
     private string _commandPreview = string.Empty;
@@ -96,8 +108,75 @@ public sealed class BenchmarkLaunchViewModel : INotifyPropertyChanged
     public bool RunStandardWorkload
     {
         get => _runStandardWorkload;
-        set { if (_runStandardWorkload != value) { _runStandardWorkload = value; OnPropertyChanged(); } }
+        set
+        {
+            if (_runStandardWorkload == value) return;
+            _runStandardWorkload = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasWorkload));
+        }
     }
+
+    public bool RunPromptWorkload
+    {
+        get => _runPromptWorkload;
+        set
+        {
+            if (_runPromptWorkload == value) return;
+            _runPromptWorkload = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasWorkload));
+            OnPropertyChanged(nameof(CanRun));
+            if (value)
+                StopAfterWorkload = true;
+        }
+    }
+
+    public string PromptSystem
+    {
+        get => _promptSystem;
+        set { if (_promptSystem != value) { _promptSystem = value; OnPropertyChanged(); } }
+    }
+
+    public string PromptsText
+    {
+        get => _promptsText;
+        set
+        {
+            if (_promptsText == value) return;
+            _promptsText = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PromptCount));
+            OnPropertyChanged(nameof(PromptCountText));
+            OnPropertyChanged(nameof(CanRun));
+        }
+    }
+
+    public bool PromptKeepContext
+    {
+        get => _promptKeepContext;
+        set { if (_promptKeepContext != value) { _promptKeepContext = value; OnPropertyChanged(); } }
+    }
+
+    public int PromptMaxTokens
+    {
+        get => _promptMaxTokens;
+        set { if (_promptMaxTokens != value) { _promptMaxTokens = value; OnPropertyChanged(); } }
+    }
+
+    public int PromptTimeoutSeconds
+    {
+        get => _promptTimeoutSeconds;
+        set { if (_promptTimeoutSeconds != value) { _promptTimeoutSeconds = value; OnPropertyChanged(); } }
+    }
+
+    public int PromptCount => Models.Benchmarking.PromptRunDocument.SplitPrompts(_promptsText).Count;
+
+    public string PromptCountText => string.Format(LocalizedStrings.Instance.BenchmarkPromptCount, PromptCount);
+
+    public bool HasWorkload => _runStandardWorkload || _runPromptWorkload;
+
+    public bool CanRun => !_runPromptWorkload || PromptCount > 0;
 
     public bool StopAfterWorkload
     {
@@ -158,11 +237,20 @@ public sealed class BenchmarkLaunchViewModel : INotifyPropertyChanged
 
     public void Run()
     {
+        if (!CanRun)
+            return;
+
         var result = new BenchmarkLaunchResult
         {
             FinalArgs = BuildFinalArgs(),
             RunStandardWorkload = _runStandardWorkload,
             StopAfterWorkload = _stopAfterWorkload,
+            RunPromptWorkload = _runPromptWorkload,
+            PromptSystem = _promptSystem ?? string.Empty,
+            PromptsText = _promptsText ?? string.Empty,
+            PromptKeepContext = _promptKeepContext,
+            PromptMaxTokens = Math.Max(0, _promptMaxTokens),
+            PromptTimeoutSeconds = Math.Max(5, _promptTimeoutSeconds),
             StdPromptTokens = Math.Max(1, _stdPromptTokens),
             StdNPredict = Math.Max(1, _stdNPredict),
             StdRepeat = Math.Max(1, _stdRepeat),

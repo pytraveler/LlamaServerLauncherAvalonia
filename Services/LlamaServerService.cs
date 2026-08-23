@@ -27,6 +27,37 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 
     public string LogPrefix { get; set; } = "";
 
+    public static bool KillSpawnedProcesses { get; set; } = true;
+
+    private WindowsProcessJob? _processJob;
+
+    private void AttachProcessJob(Process process)
+    {
+        if (!KillSpawnedProcesses)
+            return;
+
+        _processJob = WindowsProcessJob.TryCreate(_logService);
+        if (_processJob == null)
+            return;
+
+        if (!_processJob.TryAssign(process, _logService))
+        {
+            _processJob.Dispose();
+            _processJob = null;
+        }
+    }
+
+    private void ReleaseProcessJob()
+    {
+        var job = _processJob;
+        _processJob = null;
+        if (job == null)
+            return;
+
+        job.Terminate();
+        job.Dispose();
+    }
+
     public bool IsRunning
     {
         get
@@ -231,6 +262,9 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 
             _process.Start();
             _processStartTime = DateTime.Now;
+
+            AttachProcessJob(_process);
+
             _process.BeginOutputReadLine();
             _process.BeginErrorReadLine();
 
@@ -241,6 +275,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         catch (Exception ex)
         {
             _logService.Error($"Failed to start server: {ex.Message}");
+            ReleaseProcessJob();
             if (_process != null)
             {
                 try
@@ -413,6 +448,8 @@ public class LlamaServerService : ILlamaServerService, IDisposable
                 }
             }
 
+            ReleaseProcessJob();
+
             _logService.Info("Server stopped");
             if (!_serverStateChangedRaised)
             {
@@ -572,6 +609,41 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         return null;
     }
 
+    public async Task<ToolsQueryResult> GetToolsAsync()
+    {
+        if (!IsRunning)
+            return new ToolsQueryResult { NotRunning = true };
+
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var response = await client.GetAsync($"{BaseUrl}/tools");
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                return new ToolsQueryResult { Forbidden = true };
+
+            if (!response.IsSuccessStatusCode)
+                return new ToolsQueryResult { Error = $"HTTP {(int)response.StatusCode}" };
+
+            var json = await response.Content.ReadAsStringAsync();
+            return new ToolsQueryResult { Success = true, Tools = ServerToolsResponse.Parse(json) };
+        }
+        catch (Exception ex)
+        {
+            _logService.Error($"Error getting tools list: {ex.Message}");
+            return new ToolsQueryResult { Error = ex.Message };
+        }
+    }
+
+    public class ToolsQueryResult
+    {
+        public bool Success { get; set; }
+        public bool Forbidden { get; set; }
+        public bool NotRunning { get; set; }
+        public string Error { get; set; } = string.Empty;
+        public List<ServerToolInfo> Tools { get; set; } = new();
+    }
+
     private static readonly HttpClient HealthClient = new() { Timeout = TimeSpan.FromSeconds(5) };
 
     public async Task<bool> CheckHealthOnceAsync(CancellationToken ct)
@@ -682,6 +754,8 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         }
         else
         {
+            ReleaseProcessJob();
+
             _processStartTime = null;
             _dockerContainerName = null;
             if (!_serverStateChangedRaised)
@@ -756,6 +830,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
             StopAsync().Wait();
         }
 
+        ReleaseProcessJob();
         _process?.Dispose();
         _disposed = true;
     }

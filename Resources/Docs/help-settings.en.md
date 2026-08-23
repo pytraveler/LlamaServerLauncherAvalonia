@@ -4,7 +4,9 @@ Settings for the launcher itself. They are shared across profiles and are not st
 
 ## Appearance
 
-Theme (dark / light), color scheme, UI font size and family. Below that is a custom color block: you can override the window and panel backgrounds, the accent, separators and the command block color, and restore the scheme defaults with the reset button.
+Theme (dark / light), color scheme, UI font size and family. Below that is a custom color block: you can override the window and panel backgrounds, the accent, separators, the command block color, the three toggle positions and the progress bar color, and restore the scheme defaults with the reset button.
+
+The download and update progress bars take their color from the app theme rather than the system accent, so they cannot end up an indistinguishable grey. The hardware meters (CPU, RAM, GPU, VRAM, temperature) keep their own colors.
 
 ## Updates
 
@@ -43,6 +45,7 @@ The proxy starts that profile, waits until it is ready and proxies the response,
 - **Auto-fit window height** — size the window to its content.
 - **Browser** — which browser opens the WebUI: one of the detected ones or a path you provide.
 - **ComfyUI** — call ComfyUI's `/free` endpoint before loading any profile so it releases VRAM. Lets you hand GPU memory back and forth between ComfyUI and llama.cpp without manual juggling.
+- **Stop processes started by the server together with it** — the server and all of its descendants are held in a Windows job object, so stopping the server, closing the launcher or even crashing it leaves nothing running. It matters for MCP servers: they launch applications of their own (ComfyUI, for one) and a process-tree walk does not always reach them. Turn it off when such an application should keep running after the server stops. Windows only.
 
 ## Experimental repos
 

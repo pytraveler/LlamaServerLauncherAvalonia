@@ -28,6 +28,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private bool _isInitializing = true;
     private readonly LlamaServerService _serverService;
     private ConfigurationService _configService;
+    private McpConfigService _mcpConfigService;
 
     public ConfigurationService ConfigService => _configService;
     public Dictionary<string, DialogGeometry> DialogGeometryDict { get; } = new();
@@ -408,7 +409,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         { "SeparatorBrush", "#333333" },
         { "OptionOffBrush", "#E05561" },
         { "OptionAutoBrush", "#4FC1E9" },
-        { "OptionOnBrush", "#4CD964" }
+        { "OptionOnBrush", "#4CD964" },
+        { "ProgressBarForegroundBrush", "#4EC9B0" }
     };
     private static readonly Dictionary<string, string> LightCustomDefaults = new()
     {
@@ -419,7 +421,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         { "SeparatorBrush", "#CCCCCC" },
         { "OptionOffBrush", "#C62828" },
         { "OptionAutoBrush", "#0277BD" },
-        { "OptionOnBrush", "#2E7D32" }
+        { "OptionOnBrush", "#2E7D32" },
+        { "ProgressBarForegroundBrush", "#007ACC" }
     };
 
     public string ColorScheme
@@ -488,6 +491,12 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         set => SetCustomColor("OptionOnBrush", nameof(CustomOptionOn), value);
     }
 
+    public Color CustomProgressBar
+    {
+        get => GetCustomColor("ProgressBarForegroundBrush");
+        set => SetCustomColor("ProgressBarForegroundBrush", nameof(CustomProgressBar), value);
+    }
+
     private void EnsureCustomDefaultsSeeded()
     {
         var defaults = _themeVariant == "Light" ? LightCustomDefaults : DarkCustomDefaults;
@@ -526,6 +535,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(CustomOptionOff));
         OnPropertyChanged(nameof(CustomOptionAuto));
         OnPropertyChanged(nameof(CustomOptionOn));
+        OnPropertyChanged(nameof(CustomProgressBar));
     }
 
     private void ResetCustomColors()
@@ -573,6 +583,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(ColorSchemeOptions));
         OnPropertyChanged(nameof(ColorScheme));
         OnPropertyChanged(nameof(ModelMaxContextText));
+        OnPropertyChanged(nameof(McpGeneratedFileText));
+        McpValidationText = BuildMcpValidationText();
     }
 
     /// <summary>Unsubscribes from things the view model hooked into at startup.</summary>
@@ -1126,6 +1138,20 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     private Task UnloadModelNowAsync() => _onDemandProxyService.UnloadNowAsync();
 
+    public bool KillSpawnedProcesses
+    {
+        get => LlamaServerService.KillSpawnedProcesses;
+        set
+        {
+            if (LlamaServerService.KillSpawnedProcesses != value)
+            {
+                LlamaServerService.KillSpawnedProcesses = value;
+                OnPropertyChanged();
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
     public bool ComfyUiFreeEnabled
     {
         get => _comfyUiFreeEnabled;
@@ -1422,6 +1448,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _serverService = new LlamaServerService(_logService);
         _configService = new ConfigurationService(_logService, resolvedPath);
         _configService.CorruptFileSkipped += OnCorruptFileSkipped;
+        _mcpConfigService = new McpConfigService(_logService, resolvedPath);
         _benchmarkStorage = new LlamaServerLauncher.Services.Benchmarking.BenchmarkStorageService(_dataPathResolver, _logService);
         _downloadService = new LlamaCppDownloadService(resolvedPath);
         _dockerService = new DockerCliService(_logService);
@@ -1651,6 +1678,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         DockerGpuAll = settings.DockerGpuAll;
         DockerRm = settings.DockerRm;
         DockerContainerName = settings.DockerContainerName ?? "";
+        McpEnabled = settings.McpEnabled;
+        SetMcpServers(settings.McpServers);
         ParseCustomArguments();
         if (settings.CustomArgumentToggleStates != null && settings.CustomArgumentToggleStates.Count > 0)
         {
@@ -1716,6 +1745,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _onDemandProxyEnabled = settings.OnDemandProxyEnabled;
         _comfyUiFreeEnabled = settings.ComfyUiFreeEnabled;
         _comfyUiUrl = string.IsNullOrWhiteSpace(settings.ComfyUiUrl) ? "http://127.0.0.1:8188" : settings.ComfyUiUrl;
+        LlamaServerService.KillSpawnedProcesses = settings.KillSpawnedProcesses;
+        OnPropertyChanged(nameof(KillSpawnedProcesses));
 
         ScenariosEnabled = settings.ScenariosEnabled;
         HardwareMonitorEnabled = settings.HardwareMonitorEnabled;
@@ -1910,6 +1941,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         _configService = new ConfigurationService(_logService, appDataPath);
         _configService.CorruptFileSkipped += OnCorruptFileSkipped;
+        _mcpConfigService = new McpConfigService(_logService, appDataPath);
+        OnPropertyChanged(nameof(McpGeneratedFileText));
         LoadProfiles();
     }
 
@@ -2133,6 +2166,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             DockerGpuAll = DockerGpuAll,
             DockerRm = DockerRm,
             DockerContainerName = DockerContainerName,
+            McpEnabled = McpEnabled,
+            McpServers = CloneMcpEntries(),
             LastAppUpdateCheck = _lastAppUpdateCheck,
             LastLlamaUpdateCheck = _lastLlamaUpdateCheck,
             AppUpdateCheckIntervalMinutes = _appUpdateCheckInterval,
@@ -2151,6 +2186,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             OnDemandProxyMiniWindowEnabled = _onDemandProxyMiniWindowEnabled,
             ComfyUiFreeEnabled = _comfyUiFreeEnabled,
             ComfyUiUrl = _comfyUiUrl,
+            KillSpawnedProcesses = LlamaServerService.KillSpawnedProcesses,
             ScenariosEnabled = _scenariosEnabled,
             SelectedScenario = _selectedScenario,
             HardwareMonitorEnabled = _hardwareMonitorEnabled,
@@ -2954,6 +2990,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasUnsavedChanges));
                 OnPropertyChanged(nameof(CanStartServer));
+                OnPropertyChanged(nameof(ShowMcpDockerWarning));
                 RefreshPathValidation();
                 UpdateCurrentCommand();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
@@ -3039,6 +3076,393 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     public bool DockerTabEnabled => _isDockerAvailable;
     public bool DockerNotInstalledWarning => !_isDockerAvailable;
+
+    // ===== MCP servers =====
+    //
+    // The profile owns the server list. The Cursor-compatible mcp.json is written
+    // right before a launch and handed to llama-server via --mcp-servers-config,
+    // so the file on disk always matches what the profile says.
+
+    private bool _mcpEnabled;
+    private string _mcpValidationText = string.Empty;
+
+    public ObservableCollection<McpServerEntry> McpServers { get; } = new();
+
+    public bool McpEnabled
+    {
+        get => _mcpEnabled;
+        set
+        {
+            if (_mcpEnabled == value) return;
+            _mcpEnabled = value;
+            OnPropertyChanged();
+            RefreshMcpState();
+        }
+    }
+
+    public bool IsMcpSupported => IsPropertySupported("--mcp-servers-config");
+
+    public bool McpNotSupportedWarning => _supportedFlags != null && !IsMcpSupported;
+
+    public bool ShowMcpDockerWarning => RunInDocker;
+
+    public bool ShowMcpEmptyHint => McpServers.Count == 0;
+
+    public string McpValidationText
+    {
+        get => _mcpValidationText;
+        private set
+        {
+            if (_mcpValidationText == value) return;
+            _mcpValidationText = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasMcpValidationIssues));
+        }
+    }
+
+    public bool HasMcpValidationIssues => _mcpValidationText.Length > 0;
+
+    public string McpGeneratedFileText =>
+        string.Format(Localized.McpGeneratedFile, _mcpConfigService.GetConfigPath(CurrentProfileNameForMcp()));
+
+    public List<McpImportSource> GetMcpImportSources()
+    {
+        var current = CurrentProfileNameForMcp();
+        var sources = new List<McpImportSource>();
+
+        foreach (var profile in _configService.GetAllProfiles())
+        {
+            if (string.Equals(profile.Name, current, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var servers = profile.Configuration?.McpServers;
+            if (servers == null || servers.Count == 0)
+                continue;
+
+            sources.Add(new McpImportSource(profile.Name, servers));
+        }
+
+        sources.Sort((a, b) => string.Compare(a.ProfileName, b.ProfileName, StringComparison.CurrentCultureIgnoreCase));
+        return sources;
+    }
+
+    public void ImportMcpFromProfile(McpImportSource? source)
+    {
+        if (source == null || source.Servers.Count == 0)
+            return;
+
+        foreach (var server in source.Servers)
+        {
+            var copy = server.Clone();
+            copy.Name = MakeUniqueMcpName(copy.Name);
+            AttachMcpEntry(copy);
+            McpServers.Add(copy);
+        }
+
+        McpEnabled = true;
+        RefreshMcpState();
+        Toasts.Show(string.Format(Localized.McpImported, source.Servers.Count));
+    }
+
+    public async Task AddMcpServerAsync()
+    {
+        var entry = new McpServerEntry { Name = MakeUniqueMcpName("server"), Enabled = true };
+
+        var result = await ShowMcpServerDialogAsync(entry);
+        if (!result.Saved)
+            return;
+
+        AttachMcpEntry(entry);
+        McpServers.Add(entry);
+        McpEnabled = true;
+        RefreshMcpState();
+    }
+
+    public async Task EditMcpServerAsync(McpServerEntry? entry)
+    {
+        if (entry == null) return;
+
+        var draft = entry.Clone();
+        var result = await ShowMcpServerDialogAsync(draft);
+
+        if (result.Deleted)
+        {
+            RemoveMcpServer(entry);
+            return;
+        }
+
+        if (!result.Saved) return;
+
+        entry.Name = draft.Name;
+        entry.Command = draft.Command;
+        entry.ArgsText = draft.ArgsText;
+        entry.EnvText = draft.EnvText;
+        entry.WorkingDirectory = draft.WorkingDirectory;
+        entry.TimeoutMs = draft.TimeoutMs;
+        RefreshMcpState();
+    }
+
+    private async Task<(bool Saved, bool Deleted)> ShowMcpServerDialogAsync(McpServerEntry draft)
+    {
+        var dialog = new LlamaServerLauncher.McpServerDialogWindow();
+        dialog.SetViewModel(new McpServerDialogViewModel(draft), DialogGeometryDict);
+        await dialog.ShowDialog(MainWindow.Instance!);
+
+        if (dialog.CapturedGeometry != null)
+        {
+            DialogGeometryDict["McpServerDialog"] = dialog.CapturedGeometry;
+            await SaveSettingsAsync();
+        }
+
+        return (dialog.IsConfirmed, dialog.IsDeleteRequested);
+    }
+
+    public void RemoveMcpServer(McpServerEntry? entry)
+    {
+        if (entry == null) return;
+        DetachMcpEntry(entry);
+        McpServers.Remove(entry);
+        RefreshMcpState();
+    }
+
+    public async Task ImportMcpConfigAsync()
+    {
+        var result = await WindowsFileDialogs.OpenFileDialogAsync(
+            Localized.McpImport,
+            new[] { ("JSON", new[] { "*.json" }) },
+            false);
+
+        if (result == null || result.Length == 0) return;
+
+        List<McpServerEntry> imported;
+        try
+        {
+            imported = McpConfigService.ImportFromFile(result[0]);
+        }
+        catch (Exception ex)
+        {
+            Toasts.ShowError(string.Format(Localized.McpImportFailed, ex.Message));
+            return;
+        }
+
+        if (imported.Count == 0)
+        {
+            Toasts.ShowError(string.Format(Localized.McpImportFailed, Localized.McpNoServers));
+            return;
+        }
+
+        foreach (var entry in imported)
+        {
+            entry.Name = MakeUniqueMcpName(entry.Name);
+            AttachMcpEntry(entry);
+            McpServers.Add(entry);
+        }
+
+        McpEnabled = true;
+        RefreshMcpState();
+        Toasts.Show(string.Format(Localized.McpImported, imported.Count));
+    }
+
+    public async Task QueryMcpToolsAsync()
+    {
+        var profileName = CurrentProfileNameForMcp();
+        var instance = RunningInstances.FirstOrDefault(i => i.IsRunning && i.ProfileName == profileName)
+            ?? RunningInstances.FirstOrDefault(i => i.IsRunning && i == _selectedInstance);
+
+        if (instance == null)
+        {
+            Toasts.ShowNeutral(Localized.McpToolsNoServer);
+            return;
+        }
+
+        var query = await instance.Service.GetToolsAsync();
+
+        if (query.NotRunning)
+        {
+            Toasts.ShowNeutral(Localized.McpToolsNoServer);
+            return;
+        }
+
+        if (query.Forbidden)
+        {
+            Toasts.ShowNeutral(Localized.McpToolsForbidden);
+            return;
+        }
+
+        if (!query.Success)
+        {
+            Toasts.ShowError(string.Format(Localized.McpToolsFailed, query.Error));
+            return;
+        }
+
+        if (query.Tools.Count == 0)
+        {
+            Toasts.ShowNeutral(Localized.McpToolsEmpty);
+            return;
+        }
+
+        var markdown = BuildMcpToolsMarkdown(query.Tools);
+        Toasts.Show(
+            string.Format(Localized.McpToolsFound, query.Tools.Count),
+            durationMs: 10000,
+            onClick: () => _ = ShowMcpToolsWindowAsync(markdown));
+    }
+
+    private async Task ShowMcpToolsWindowAsync(string markdown)
+    {
+        if (MainWindow.Instance == null) return;
+
+        await MarkdownViewerWindow.ShowAsync(
+            MainWindow.Instance,
+            markdown,
+            Localized.McpDiscoveredTools,
+            DialogGeometryDict);
+
+        await SaveSettingsAsync();
+    }
+
+    private static string BuildMcpToolsMarkdown(List<ServerToolInfo> tools)
+    {
+        var sb = new StringBuilder();
+        var loc = LocalizedStrings.Instance;
+
+        var mcpTools = tools.Where(t => t.IsMcp).ToList();
+        var serverTools = tools.Where(t => !t.IsMcp).ToList();
+
+        if (mcpTools.Count > 0)
+        {
+            sb.Append("## MCP (").Append(mcpTools.Count).Append(")\n\n");
+            foreach (var tool in mcpTools)
+                sb.Append("- `").Append(tool.Tool).Append('`').Append(Describe(tool)).Append('\n');
+            sb.Append('\n');
+        }
+
+        if (serverTools.Count > 0)
+        {
+            sb.Append("## ").Append(loc.McpBuiltInTools).Append(" (").Append(serverTools.Count).Append(")\n\n");
+            foreach (var tool in serverTools)
+                sb.Append("- `").Append(tool.Tool).Append('`').Append(Describe(tool)).Append('\n');
+        }
+
+        return sb.ToString();
+
+        static string Describe(ServerToolInfo tool) =>
+            string.IsNullOrWhiteSpace(tool.DisplayName) || tool.DisplayName == tool.Tool
+                ? string.Empty
+                : " - " + tool.DisplayName;
+    }
+
+    private string CurrentProfileNameForMcp()
+    {
+        if (!string.IsNullOrWhiteSpace(_loadedProfileName))
+            return _loadedProfileName;
+        return !string.IsNullOrWhiteSpace(ProfileNameInput) ? ProfileNameInput : "Unnamed";
+    }
+
+    private string MakeUniqueMcpName(string? desired)
+    {
+        var baseName = string.IsNullOrWhiteSpace(desired) ? "server" : desired.Trim();
+        var taken = new HashSet<string>(McpServers.Select(s => s.Name), StringComparer.OrdinalIgnoreCase);
+
+        if (!taken.Contains(baseName))
+            return baseName;
+
+        for (int i = 2; i < 1000; i++)
+        {
+            var candidate = $"{baseName}{i}";
+            if (!taken.Contains(candidate))
+                return candidate;
+        }
+
+        return baseName;
+    }
+
+    private void AttachMcpEntry(McpServerEntry entry)
+    {
+        entry.PropertyChanged -= OnMcpEntryChanged;
+        entry.PropertyChanged += OnMcpEntryChanged;
+    }
+
+    private void DetachMcpEntry(McpServerEntry entry)
+    {
+        entry.PropertyChanged -= OnMcpEntryChanged;
+    }
+
+    private void OnMcpEntryChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        RefreshMcpState();
+    }
+
+    private void SetMcpServers(IEnumerable<McpServerEntry>? entries)
+    {
+        foreach (var existing in McpServers)
+            DetachMcpEntry(existing);
+        McpServers.Clear();
+
+        if (entries != null)
+        {
+            foreach (var entry in entries)
+            {
+                if (entry == null) continue;
+                var copy = entry.Clone();
+                AttachMcpEntry(copy);
+                McpServers.Add(copy);
+            }
+        }
+
+        RefreshMcpState();
+    }
+
+    private void RefreshMcpState()
+    {
+        McpValidationText = BuildMcpValidationText();
+        OnPropertyChanged(nameof(ShowMcpEmptyHint));
+        OnPropertyChanged(nameof(McpGeneratedFileText));
+
+        if (_isLoadingConfig) return;
+
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        UpdateCurrentCommand();
+    }
+
+    private string BuildMcpValidationText()
+    {
+        if (!_mcpEnabled)
+            return string.Empty;
+
+        return McpValidationFormatter.Format(McpConfigDocument.Validate(McpServers));
+    }
+
+    private string ResolveMcpConfigPath(ServerConfiguration config)
+    {
+        return McpConfigDocument.HasUsableServers(config)
+            ? _mcpConfigService.GetConfigPath(CurrentProfileNameForMcp())
+            : string.Empty;
+    }
+
+    private List<McpServerEntry> CloneMcpEntries()
+    {
+        var list = new List<McpServerEntry>();
+        foreach (var entry in McpServers)
+            list.Add(entry.Clone());
+        return list;
+    }
+
+    private static bool McpServersEqual(List<McpServerEntry>? a, List<McpServerEntry>? b)
+    {
+        var left = a ?? new List<McpServerEntry>();
+        var right = b ?? new List<McpServerEntry>();
+
+        if (left.Count != right.Count) return false;
+
+        for (int i = 0; i < left.Count; i++)
+        {
+            if (!left[i].SameAs(right[i]))
+                return false;
+        }
+
+        return true;
+    }
 
     public bool ShowSpecFields => !string.IsNullOrEmpty(SpecType) && SpecType != "none";
 
@@ -3600,6 +4024,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(IsHfFileSupported));
         OnPropertyChanged(nameof(IsOfflineSupported));
         OnPropertyChanged(nameof(IsHfRepoDraftSupported));
+        OnPropertyChanged(nameof(IsMcpSupported));
+        OnPropertyChanged(nameof(McpNotSupportedWarning));
         OnPropertyChanged(nameof(HasUnsupportedSpecType));
         OnPropertyChanged(nameof(SpecTypeBorderBrush));
         OnPropertyChanged(nameof(SpecTypeToolTip));
@@ -3973,7 +4399,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public string SelectedProfile
     {
         get => _selectedProfile;
-        set { _selectedProfile = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); OnPropertyChanged(nameof(WindowTitleWithProfile)); }
+        set { _selectedProfile = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); OnPropertyChanged(nameof(WindowTitleWithProfile)); OnPropertyChanged(nameof(McpGeneratedFileText)); }
     }
 
     private void SetSelectedProfileSilently(string name)
@@ -4064,6 +4490,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             a.DockerGpuAll == b.DockerGpuAll &&
             a.DockerRm == b.DockerRm &&
             a.DockerContainerName == b.DockerContainerName &&
+            a.McpEnabled == b.McpEnabled &&
+            McpServersEqual(a.McpServers, b.McpServers) &&
             a.CustomArguments == b.CustomArguments &&
             ToggleStatesEqual(a.CustomArgumentToggleStates, b.CustomArgumentToggleStates);
     }
@@ -4071,7 +4499,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public string ProfileNameInput
     {
         get => _profileNameInput;
-        set { _profileNameInput = value; OnPropertyChanged(); }
+        set { _profileNameInput = value; OnPropertyChanged(); OnPropertyChanged(nameof(McpGeneratedFileText)); }
     }
 
     public bool IsServerRunning
@@ -4547,6 +4975,13 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         if (string.IsNullOrEmpty(parsed.ModelPath)) parsed.ModelPath = baseConfig.ModelPath;
         if (string.IsNullOrEmpty(parsed.MmprojPath)) parsed.MmprojPath = baseConfig.MmprojPath;
         if (string.IsNullOrWhiteSpace(parsed.Host)) parsed.Host = baseConfig.Host;
+
+        if (!string.IsNullOrEmpty(parsed.McpConfigPath))
+        {
+            parsed.McpEnabled = baseConfig.McpEnabled;
+            parsed.McpServers = baseConfig.Clone().McpServers;
+        }
+
         return parsed;
     }
 
@@ -4598,6 +5033,12 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 StdPromptTokens = result.StdPromptTokens,
                 StdNPredict = result.StdNPredict,
                 StdRepeat = result.StdRepeat,
+                RunPromptWorkload = result.RunPromptWorkload,
+                PromptSystem = result.PromptSystem,
+                PromptsText = result.PromptsText,
+                PromptKeepContext = result.PromptKeepContext,
+                PromptMaxTokens = result.PromptMaxTokens,
+                PromptTimeoutSeconds = result.PromptTimeoutSeconds,
                 HardwareSummary = GetHardwareSummary(),
             };
 
@@ -4689,7 +5130,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     public ServerConfiguration GetCurrentConfig()
     {
-        return new ServerConfiguration
+        var config = new ServerConfiguration
         {
             ExecutablePath = ExecutablePath,
             ModelPath = ModelPath,
@@ -4749,8 +5190,14 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             DockerImage = DockerImage,
             DockerGpuAll = DockerGpuAll,
             DockerRm = DockerRm,
-            DockerContainerName = DockerContainerName
+            DockerContainerName = DockerContainerName,
+            McpEnabled = McpEnabled,
+            McpServers = CloneMcpEntries()
         };
+
+        config.McpConfigPath = ResolveMcpConfigPath(config);
+
+        return config;
     }
 
 private void LoadConfigToUI(ServerConfiguration config)
@@ -4881,6 +5328,8 @@ private void LoadConfigToUI(ServerConfiguration config)
         DockerGpuAll = config.DockerGpuAll;
         DockerRm = config.DockerRm;
         DockerContainerName = config.DockerContainerName ?? string.Empty;
+        McpEnabled = config.McpEnabled;
+        SetMcpServers(config.McpServers);
         _disabledArguments.Clear();
         _originalCustomArguments = string.Empty;
         CustomArguments = config.CustomArguments ?? string.Empty;
@@ -4977,6 +5426,8 @@ private void LoadConfigToUI(ServerConfiguration config)
         DockerGpuAll = false;
         DockerRm = true;
         DockerContainerName = string.Empty;
+        McpEnabled = false;
+        SetMcpServers(null);
         _disabledArguments.Clear();
         _originalCustomArguments = string.Empty;
         CustomArgumentItems.Clear();
@@ -5733,6 +6184,12 @@ public void RebuildCustomArgumentsFromToggles()
                 durationMs: 0);
         }
 
+        if (e.PropertyName == nameof(ServerInstance.McpProblem) && !string.IsNullOrEmpty(instance.McpProblem))
+        {
+            Toasts.ShowError(
+                string.Format(Localized.McpLogProblem, instance.ProfileName, instance.McpProblem));
+        }
+
         if (e.PropertyName == nameof(ServerInstance.AutoRestart))
         {
             if (instance == _selectedInstance)
@@ -5811,6 +6268,7 @@ public void RebuildCustomArgumentsFromToggles()
                             var dp = _downloadService.GetDefaultLlamaServerPath();
                             if (dp != null) instanceConfig.ExecutablePath = dp;
                         }
+                        instanceConfig.McpConfigPath = _mcpConfigService.Materialize(instanceConfig, saveName) ?? string.Empty;
                         saveMatch.UpdateConfiguration(instanceConfig);
                     }
 
@@ -5947,6 +6405,8 @@ public void RebuildCustomArgumentsFromToggles()
                 if (defaultPath != null)
                     config.ExecutablePath = defaultPath;
             }
+            config.McpConfigPath = _mcpConfigService.Materialize(config, _selectedInstance.ProfileName) ?? string.Empty;
+
             _selectedInstance.UpdateConfiguration(config);
             await _selectedInstance.RestartAsync(_supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
         }
@@ -5999,6 +6459,8 @@ public void RebuildCustomArgumentsFromToggles()
                 Toasts.Show(toastText);
                 return false;
             }
+
+            config.McpConfigPath = _mcpConfigService.Materialize(config, profileName) ?? string.Empty;
 
             var exePath = config.ExecutablePath;
             if (string.IsNullOrEmpty(exePath))
@@ -6344,6 +6806,7 @@ public void RebuildCustomArgumentsFromToggles()
                 if (defaultPath != null)
                     instanceConfig.ExecutablePath = defaultPath;
             }
+            instanceConfig.McpConfigPath = _mcpConfigService.Materialize(instanceConfig, name) ?? string.Empty;
             matchingInstance.UpdateConfiguration(instanceConfig);
         }
 
@@ -6459,6 +6922,7 @@ public void RebuildCustomArgumentsFromToggles()
         if (result == MessageBoxResult.Yes)
         {
             await _configService.DeleteProfileAsync(name);
+            _mcpConfigService.DeleteConfig(name);
             LoadProfiles();
         }
     }
@@ -6478,10 +6942,12 @@ public void RebuildCustomArgumentsFromToggles()
         try
         {
             await _configService.RenameProfileAsync(oldName, newName);
+            _mcpConfigService.DeleteConfig(oldName);
             _loadedProfileName = newName;
             LoadProfiles();
             SetSelectedProfileSilently(newName);
             OnPropertyChanged(nameof(WindowTitleWithProfile));
+            OnPropertyChanged(nameof(McpGeneratedFileText));
         }
         catch (Exception ex)
         {
@@ -6744,7 +7210,13 @@ public void RebuildCustomArgumentsFromToggles()
         if (!string.IsNullOrEmpty(filePath))
         {
             var config = GetCurrentConfig();
-            
+
+            bool isScriptExport = filePath.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)
+                || filePath.EndsWith(".command", StringComparison.OrdinalIgnoreCase)
+                || filePath.EndsWith(".sh", StringComparison.OrdinalIgnoreCase);
+            if (isScriptExport)
+                config.McpConfigPath = _mcpConfigService.Materialize(config, CurrentProfileNameForMcp()) ?? string.Empty;
+
             if (filePath.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
             {
                 var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
@@ -6918,6 +7390,9 @@ public void RebuildCustomArgumentsFromToggles()
         if (!string.IsNullOrEmpty(filePath))
         {
             var config = GetCurrentConfig();
+
+            config.McpConfigPath = _mcpConfigService.Materialize(config, CurrentProfileNameForMcp()) ?? string.Empty;
+
             var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
             var batContent = $"@echo off\n{command}\npause";
             await System.IO.File.WriteAllTextAsync(filePath, batContent);

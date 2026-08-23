@@ -342,6 +342,9 @@ public static class CommandLineBuilder
         AddBoolFlag(args, "--slots", config.EnableSlots, "--no-slots");
         AddBoolFlag(args, "--metrics", config.EnableMetrics);
 
+        AddIfNotOverridden(args, "--mcp-servers-config",
+            string.IsNullOrEmpty(config.McpConfigPath) ? null : $"\"{EscapePath(config.McpConfigPath)}\"");
+
         AddIfNotOverridden(args, "--api-key", string.IsNullOrEmpty(config.ApiKey) ? null : $"\"{config.ApiKey}\"");
         AddIfNotOverridden(args, "--log-file", string.IsNullOrEmpty(config.LogFilePath) ? null : $"\"{config.LogFilePath}\"");
         AddIfNotOverridden(args, "--alias", string.IsNullOrEmpty(config.Alias) ? null : $"\"{config.Alias}\"");
@@ -437,7 +440,8 @@ public static class CommandLineBuilder
         "ModelsDir",
         "MmprojPath",
         "ExecutablePath",
-        "SpecDraftModel"
+        "SpecDraftModel",
+        "McpConfigPath"
     };
 
     public static bool IsPathProperty(string propertyName) => PathProperties.Contains(propertyName);
@@ -623,6 +627,16 @@ public static class CommandLineBuilder
             var dir = Path.GetDirectoryName(Path.GetFullPath(config.SpecDraftModel));
             if (!string.IsNullOrEmpty(dir) && mountMap.TryGetValue(dir, out var mp))
                 rewritten.SpecDraftModel = mp + "/" + Path.GetFileName(config.SpecDraftModel);
+        }
+
+        if (!string.IsNullOrEmpty(rewritten.McpConfigPath))
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(config.McpConfigPath));
+            if (!string.IsNullOrEmpty(dir))
+            {
+                volumes.Add($"{dir}:/mcp");
+                rewritten.McpConfigPath = "/mcp/" + Path.GetFileName(config.McpConfigPath);
+            }
         }
 
         return rewritten;

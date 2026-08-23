@@ -1606,6 +1606,42 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
+                PrimaryFlag = "--tools-runtime",
+                Aliases = new() { "--tools-runtime" },
+                DescriptionEn = "Experimental: run tools in a separate runtime: docker:<image>, podman:<image>, docker-container:<id>, podman-container:<id>, ssh:<target>",
+                DescriptionRu = "Экспериментальное: запуск инструментов в отдельной среде: docker:<образ>, podman:<образ>, docker-container:<id>, podman-container:<id>, ssh:<хост>",
+                DefaultValue = "none",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--mcp-servers-config",
+                Aliases = new() { "--mcp-servers-config" },
+                DescriptionEn = "Experimental: path to a JSON file with MCP server definitions (Cursor-compatible format). Limits --cors-origins to localhost by default",
+                DescriptionRu = "Экспериментальное: путь к JSON-файлу с описанием MCP-серверов (формат Cursor). По умолчанию ограничивает --cors-origins до localhost",
+                DefaultValue = "none",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--mcp-servers-json",
+                Aliases = new() { "--mcp-servers-json" },
+                DescriptionEn = "Experimental: inline JSON with MCP server definitions (Cursor-compatible format). Limits --cors-origins to localhost by default",
+                DescriptionRu = "Экспериментальное: JSON с описанием MCP-серверов прямо в аргументе (формат Cursor). По умолчанию ограничивает --cors-origins до localhost",
+                DefaultValue = "none",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "-ag",
+                Aliases = new() { "-ag", "--agent", "-no-ag", "--no-agent" },
+                DescriptionEn = "Enable the CORS proxy and all built-in tools at once (equivalent to --tools all plus --ui-mcp-proxy)",
+                DescriptionRu = "Включить CORS-прокси и все встроенные инструменты сразу (эквивалент --tools all вместе с --ui-mcp-proxy)",
+                DefaultValue = "disabled",
+                Category = "server"
+            },
+            new()
+            {
                 PrimaryFlag = "--webui",
                 Aliases = new() { "--webui", "--no-webui", "--ui", "--no-ui" },
                 DescriptionEn = "Whether to enable the Web UI",

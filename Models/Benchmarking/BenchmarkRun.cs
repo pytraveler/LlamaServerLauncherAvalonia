@@ -32,6 +32,9 @@ public class BenchmarkRun
     [JsonPropertyName("metrics")]
     public BenchmarkMetrics Metrics { get; set; } = new();
 
+    [JsonPropertyName("promptRun")]
+    public PromptRunReport? PromptRun { get; set; }
+
     [JsonPropertyName("hardwareSummary")]
     public string? HardwareSummary { get; set; }
 

@@ -17,6 +17,7 @@ public static class HelpService
     public const string TopicOptions = "help-options";
     public const string TopicSpeculative = "help-speculative";
     public const string TopicDocker = "help-docker";
+    public const string TopicMcp = "help-mcp";
     public const string TopicSettings = "help-settings";
     public const string TopicBenchmarks = "help-benchmarks";
     public const string TopicScenarios = "help-scenarios";

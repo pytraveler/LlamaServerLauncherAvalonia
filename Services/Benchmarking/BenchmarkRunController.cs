@@ -24,6 +24,15 @@ public sealed class BenchmarkRunOptions
     public int StdPromptTokens { get; set; } = 512;
     public int StdNPredict { get; set; } = 128;
     public int StdRepeat { get; set; } = 3;
+
+    public bool RunPromptWorkload { get; set; }
+    public string PromptSystem { get; set; } = string.Empty;
+    public string PromptsText { get; set; } = string.Empty;
+    public bool PromptKeepContext { get; set; } = true;
+    public int PromptMaxTokens { get; set; }
+    public int PromptTimeoutSeconds { get; set; } = 600;
+
+    public bool HasWorkload => RunStandardWorkload || RunPromptWorkload;
 }
 
 public sealed class BenchmarkRunController : IDisposable
@@ -32,6 +41,8 @@ public sealed class BenchmarkRunController : IDisposable
     private readonly LogService _log;
     private readonly HttpClient _metricsClient = new() { Timeout = TimeSpan.FromSeconds(5) };
     private readonly HttpBenchmarkService _http;
+    private readonly PromptRunService _promptRun;
+    private readonly CancellationTokenSource _workloadCts = new();
 
     private ServerInstance? _instance;
     private BenchmarkRunOptions? _options;
@@ -44,6 +55,7 @@ public sealed class BenchmarkRunController : IDisposable
     private double? _stdGen;
     private double? _stdPrompt;
     private double? _stdTtft;
+    private PromptRunReport? _promptReport;
     private int _finished;
 
     public BenchmarkRunController(BenchmarkStorageService storage, LogService log)
@@ -51,6 +63,7 @@ public sealed class BenchmarkRunController : IDisposable
         _storage = storage;
         _log = log;
         _http = new HttpBenchmarkService(log: log);
+        _promptRun = new PromptRunService(log);
     }
 
     public void Begin(ServerInstance instance, BenchmarkRunOptions options)
@@ -74,7 +87,7 @@ public sealed class BenchmarkRunController : IDisposable
 
             await ScrapeMetricsAsync(instance);
 
-            if (options.RunStandardWorkload
+            if (options.HasWorkload
                 && instance.IsReady
                 && Interlocked.CompareExchange(ref _workloadState, 1, 0) == 0)
             {
@@ -104,35 +117,19 @@ public sealed class BenchmarkRunController : IDisposable
     {
         try
         {
-            var prompt = BuildPrompt(options.StdPromptTokens);
-            int reps = Math.Max(1, options.StdRepeat);
-            double gen = 0, pp = 0, ttft = 0;
-            int counted = 0;
+            if (options.RunStandardWorkload)
+                await RunStandardWorkloadAsync(instance, options);
 
-            for (int i = 0; i < reps; i++)
-            {
-                if (!instance.IsRunning)
-                    break;
-                var r = await _http.MeasureAsync(instance.BaseUrl, prompt, options.StdNPredict, 600, CancellationToken.None);
-                if (reps > 1 && i == 0)
-                    continue;
-                gen += r.TgTs;
-                pp += r.PpTs;
-                ttft += r.TimeToFirstTokenMs;
-                counted++;
-            }
-
-            if (counted > 0)
-            {
-                _stdGen = gen / counted;
-                _stdPrompt = pp / counted;
-                _stdTtft = ttft / counted;
-                _log.AppLog($"Benchmark workload for '{options.ProfileName}': gen={_stdGen:F1} tok/s, prompt={_stdPrompt:F1} tok/s");
-            }
+            if (options.RunPromptWorkload && instance.IsRunning)
+                await RunPromptWorkloadAsync(instance, options);
+        }
+        catch (OperationCanceledException)
+        {
+            _log.AppLog($"Benchmark workload for '{options.ProfileName}' was interrupted.");
         }
         catch (Exception ex)
         {
-            _log.Error($"Benchmark standard workload failed: {ex.Message}");
+            _log.Error($"Benchmark workload failed: {ex.Message}");
         }
         finally
         {
@@ -141,6 +138,73 @@ public sealed class BenchmarkRunController : IDisposable
                 try { await instance.StopAsync(); } catch { }
             }
         }
+    }
+
+    private async Task RunStandardWorkloadAsync(ServerInstance instance, BenchmarkRunOptions options)
+    {
+        var prompt = BuildPrompt(options.StdPromptTokens);
+        int reps = Math.Max(1, options.StdRepeat);
+        double gen = 0, pp = 0, ttft = 0;
+        int counted = 0;
+
+        for (int i = 0; i < reps; i++)
+        {
+            if (!instance.IsRunning)
+                break;
+            var r = await _http.MeasureAsync(instance.BaseUrl, prompt, options.StdNPredict, 600, _workloadCts.Token);
+            if (reps > 1 && i == 0)
+                continue;
+            gen += r.TgTs;
+            pp += r.PpTs;
+            ttft += r.TimeToFirstTokenMs;
+            counted++;
+        }
+
+        if (counted > 0)
+        {
+            _stdGen = gen / counted;
+            _stdPrompt = pp / counted;
+            _stdTtft = ttft / counted;
+            _log.AppLog($"Benchmark workload for '{options.ProfileName}': gen={_stdGen:F1} tok/s, prompt={_stdPrompt:F1} tok/s");
+        }
+    }
+
+    private async Task RunPromptWorkloadAsync(ServerInstance instance, BenchmarkRunOptions options)
+    {
+        var report = new PromptRunReport
+        {
+            SystemPrompt = options.PromptSystem ?? string.Empty,
+            KeepContext = options.PromptKeepContext,
+            MaxTokens = options.PromptMaxTokens,
+        };
+        _promptReport = report;
+
+        var promptOptions = new PromptRunOptions
+        {
+            SystemPrompt = report.SystemPrompt,
+            PromptsText = options.PromptsText ?? string.Empty,
+            KeepContext = options.PromptKeepContext,
+            MaxTokens = options.PromptMaxTokens,
+            TimeoutSeconds = options.PromptTimeoutSeconds,
+            ApiKey = options.Config?.ApiKey,
+            PreferredModel = PreferredModelName(options.Config),
+        };
+
+        await _promptRun.RunAsync(instance.BaseUrl, promptOptions, report, _workloadCts.Token);
+        _log.AppLog($"Prompt run for '{options.ProfileName}' finished: {report.CompletedTurns} answered, {report.FailedTurns} failed.");
+    }
+
+    private static string? PreferredModelName(ServerConfiguration? config)
+    {
+        if (config == null)
+            return null;
+        if (!string.IsNullOrWhiteSpace(config.Alias))
+            return config.Alias;
+        if (!string.IsNullOrWhiteSpace(config.ModelPath))
+            return System.IO.Path.GetFileNameWithoutExtension(config.ModelPath);
+        if (!string.IsNullOrWhiteSpace(config.HfFile))
+            return System.IO.Path.GetFileNameWithoutExtension(config.HfFile);
+        return null;
     }
 
     private static string BuildPrompt(int approxTokens)
@@ -169,11 +233,16 @@ public sealed class BenchmarkRunController : IDisposable
 
         if (_workloadTask != null)
         {
+            try { _workloadCts.Cancel(); } catch { }
             try { await Task.WhenAny(_workloadTask, Task.Delay(TimeSpan.FromSeconds(30))); }
             catch { }
         }
 
         await ScrapeMetricsAsync(instance);
+
+        var promptReport = _promptReport;
+        if (promptReport != null && promptReport.Turns.Count == 0)
+            promptReport = null;
 
         var metrics = new BenchmarkMetrics
         {
@@ -186,6 +255,10 @@ public sealed class BenchmarkRunController : IDisposable
             StdRepeat = options.RunStandardWorkload ? options.StdRepeat : null,
             StdPromptTokens = options.RunStandardWorkload ? options.StdPromptTokens : null,
             StdNPredict = options.RunStandardWorkload ? options.StdNPredict : null,
+            PromptRunTurns = promptReport?.Turns.Count,
+            PromptRunGenTps = promptReport?.AvgGenTps,
+            PromptRunPromptTps = promptReport?.AvgPromptTps,
+            PromptRunTtftMs = promptReport?.AvgTtftMs,
         };
 
         if (_lastMetricsText != null)
@@ -205,13 +278,17 @@ public sealed class BenchmarkRunController : IDisposable
             RunInDocker = options.RunInDocker,
             ConfigSnapshot = options.Config,
             Metrics = metrics,
+            PromptRun = promptReport,
             HardwareSummary = options.HardwareSummary,
             LlamaVersion = options.LlamaVersion,
         };
 
         var report = BenchmarkReportBuilder.BuildRunReport(run, BenchmarkReportLocalizer.Localize);
+        var promptRunMd = promptReport != null
+            ? PromptRunDocument.BuildMarkdown(run, promptReport, BenchmarkReportLocalizer.Localize)
+            : null;
         var log = instance.GetRunLogSnapshot();
-        var dir = await _storage.SaveRunAsync(run, log, _lastMetricsText, report);
+        var dir = await _storage.SaveRunAsync(run, log, _lastMetricsText, report, promptRunMd);
         return (run, dir);
     }
 
@@ -219,5 +296,6 @@ public sealed class BenchmarkRunController : IDisposable
     {
         _timer?.Dispose();
         _metricsClient.Dispose();
+        _workloadCts.Dispose();
     }
 }

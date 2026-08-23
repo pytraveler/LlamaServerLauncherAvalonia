@@ -14,6 +14,10 @@
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+        <Style Selector="ProgressBar">
+            <Setter Property="Foreground" Value="{DynamicResource ProgressBarForegroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ProgressBarTrackBrush}"/>
+        </Style>
     </Application.Styles>
     <TrayIcon.Icons>
         <TrayIcons>

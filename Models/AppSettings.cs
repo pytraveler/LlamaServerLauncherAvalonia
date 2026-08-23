@@ -113,6 +113,9 @@ public class AppSettings
     public bool DockerRm { get; set; } = true;
     public string DockerContainerName { get; set; } = "";
 
+    public bool McpEnabled { get; set; }
+    public List<McpServerEntry> McpServers { get; set; } = new();
+
     public DateTime LastAppUpdateCheck { get; set; }
     public DateTime LastLlamaUpdateCheck { get; set; }
     public int AppUpdateCheckIntervalMinutes { get; set; } = 15;
@@ -141,6 +144,8 @@ public class AppSettings
     public bool OnDemandProxyMiniWindowEnabled { get; set; }
     public bool ComfyUiFreeEnabled { get; set; }
     public string ComfyUiUrl { get; set; } = "http://127.0.0.1:8188";
+
+    public bool KillSpawnedProcesses { get; set; } = true;
 
     public Dictionary<string, DialogGeometry> DialogGeometry { get; set; } = new();
 

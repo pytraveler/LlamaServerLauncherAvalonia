@@ -22,6 +22,8 @@ namespace LlamaServerLauncher;
 
 public partial class MainWindow : Window
 {
+    private const int McpTabIndex = 6;
+
     private MainViewModel? _viewModel;
     private IntPtr _windowHandle;
     private ConfigurationService? _configService;
@@ -80,7 +82,15 @@ public partial class MainWindow : Window
         }
         
         // Collapse/expand the nav pane as the window gets narrower/wider.
-        SizeChanged += (s, e) => UpdateNavPaneForWidth();
+        SizeChanged += (s, e) =>
+        {
+            UpdateNavPaneForWidth();
+            if (_isAutoFitActive)
+            {
+                ApplyAutoFitHeightLimit();
+                ClampAutoFitPosition();
+            }
+        };
 
         // AllowDrop is set in XAML via dd:DragDrop.AllowDrop="True"
         System.Diagnostics.Debug.WriteLine("MainWindow initialized");
@@ -122,6 +132,8 @@ public partial class MainWindow : Window
             // Apply auto-fit after initial height is set
             if (_viewModel.AutoFitHeight)
                 EnableAutoFitHeight();
+
+            RebuildMcpImportMenu();
 
             // Auto-start scenario after the window is fully loaded
             _autoStartCts = new System.Threading.CancellationTokenSource();
@@ -205,6 +217,10 @@ public partial class MainWindow : Window
                 else if (!_viewModel.AutoFitHeight && _isAutoFitActive)
                     DisableAutoFitHeight();
             });
+        }
+        else if (e.PropertyName == nameof(MainViewModel.SelectedTabIndex) && _viewModel?.SelectedTabIndex == McpTabIndex)
+        {
+            Dispatcher.UIThread.Post(RebuildMcpImportMenu);
         }
         else if (e.PropertyName == nameof(MainViewModel.LogVisible))
         {
@@ -314,9 +330,41 @@ public partial class MainWindow : Window
 
         _originalMinHeight = MinHeight;
         MinHeight = 0;
+        ApplyAutoFitHeightLimit();
         CanResize = false;
         SizeToContent = SizeToContent.Height;
         _isAutoFitActive = true;
+        ClampAutoFitPosition();
+    }
+
+    private void ApplyAutoFitHeightLimit()
+    {
+        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        if (screen == null) return;
+
+        var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+        var workingHeight = screen.WorkingArea.Height / scaling;
+
+        var limit = Math.Max(200, workingHeight - 48);
+        if (Math.Abs(MaxHeight - limit) > 0.5)
+            MaxHeight = limit;
+    }
+
+    private void ClampAutoFitPosition()
+    {
+        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        if (screen == null) return;
+
+        var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+        var frameHeight = (FrameSize?.Height ?? Height) * scaling;
+        var area = screen.WorkingArea;
+
+        if (Position.Y + frameHeight <= area.Y + area.Height)
+            return;
+
+        var top = (int)Math.Max(area.Y, area.Y + area.Height - frameHeight);
+        if (top != Position.Y)
+            Position = new PixelPoint(Position.X, top);
     }
 
     private void DisableAutoFitHeight()
@@ -326,6 +374,7 @@ public partial class MainWindow : Window
         // Restore manual sizing first, then row definition
         SizeToContent = SizeToContent.Manual;
         MinHeight = _originalMinHeight;
+        MaxHeight = double.PositiveInfinity;
         CanResize = true;
 
             // Keep the settings row collapsed while the log is maximized, otherwise
@@ -584,6 +633,61 @@ public partial class MainWindow : Window
             _viewModel.DockerContainerName = string.Empty;
     }
 
+    private async void AddMcpServerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.AddMcpServerAsync();
+    }
+
+    private async void McpServerRowTapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        if (_viewModel != null && sender is Control control && control.DataContext is McpServerEntry entry)
+            await _viewModel.EditMcpServerAsync(entry);
+    }
+
+    private async void ImportMcpConfigClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.ImportMcpConfigAsync();
+    }
+
+    private void RebuildMcpImportMenu()
+    {
+        if (_viewModel == null) return;
+
+        var flyout = this.FindControl<SplitButton>("McpImportSplitButton")?.Flyout as MenuFlyout;
+        if (flyout == null) return;
+
+        var loc = LocalizedStrings.Instance;
+        flyout.Items.Clear();
+
+        var sources = _viewModel.GetMcpImportSources();
+        if (sources.Count == 0)
+        {
+            flyout.Items.Add(new MenuItem { Header = loc.McpImportNoProfiles, IsEnabled = false });
+            return;
+        }
+
+        foreach (var source in sources)
+        {
+            var item = new MenuItem { Header = source.Display, Tag = source };
+            item.Click += McpImportFromProfileClick;
+            flyout.Items.Add(item);
+        }
+    }
+
+    private void McpImportFromProfileClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null && sender is MenuItem item && item.Tag is McpImportSource source)
+            _viewModel.ImportMcpFromProfile(source);
+    }
+
+    private async void QueryMcpToolsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.QueryMcpToolsAsync();
+    }
+
     private void BrowseDraftModelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.BrowseDraftModelCommand.Execute(null);
@@ -747,6 +851,7 @@ public partial class MainWindow : Window
             3 => (HelpService.TopicOptions, loc.HelpTitleOptions),
             4 => (HelpService.TopicSpeculative, loc.HelpTitleSpeculative),
             5 => (HelpService.TopicDocker, loc.HelpTitleDocker),
+            6 => (HelpService.TopicMcp, loc.HelpTitleMcp),
             _ => (HelpService.TopicSettings, loc.HelpTitleSettings)
         };
 

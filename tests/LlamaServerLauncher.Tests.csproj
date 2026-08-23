@@ -20,6 +20,9 @@
     <Compile Include="..\Models\EndpointSnippets.cs" />
     <Compile Include="..\Models\BackendAssetSelector.cs" />
     <Compile Include="..\Models\ServerLogFilter.cs" />
+    <Compile Include="..\Models\McpServerEntry.cs" />
+    <Compile Include="..\Models\McpConfigDocument.cs" />
+    <Compile Include="..\Models\ServerToolsResponse.cs" />
     <Compile Include="..\Models\ServerCrashAdvisor.cs" />
     <Compile Include="..\Optimization\**\*.cs" />
     <Compile Include="..\Models\Optimization\BenchmarkResult.cs" />
@@ -33,6 +36,10 @@
     <Compile Include="..\Services\GgufMetadataService.cs" />
     <Compile Include="..\Models\Benchmarking\BenchmarkMetrics.cs" />
     <Compile Include="..\Models\Benchmarking\BenchmarkRun.cs" />
+    <Compile Include="..\Models\Benchmarking\PromptRunReport.cs" />
+    <Compile Include="..\Models\Benchmarking\PromptRunDocument.cs" />
+    <Compile Include="..\Models\Benchmarking\ChatCompletionResponse.cs" />
+    <Compile Include="..\Models\Benchmarking\ModelListResponse.cs" />
     <Compile Include="..\Services\Benchmarking\PrometheusMetricsParser.cs" />
     <Compile Include="..\Services\Benchmarking\BenchmarkReportBuilder.cs" />
     <Compile Include="..\Services\GitHubReleaseSource.cs" />
@@ -52,8 +59,10 @@
     <Compile Include="EndpointSnippetsTests.cs" />
     <Compile Include="BackendAssetSelectorTests.cs" />
     <Compile Include="ServerLogFilterTests.cs" />
+    <Compile Include="McpConfigTests.cs" />
     <Compile Include="ServerCrashAdvisorTests.cs" />
     <Compile Include="BenchmarkTests.cs" />
+    <Compile Include="PromptRunTests.cs" />
     <Compile Include="GitHubReleaseSourceTests.cs" />
     <Compile Include="LocalAddressTests.cs" />
     <Compile Include="AppUpdateDecisionTests.cs" />

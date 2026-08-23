@@ -2106,4 +2106,289 @@
   <data name="BenchmarkPickHintText" xml:space="preserve">
     <value>Отметьте галочками один или несколько прогонов в списке слева — они сравнятся здесь бок о бок.</value>
   </data>
+  <data name="TabMcp" xml:space="preserve">
+    <value>MCP</value>
+  </data>
+  <data name="HelpTitleMcp" xml:space="preserve">
+    <value>Справка - MCP</value>
+  </data>
+  <data name="McpSettings" xml:space="preserve">
+    <value>MCP-серверы (экспериментально)</value>
+  </data>
+  <data name="McpEnabled" xml:space="preserve">
+    <value>Запускать сервер с этими MCP-серверами</value>
+  </data>
+  <data name="TooltipMcpEnabled" xml:space="preserve">
+    <value>Генерирует mcp.json для профиля и передаёт его в llama-server через --mcp-servers-config. Инструменты сервера появляются под именем имя_инструмент.</value>
+  </data>
+  <data name="McpAddServer" xml:space="preserve">
+    <value>Добавить сервер</value>
+  </data>
+  <data name="McpImport" xml:space="preserve">
+    <value>Импорт mcp.json</value>
+  </data>
+  <data name="TooltipMcpImport" xml:space="preserve">
+    <value>Читает конфигурацию Cursor или Claude Desktop и добавляет её серверы в список</value>
+  </data>
+  <data name="McpRemoveServer" xml:space="preserve">
+    <value>Удалить этот сервер</value>
+  </data>
+  <data name="McpServerEnabled" xml:space="preserve">
+    <value>Включён</value>
+  </data>
+  <data name="McpName" xml:space="preserve">
+    <value>Имя:</value>
+  </data>
+  <data name="McpCommand" xml:space="preserve">
+    <value>Команда:</value>
+  </data>
+  <data name="McpArgs" xml:space="preserve">
+    <value>Аргументы:</value>
+  </data>
+  <data name="McpCwd" xml:space="preserve">
+    <value>Рабочий каталог:</value>
+  </data>
+  <data name="McpEnv" xml:space="preserve">
+    <value>Переменные среды:</value>
+  </data>
+  <data name="McpTimeout" xml:space="preserve">
+    <value>Таймаут (мс):</value>
+  </data>
+  <data name="TooltipMcpName" xml:space="preserve">
+    <value>Ключ конфигурации. llama-server публикует инструменты этого сервера как имя_инструмент</value>
+  </data>
+  <data name="TooltipMcpCommand" xml:space="preserve">
+    <value>Исполняемый файл, который общается по MCP через stdio. Записи без команды сервер пропускает</value>
+  </data>
+  <data name="TooltipMcpArgs" xml:space="preserve">
+    <value>Аргументы команды одной строкой, кавычки учитываются</value>
+  </data>
+  <data name="TooltipMcpCwd" xml:space="preserve">
+    <value>Рабочий каталог дочернего процесса, необязательно</value>
+  </data>
+  <data name="TooltipMcpEnv" xml:space="preserve">
+    <value>По одной паре KEY=VALUE в строке, добавляются к среде лаунчера</value>
+  </data>
+  <data name="TooltipMcpTimeout" xml:space="preserve">
+    <value>Таймаут одного вызова инструмента, по умолчанию 30000 мс</value>
+  </data>
+  <data name="PlaceholderMcpName" xml:space="preserve">
+    <value>filesystem</value>
+  </data>
+  <data name="PlaceholderMcpCommand" xml:space="preserve">
+    <value>npx</value>
+  </data>
+  <data name="PlaceholderMcpArgs" xml:space="preserve">
+    <value>-y @modelcontextprotocol/server-filesystem C:\data</value>
+  </data>
+  <data name="PlaceholderMcpCwd" xml:space="preserve">
+    <value>необязательно</value>
+  </data>
+  <data name="PlaceholderMcpEnv" xml:space="preserve">
+    <value>KEY=VALUE</value>
+  </data>
+  <data name="PlaceholderMcpTimeout" xml:space="preserve">
+    <value>30000</value>
+  </data>
+  <data name="McpNoServers" xml:space="preserve">
+    <value>MCP-серверов пока нет. Добавьте сервер или импортируйте готовый mcp.json.</value>
+  </data>
+  <data name="McpNotSupported" xml:space="preserve">
+    <value>В выбранной сборке llama-server нет флага --mcp-servers-config. Обновите llama.cpp, чтобы пользоваться этой вкладкой.</value>
+  </data>
+  <data name="McpCorsWarning" xml:space="preserve">
+    <value>При включённом MCP llama-server ограничивает CORS до localhost, если --cors-origins не задан явно.</value>
+  </data>
+  <data name="McpTrustWarning" xml:space="preserve">
+    <value>MCP-серверы запускаются дочерними процессами с правами лаунчера. Добавляйте только команды, которым доверяете.</value>
+  </data>
+  <data name="McpDockerWarning" xml:space="preserve">
+    <value>В режиме Docker конфигурация монтируется в /mcp, но сами команды должны существовать внутри образа.</value>
+  </data>
+  <data name="McpJinjaWarning" xml:space="preserve">
+    <value>Вызовы инструментов требуют jinja-шаблонов, поэтому не передавайте --no-jinja в своих аргументах.</value>
+  </data>
+  <data name="McpGeneratedFile" xml:space="preserve">
+    <value>Сформированный файл: {0}</value>
+  </data>
+  <data name="McpTest" xml:space="preserve">
+    <value>Проверить</value>
+  </data>
+  <data name="TooltipMcpTest" xml:space="preserve">
+    <value>Запускает команду и запрашивает у неё список инструментов, не запуская llama-server</value>
+  </data>
+  <data name="McpTestRunning" xml:space="preserve">
+    <value>Проверка '{0}'...</value>
+  </data>
+  <data name="McpTestOk" xml:space="preserve">
+    <value>{0}: инструментов {1}: {2}</value>
+  </data>
+  <data name="McpTestFailed" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="McpImported" xml:space="preserve">
+    <value>Импортировано MCP-серверов: {0}</value>
+  </data>
+  <data name="McpImportFailed" xml:space="preserve">
+    <value>Не удалось прочитать конфигурацию MCP: {0}</value>
+  </data>
+  <data name="McpIssueEmptyName" xml:space="preserve">
+    <value>Сервер без имени будет пропущен</value>
+  </data>
+  <data name="McpIssueEmptyCommand" xml:space="preserve">
+    <value>Сервер '{0}': команда не задана, он будет пропущен</value>
+  </data>
+  <data name="McpIssueDuplicateName" xml:space="preserve">
+    <value>Имя сервера '{0}' повторяется: будет использован только один</value>
+  </data>
+  <data name="McpIssueInvalidTimeout" xml:space="preserve">
+    <value>Сервер '{0}': таймаут должен быть больше нуля</value>
+  </data>
+  <data name="McpDiscoveredTools" xml:space="preserve">
+    <value>Инструменты запущенного сервера</value>
+  </data>
+  <data name="McpQueryTools" xml:space="preserve">
+    <value>Запросить</value>
+  </data>
+  <data name="TooltipMcpQueryTools" xml:space="preserve">
+    <value>Читает GET /tools у запущенного сервера этого профиля</value>
+  </data>
+  <data name="McpToolsNoServer" xml:space="preserve">
+    <value>Для этого профиля нет запущенного сервера</value>
+  </data>
+  <data name="McpToolsForbidden" xml:space="preserve">
+    <value>Сервер запущен без инструментов и без MCP</value>
+  </data>
+  <data name="McpToolsEmpty" xml:space="preserve">
+    <value>Сервер не сообщает ни об одном инструменте</value>
+  </data>
+  <data name="McpToolsFailed" xml:space="preserve">
+    <value>Не удалось получить список инструментов: {0}</value>
+  </data>
+  <data name="McpLogProblem" xml:space="preserve">
+    <value>MCP в профиле '{0}': {1}</value>
+  </data>
+  <data name="KillSpawnedProcesses" xml:space="preserve">
+    <value>Завершать запущенные сервером процессы вместе с ним</value>
+  </data>
+  <data name="TooltipKillSpawnedProcesses" xml:space="preserve">
+    <value>MCP-серверы и запущенные ими приложения (например, ComfyUI) удерживаются в job-объекте и завершаются при остановке сервера или выходе из лаунчера, чтобы не оставалось висящих процессов. Выключите, если такие приложения должны переживать сервер. Только для Windows.</value>
+  </data>
+  <data name="McpDialogTitle" xml:space="preserve">
+    <value>MCP-сервер</value>
+  </data>
+  <data name="TooltipMcpEditServer" xml:space="preserve">
+    <value>Нажмите на строку, чтобы отредактировать сервер</value>
+  </data>
+  <data name="McpToolsFound" xml:space="preserve">
+    <value>Инструментов у запущенного сервера: {0}. Нажмите, чтобы посмотреть список.</value>
+  </data>
+  <data name="McpBuiltInTools" xml:space="preserve">
+    <value>Встроенные инструменты</value>
+  </data>
+  <data name="McpImportProfileItem" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="McpImportNoProfiles" xml:space="preserve">
+    <value>Ни в одном другом профиле нет MCP-серверов</value>
+  </data>
+  <data name="CustomColorProgressBar" xml:space="preserve">
+    <value>Полоса загрузки:</value>
+  </data>
+  <data name="TooltipCustomColorProgressBar" xml:space="preserve">
+    <value>Цвет заполнения полос загрузки и обновления. Индикаторы нагрузки оборудования сохраняют свои цвета.</value>
+  </data>
+  <data name="BenchmarkPromptRun" xml:space="preserve">
+    <value>Прогон промта</value>
+  </data>
+  <data name="BenchmarkPromptSystem" xml:space="preserve">
+    <value>Системный промт</value>
+  </data>
+  <data name="BenchmarkPromptRequests" xml:space="preserve">
+    <value>Запросы</value>
+  </data>
+  <data name="BenchmarkPromptSeparatorHint" xml:space="preserve">
+    <value>Строка из трёх и более дефисов (---) начинает следующий запрос. Без неё всё поле считается одним запросом.</value>
+  </data>
+  <data name="BenchmarkPromptMaxTokens" xml:space="preserve">
+    <value>Макс. токенов</value>
+  </data>
+  <data name="BenchmarkPromptTimeout" xml:space="preserve">
+    <value>Таймаут, с</value>
+  </data>
+  <data name="BenchmarkPromptKeepContext" xml:space="preserve">
+    <value>Продолжать диалог</value>
+  </data>
+  <data name="BenchmarkPromptCount" xml:space="preserve">
+    <value>Запросов: {0}</value>
+  </data>
+  <data name="TooltipBenchmarkPromptRun" xml:space="preserve">
+    <value>Запустить сервер, отправить модели эти запросы, сохранить ответы в папку бенчмарка и остановить сервер.</value>
+  </data>
+  <data name="TooltipBenchmarkPromptSystem" xml:space="preserve">
+    <value>Уходит системным сообщением перед первым запросом. Пустое поле - системный промт не задаётся.</value>
+  </data>
+  <data name="TooltipBenchmarkPromptRequests" xml:space="preserve">
+    <value>Что спросить у модели. Запросы уходят по очереди, ответы попадают в prompt-run.md.</value>
+  </data>
+  <data name="TooltipBenchmarkPromptMaxTokens" xml:space="preserve">
+    <value>Ограничение длины ответа. 0 - решает сервер.</value>
+  </data>
+  <data name="TooltipBenchmarkPromptKeepContext" xml:space="preserve">
+    <value>Включено: каждый запрос продолжает один и тот же диалог. Выключено: каждый запрос начинается с одного лишь системного промта.</value>
+  </data>
+  <data name="BenchmarkReportPromptRun" xml:space="preserve">
+    <value>Прогон промта</value>
+  </data>
+  <data name="BenchmarkReportPromptRunRequests" xml:space="preserve">
+    <value>Запросов в прогоне промта</value>
+  </data>
+  <data name="BenchmarkReportMode" xml:space="preserve">
+    <value>Режим</value>
+  </data>
+  <data name="BenchmarkReportModeConversation" xml:space="preserve">
+    <value>диалог</value>
+  </data>
+  <data name="BenchmarkReportModeIndependent" xml:space="preserve">
+    <value>независимые запросы</value>
+  </data>
+  <data name="BenchmarkReportMaxTokens" xml:space="preserve">
+    <value>Макс. токенов</value>
+  </data>
+  <data name="BenchmarkReportServerDefault" xml:space="preserve">
+    <value>по умолчанию сервера</value>
+  </data>
+  <data name="BenchmarkReportSystemPrompt" xml:space="preserve">
+    <value>Системный промт</value>
+  </data>
+  <data name="BenchmarkReportRequest" xml:space="preserve">
+    <value>Запрос</value>
+  </data>
+  <data name="BenchmarkReportAnswer" xml:space="preserve">
+    <value>Ответ</value>
+  </data>
+  <data name="BenchmarkReportReasoning" xml:space="preserve">
+    <value>Рассуждение</value>
+  </data>
+  <data name="BenchmarkReportFailed" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="BenchmarkReportNoRequests" xml:space="preserve">
+    <value>Запросы не отправлялись.</value>
+  </data>
+  <data name="BenchmarkReportTokens" xml:space="preserve">
+    <value>Токенов</value>
+  </data>
+  <data name="BenchmarkReportTranscriptHint" xml:space="preserve">
+    <value>Полная расшифровка: prompt-run.md</value>
+  </data>
+  <data name="BenchmarkReportPrompt" xml:space="preserve">
+    <value>Промпт</value>
+  </data>
+  <data name="BenchmarkReportGeneration" xml:space="preserve">
+    <value>Генерация</value>
+  </data>
+  <data name="BenchmarkReportFinishReason" xml:space="preserve">
+    <value>Причина остановки</value>
+  </data>
 </root>

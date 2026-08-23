@@ -2106,4 +2106,289 @@ Stop and continue?</value>
   <data name="BenchmarkPickHintText" xml:space="preserve">
     <value>Tick one or more runs in the list on the left — they will be compared side by side here.</value>
   </data>
+  <data name="TabMcp" xml:space="preserve">
+    <value>MCP</value>
+  </data>
+  <data name="HelpTitleMcp" xml:space="preserve">
+    <value>Help - MCP</value>
+  </data>
+  <data name="McpSettings" xml:space="preserve">
+    <value>MCP servers (experimental)</value>
+  </data>
+  <data name="McpEnabled" xml:space="preserve">
+    <value>Start the server with these MCP servers</value>
+  </data>
+  <data name="TooltipMcpEnabled" xml:space="preserve">
+    <value>Generates mcp.json for this profile and passes it to llama-server via --mcp-servers-config. Tools of a server show up as name_tool.</value>
+  </data>
+  <data name="McpAddServer" xml:space="preserve">
+    <value>Add server</value>
+  </data>
+  <data name="McpImport" xml:space="preserve">
+    <value>Import mcp.json</value>
+  </data>
+  <data name="TooltipMcpImport" xml:space="preserve">
+    <value>Reads a Cursor or Claude Desktop config and appends its servers to the list</value>
+  </data>
+  <data name="McpRemoveServer" xml:space="preserve">
+    <value>Remove this server</value>
+  </data>
+  <data name="McpServerEnabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="McpName" xml:space="preserve">
+    <value>Name:</value>
+  </data>
+  <data name="McpCommand" xml:space="preserve">
+    <value>Command:</value>
+  </data>
+  <data name="McpArgs" xml:space="preserve">
+    <value>Arguments:</value>
+  </data>
+  <data name="McpCwd" xml:space="preserve">
+    <value>Working dir:</value>
+  </data>
+  <data name="McpEnv" xml:space="preserve">
+    <value>Environment:</value>
+  </data>
+  <data name="McpTimeout" xml:space="preserve">
+    <value>Timeout (ms):</value>
+  </data>
+  <data name="TooltipMcpName" xml:space="preserve">
+    <value>Config key. llama-server publishes the tools of this server as name_tool</value>
+  </data>
+  <data name="TooltipMcpCommand" xml:space="preserve">
+    <value>Executable that speaks MCP over stdio. Entries without a command are skipped by the server</value>
+  </data>
+  <data name="TooltipMcpArgs" xml:space="preserve">
+    <value>Arguments for the command, written as one line, quotes are respected</value>
+  </data>
+  <data name="TooltipMcpCwd" xml:space="preserve">
+    <value>Working directory of the child process, optional</value>
+  </data>
+  <data name="TooltipMcpEnv" xml:space="preserve">
+    <value>One KEY=VALUE per line, merged over the environment of the launcher</value>
+  </data>
+  <data name="TooltipMcpTimeout" xml:space="preserve">
+    <value>Timeout of a single tool call, 30000 ms by default</value>
+  </data>
+  <data name="PlaceholderMcpName" xml:space="preserve">
+    <value>filesystem</value>
+  </data>
+  <data name="PlaceholderMcpCommand" xml:space="preserve">
+    <value>npx</value>
+  </data>
+  <data name="PlaceholderMcpArgs" xml:space="preserve">
+    <value>-y @modelcontextprotocol/server-filesystem C:\data</value>
+  </data>
+  <data name="PlaceholderMcpCwd" xml:space="preserve">
+    <value>optional</value>
+  </data>
+  <data name="PlaceholderMcpEnv" xml:space="preserve">
+    <value>KEY=VALUE</value>
+  </data>
+  <data name="PlaceholderMcpTimeout" xml:space="preserve">
+    <value>30000</value>
+  </data>
+  <data name="McpNoServers" xml:space="preserve">
+    <value>No MCP servers yet. Add one or import an existing mcp.json.</value>
+  </data>
+  <data name="McpNotSupported" xml:space="preserve">
+    <value>The selected llama-server build has no --mcp-servers-config flag. Update llama.cpp to use this tab.</value>
+  </data>
+  <data name="McpCorsWarning" xml:space="preserve">
+    <value>With MCP enabled llama-server limits CORS to localhost unless --cors-origins is set explicitly.</value>
+  </data>
+  <data name="McpTrustWarning" xml:space="preserve">
+    <value>MCP servers run as child processes with the same rights as the launcher. Only add commands you trust.</value>
+  </data>
+  <data name="McpDockerWarning" xml:space="preserve">
+    <value>In Docker mode the config is mounted at /mcp, but the declared commands must exist inside the image.</value>
+  </data>
+  <data name="McpJinjaWarning" xml:space="preserve">
+    <value>Tool calls need jinja templates, so do not pass --no-jinja in custom arguments.</value>
+  </data>
+  <data name="McpGeneratedFile" xml:space="preserve">
+    <value>Generated config: {0}</value>
+  </data>
+  <data name="McpTest" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="TooltipMcpTest" xml:space="preserve">
+    <value>Starts the command and asks it for its tool list, without starting llama-server</value>
+  </data>
+  <data name="McpTestRunning" xml:space="preserve">
+    <value>Checking '{0}'...</value>
+  </data>
+  <data name="McpTestOk" xml:space="preserve">
+    <value>{0}: {1} tool(s): {2}</value>
+  </data>
+  <data name="McpTestFailed" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="McpImported" xml:space="preserve">
+    <value>MCP servers imported: {0}</value>
+  </data>
+  <data name="McpImportFailed" xml:space="preserve">
+    <value>Failed to read the MCP config: {0}</value>
+  </data>
+  <data name="McpIssueEmptyName" xml:space="preserve">
+    <value>A server without a name will be skipped</value>
+  </data>
+  <data name="McpIssueEmptyCommand" xml:space="preserve">
+    <value>Server '{0}': the command is empty, it will be skipped</value>
+  </data>
+  <data name="McpIssueDuplicateName" xml:space="preserve">
+    <value>Duplicate server name '{0}': only one of them will be used</value>
+  </data>
+  <data name="McpIssueInvalidTimeout" xml:space="preserve">
+    <value>Server '{0}': the timeout must be greater than zero</value>
+  </data>
+  <data name="McpDiscoveredTools" xml:space="preserve">
+    <value>Tools of the running server</value>
+  </data>
+  <data name="McpQueryTools" xml:space="preserve">
+    <value>Query</value>
+  </data>
+  <data name="TooltipMcpQueryTools" xml:space="preserve">
+    <value>Reads GET /tools of the running server of this profile</value>
+  </data>
+  <data name="McpToolsNoServer" xml:space="preserve">
+    <value>No running server for this profile</value>
+  </data>
+  <data name="McpToolsForbidden" xml:space="preserve">
+    <value>The server was started without tools and without MCP</value>
+  </data>
+  <data name="McpToolsEmpty" xml:space="preserve">
+    <value>The server reports no tools</value>
+  </data>
+  <data name="McpToolsFailed" xml:space="preserve">
+    <value>Failed to read the tool list: {0}</value>
+  </data>
+  <data name="McpLogProblem" xml:space="preserve">
+    <value>MCP in profile '{0}': {1}</value>
+  </data>
+  <data name="KillSpawnedProcesses" xml:space="preserve">
+    <value>Stop processes started by the server together with it</value>
+  </data>
+  <data name="TooltipKillSpawnedProcesses" xml:space="preserve">
+    <value>MCP servers and the applications they launch (ComfyUI, for instance) are held in a job object and stopped when the server stops or the launcher exits, so nothing is left running. Turn this off to let such applications outlive the server. Windows only.</value>
+  </data>
+  <data name="McpDialogTitle" xml:space="preserve">
+    <value>MCP server</value>
+  </data>
+  <data name="TooltipMcpEditServer" xml:space="preserve">
+    <value>Click the row to edit this server</value>
+  </data>
+  <data name="McpToolsFound" xml:space="preserve">
+    <value>Tools of the running server: {0}. Click to see the list.</value>
+  </data>
+  <data name="McpBuiltInTools" xml:space="preserve">
+    <value>Built-in tools</value>
+  </data>
+  <data name="McpImportProfileItem" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="McpImportNoProfiles" xml:space="preserve">
+    <value>No other profile has MCP servers</value>
+  </data>
+  <data name="CustomColorProgressBar" xml:space="preserve">
+    <value>Progress bar:</value>
+  </data>
+  <data name="TooltipCustomColorProgressBar" xml:space="preserve">
+    <value>Fill colour of the download and update progress bars. The hardware meters keep their own colours.</value>
+  </data>
+  <data name="BenchmarkPromptRun" xml:space="preserve">
+    <value>Prompt run</value>
+  </data>
+  <data name="BenchmarkPromptSystem" xml:space="preserve">
+    <value>System prompt</value>
+  </data>
+  <data name="BenchmarkPromptRequests" xml:space="preserve">
+    <value>Requests</value>
+  </data>
+  <data name="BenchmarkPromptSeparatorHint" xml:space="preserve">
+    <value>A line of three or more dashes (---) starts the next request. Without one the whole box is a single request.</value>
+  </data>
+  <data name="BenchmarkPromptMaxTokens" xml:space="preserve">
+    <value>Max tokens</value>
+  </data>
+  <data name="BenchmarkPromptTimeout" xml:space="preserve">
+    <value>Timeout, s</value>
+  </data>
+  <data name="BenchmarkPromptKeepContext" xml:space="preserve">
+    <value>Keep the conversation</value>
+  </data>
+  <data name="BenchmarkPromptCount" xml:space="preserve">
+    <value>Requests: {0}</value>
+  </data>
+  <data name="TooltipBenchmarkPromptRun" xml:space="preserve">
+    <value>Start the server, send these requests to the model, save the answers into the benchmark folder and stop the server.</value>
+  </data>
+  <data name="TooltipBenchmarkPromptSystem" xml:space="preserve">
+    <value>Sent as the system message before the first request. Leave empty to use the model defaults.</value>
+  </data>
+  <data name="TooltipBenchmarkPromptRequests" xml:space="preserve">
+    <value>What to ask the model. Requests are sent one after another and the answers land in prompt-run.md.</value>
+  </data>
+  <data name="TooltipBenchmarkPromptMaxTokens" xml:space="preserve">
+    <value>Upper limit for the answer length. 0 leaves it to the server.</value>
+  </data>
+  <data name="TooltipBenchmarkPromptKeepContext" xml:space="preserve">
+    <value>On: every request continues the same conversation. Off: each request starts from the system prompt alone.</value>
+  </data>
+  <data name="BenchmarkReportPromptRun" xml:space="preserve">
+    <value>Prompt run</value>
+  </data>
+  <data name="BenchmarkReportPromptRunRequests" xml:space="preserve">
+    <value>Prompt run requests</value>
+  </data>
+  <data name="BenchmarkReportMode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="BenchmarkReportModeConversation" xml:space="preserve">
+    <value>conversation</value>
+  </data>
+  <data name="BenchmarkReportModeIndependent" xml:space="preserve">
+    <value>independent requests</value>
+  </data>
+  <data name="BenchmarkReportMaxTokens" xml:space="preserve">
+    <value>Max tokens</value>
+  </data>
+  <data name="BenchmarkReportServerDefault" xml:space="preserve">
+    <value>server default</value>
+  </data>
+  <data name="BenchmarkReportSystemPrompt" xml:space="preserve">
+    <value>System prompt</value>
+  </data>
+  <data name="BenchmarkReportRequest" xml:space="preserve">
+    <value>Request</value>
+  </data>
+  <data name="BenchmarkReportAnswer" xml:space="preserve">
+    <value>Answer</value>
+  </data>
+  <data name="BenchmarkReportReasoning" xml:space="preserve">
+    <value>Reasoning</value>
+  </data>
+  <data name="BenchmarkReportFailed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="BenchmarkReportNoRequests" xml:space="preserve">
+    <value>No requests were sent.</value>
+  </data>
+  <data name="BenchmarkReportTokens" xml:space="preserve">
+    <value>Tokens</value>
+  </data>
+  <data name="BenchmarkReportTranscriptHint" xml:space="preserve">
+    <value>Full transcript: prompt-run.md</value>
+  </data>
+  <data name="BenchmarkReportPrompt" xml:space="preserve">
+    <value>Prompt</value>
+  </data>
+  <data name="BenchmarkReportGeneration" xml:space="preserve">
+    <value>Generation</value>
+  </data>
+  <data name="BenchmarkReportFinishReason" xml:space="preserve">
+    <value>Finish reason</value>
+  </data>
 </root>

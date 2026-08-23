@@ -29,6 +29,8 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
     private bool _isStarting;
     private bool _isReady;
     private bool _noMmapCrashSuspected;
+    private string? _mcpProblem;
+    private readonly HashSet<string> _reportedMcpProblems = new(StringComparer.Ordinal);
     private CancellationTokenSource? _readinessCts;
     private CancellationTokenSource? _statsCts;
     private double? _promptTps;
@@ -75,6 +77,19 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
             if (_noMmapCrashSuspected != value)
             {
                 _noMmapCrashSuspected = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string? McpProblem
+    {
+        get => _mcpProblem;
+        private set
+        {
+            if (_mcpProblem != value)
+            {
+                _mcpProblem = value;
                 OnPropertyChanged();
             }
         }
@@ -295,6 +310,16 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
             && ServerCrashAdvisor.ShouldSuggestDisableNoMmap(output, Configuration.Mmap == false))
         {
             Dispatcher.UIThread.Post(() => NoMmapCrashSuspected = true);
+        }
+
+        if (ServerLogFilter.TryGetMcpProblem(output) is { } mcpProblem)
+        {
+            bool isNew;
+            lock (_reportedMcpProblems)
+                isNew = _reportedMcpProblems.Add(mcpProblem);
+
+            if (isNew)
+                Dispatcher.UIThread.Post(() => McpProblem = mcpProblem);
         }
 
         if (!ServerLogFilter.IsPollingNoise(output))

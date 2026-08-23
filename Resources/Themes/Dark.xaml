@@ -17,6 +17,8 @@
     <SolidColorBrush x:Key="LogBackgroundBrush">#1E1E1E</SolidColorBrush>
     <SolidColorBrush x:Key="LogForegroundBrush">#DCDCDC</SolidColorBrush>
     <SolidColorBrush x:Key="AccentForegroundBrush">#4EC9B0</SolidColorBrush>
+    <SolidColorBrush x:Key="ProgressBarForegroundBrush">#4EC9B0</SolidColorBrush>
+    <SolidColorBrush x:Key="ProgressBarTrackBrush">#3A3A3D</SolidColorBrush>
     <SolidColorBrush x:Key="CommandForegroundBrush">#9CDCFE</SolidColorBrush>
     <SolidColorBrush x:Key="OverlayBackgroundBrush">#AA000000</SolidColorBrush>
     <SolidColorBrush x:Key="OverlayBorderBrush">#4FCCFF</SolidColorBrush>

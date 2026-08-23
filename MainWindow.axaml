@@ -37,6 +37,7 @@
         <StreamGeometry x:Key="NavOptionsIcon">M384 1344q0-26-19-45t-45-19t-45 19t-19 45t19 45t45 19t45-19t19-45m644-420l-682 682q-37 37-90 37q-52 0-91-37L59 1498q-38-36-38-90q0-53 38-91l681-681q39 98 114.5 173.5T1028 924m634-435q0 39-23 106q-47 134-164.5 217.5T1216 896q-185 0-316.5-131.5T768 448t131.5-316.5T1216 0q58 0 121.5 16.5T1445 63q16 11 16 28t-16 28l-293 169v224l193 107q5-3 79-48.5t135.5-81T1630 454q15 0 23.5 10t8.5 25</StreamGeometry>
         <StreamGeometry x:Key="NavSpeculativeIcon">M885 438q18 20 7 44L352 1639q-13 25-42 25q-4 0-14-2q-17-5-25.5-19t-4.5-30l197-808L57 906q-4 1-12 1q-18 0-31-11q-18-15-13-39L202 32q4-14 16-23t28-9h328q19 0 32 12.5T619 42q0 8-5 18L443 523l396-98q8-2 12-2q19 0 34 15</StreamGeometry>
         <StreamGeometry x:Key="NavDockerIcon">M349.9 300.3h-66.1v-59.4h66.1zm0-204.3h-66.1v60.7h66.1zm78.2 144.8H362v59.4h66.1zm-156.3-72.1h-66.1v60.1h66.1zm78.1 0h-66.1v60.1h66.1zm276.8 100c-14.4-9.7-47.6-13.2-73.1-8.4c-3.3-24-16.7-44.9-41.1-63.7l-14-9.3l-9.3 14c-18.4 27.8-23.4 73.6-3.7 103.8c-8.7 4.7-25.8 11.1-48.4 10.7H2.4c-8.7 50.8 5.8 116.8 44 162.1c37.1 43.9 92.7 66.2 165.4 66.2c157.4 0 273.9-72.5 328.4-204.2c21.4.4 67.6.1 91.3-45.2c1.5-2.5 6.6-13.2 8.5-17.1zm-511.1-27.9h-66v59.4h66.1v-59.4zm78.1 0h-66.1v59.4h66.1zm78.1 0h-66.1v59.4h66.1zm-78.1-72.1h-66.1v60.1h66.1z</StreamGeometry>
+        <StreamGeometry x:Key="NavMcpIcon">M600,96 L720,96 L720,416 L600,416 Z M960,96 L1080,96 L1080,416 L960,416 Z M520,448 L1160,448 L1160,768 Q1160,912 1016,912 L664,912 Q520,912 520,768 Z M780,912 L900,912 L900,1536 L780,1536 Z</StreamGeometry>
         <StreamGeometry x:Key="NavSettingsIcon">M1024 768q0-106-75-181t-181-75t-181 75t-75 181t75 181t181 75t181-75t75-181m512-109v222q0 12-8 23t-20 13l-185 28q-19 54-39 91q35 50 107 138q10 12 10 25t-9 23q-27 37-99 108t-94 71q-12 0-26-9l-138-108q-44 23-91 38q-16 136-29 186q-7 28-36 28H657q-14 0-24.5-8.5T621 1506l-28-184q-49-16-90-37l-141 107q-10 9-25 9q-14 0-25-11q-126-114-165-168q-7-10-7-23q0-12 8-23q15-21 51-66.5t54-70.5q-27-50-41-99L29 913q-13-2-21-12.5T0 877V655q0-12 8-23t19-13l186-28q14-46 39-92q-40-57-107-138q-10-12-10-24q0-10 9-23q26-36 98.5-107.5T337 135q13 0 26 10l138 107q44-23 91-38q16-136 29-186q7-28 36-28h222q14 0 24.5 8.5T915 30l28 184q49 16 90 37l142-107q9-9 24-9q13 0 25 10q129 119 165 170q7 8 7 22q0 12-8 23q-15 21-51 66.5t-54 70.5q26 50 41 98l183 28q13 2 21 12.5t8 23.5</StreamGeometry>
         <StreamGeometry x:Key="BackspaceIcon">M512 608v576q0 14-9 23t-23 9h-64q-14 0-23-9t-9-23V608q0-14 9-23t23-9h64q14 0 23 9t9 23m256 0v576q0 14-9 23t-23 9h-64q-14 0-23-9t-9-23V608q0-14 9-23t23-9h64q14 0 23 9t9 23m256 0v576q0 14-9 23t-23 9h-64q-14 0-23-9t-9-23V608q0-14 9-23t23-9h64q14 0 23 9t9 23m128 724V384H256v948q0 22 7 40.5t14.5 27t10.5 8.5h832q3 0 10.5-8.5t14.5-27t7-40.5M480 256h448l-48-117q-7-9-17-11H546q-10 2-17 11zm928 32v64q0 14-9 23t-23 9h-96v948q0 83-47 143.5t-113 60.5H288q-66 0-113-58.5T128 1336V384H32q-14 0-23-9t-9-23v-64q0-14 9-23t23-9h309l70-167q15-37 54-63t79-26h320q40 0 79 26t54 63l70 167h309q14 0 23 9t9 23</StreamGeometry>
         <StreamGeometry x:Key="LogMaximizeIcon">M256 1280h1280V512H256zM1792 160v1216q0 66-47 113t-113 47H160q-66 0-113-47T0 1376V160Q0 94 47 47T160 0h1472q66 0 113 47t47 113</StreamGeometry>
@@ -124,7 +125,7 @@
                             <Button Content="{Binding Localized.Cancel}" Click="CancelAppUpdateClick" 
                                     IsVisible="{Binding AppUpdateCanCancel}" FontSize="11" Padding="8,2"/>
                         </StackPanel>
-                        <Button Content="{Binding LlamaButtonText}" IsVisible="{Binding ShowLlamaUpdateButton}"
+                        <Button x:Name="LlamaUpdateButton" Content="{Binding LlamaButtonText}" IsVisible="{Binding ShowLlamaUpdateButton}"
                                 Background="{DynamicResource SuccessBackgroundBrush}" Foreground="White" Click="LlamaDownloadClick"
                                 ToolTip.Tip="{Binding LlamaUpdateTooltip}" Margin="0,0,5,0"/>
                         <Button Content="{Binding LlamaButtonText}" IsVisible="{Binding ShowLlamaDownloadButton}"
@@ -257,6 +258,12 @@
                                 <StackPanel Orientation="Horizontal">
                                     <PathIcon Data="{StaticResource NavDockerIcon}" Width="18" Height="18"/>
                                     <TextBlock Text="{Binding Localized.TabDocker}" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsNavPaneOpen}"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                            <ListBoxItem ToolTip.Tip="{Binding Localized.TabMcp}">
+                                <StackPanel Orientation="Horizontal">
+                                    <PathIcon Data="{StaticResource NavMcpIcon}" Width="18" Height="18"/>
+                                    <TextBlock Text="{Binding Localized.TabMcp}" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsNavPaneOpen}"/>
                                 </StackPanel>
                             </ListBoxItem>
                             <ListBoxItem ToolTip.Tip="{Binding Localized.TabSettings}">
@@ -787,6 +794,97 @@
                     </ScrollViewer>
                 </TabItem>
 
+                <TabItem Header="{Binding Localized.TabMcp}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="10">
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.McpSettings}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <CheckBox Content="{Binding Localized.McpEnabled}" IsChecked="{Binding McpEnabled}"
+                                              IsEnabled="{Binding IsMcpSupported}"
+                                              ToolTip.Tip="{Binding Localized.TooltipMcpEnabled}"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button x:Name="AddMcpServerButton" Content="{Binding Localized.McpAddServer}" Click="AddMcpServerClick" Margin="0,0,6,0"/>
+                                        <SplitButton x:Name="McpImportSplitButton" Content="{Binding Localized.McpImport}" Click="ImportMcpConfigClick"
+                                                     Margin="0,0,6,0"
+                                                     ToolTip.Tip="{Binding Localized.TooltipMcpImport}">
+                                            <SplitButton.Flyout>
+                                                <MenuFlyout Placement="Bottom"/>
+                                            </SplitButton.Flyout>
+                                        </SplitButton>
+                                        <Button x:Name="QueryMcpToolsButton" Content="{Binding Localized.McpQueryTools}" Click="QueryMcpToolsClick"
+                                                ToolTip.Tip="{Binding Localized.TooltipMcpQueryTools}"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding McpGeneratedFileText}" FontSize="11" Opacity="0.6"
+                                               TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5"
+                                    IsVisible="{Binding McpNotSupportedWarning}">
+                                <TextBlock Text="{Binding Localized.McpNotSupported}"
+                                           Foreground="{DynamicResource WarningForegroundBrush}" TextWrapping="Wrap"/>
+                            </Border>
+
+                            <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5"
+                                    IsVisible="{Binding HasMcpValidationIssues}">
+                                <ScrollViewer MaxHeight="90" VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,0">
+                                    <TextBlock Text="{Binding McpValidationText}"
+                                               Foreground="{DynamicResource WarningForegroundBrush}" TextWrapping="Wrap"/>
+                                </ScrollViewer>
+                            </Border>
+
+                            <TextBlock Text="{Binding Localized.McpNoServers}" IsVisible="{Binding ShowMcpEmptyHint}"
+                                       Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                            <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,0">
+                            <ItemsControl ItemsSource="{Binding McpServers}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,4" Padding="8,5" CornerRadius="5"
+                                                Background="{DynamicResource PanelBackgroundBrush}"
+                                                Tapped="McpServerRowTapped"
+                                                Cursor="Hand"
+                                                ToolTip.Tip="{Binding $parent[Window].DataContext.Localized.TooltipMcpEditServer}">
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <ctrl:BoolSelector Grid.Column="0" Value="{Binding Enabled, Mode=TwoWay}"
+                                                                   Label="{Binding Name}" Margin="0,0,10,0"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Command}" Opacity="0.55" Margin="10,0,10,0"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                                <PathIcon Grid.Column="2" Data="{StaticResource NavOptionsIcon}"
+                                                          Width="13" Height="13" Opacity="0.5" Margin="6,0,4,0"
+                                                          VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            </ScrollViewer>
+
+                            <Border Margin="0,10,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Localized.McpTrustWarning}" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource WarningForegroundBrush}"/>
+                                    <TextBlock Text="{Binding Localized.McpCorsWarning}" TextWrapping="Wrap" Opacity="0.75" Margin="0,6,0,0"/>
+                                    <TextBlock Text="{Binding Localized.McpJinjaWarning}" TextWrapping="Wrap" Opacity="0.75" Margin="0,6,0,0"/>
+                                    <TextBlock Text="{Binding Localized.McpDockerWarning}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                               Foreground="{DynamicResource WarningForegroundBrush}"
+                                               IsVisible="{Binding ShowMcpDockerWarning}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
                 <TabItem Header="{Binding Localized.TabSettings}">
                     <TabControl TabStripPlacement="Left" Margin="5">
                         <TabItem Header="{Binding Localized.Appearance}">
@@ -835,7 +933,7 @@
                                               IsExpanded="True"
                                               Margin="0,15,0,0" Padding="0">
                                         <StackPanel Margin="8,8,8,4">
-                                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.CustomColorWindow}"   VerticalAlignment="Center" Margin="0,0,12,8"/>
                                                 <ColorPicker Grid.Row="0" Grid.Column="1" Color="{Binding CustomWindowBackground, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
                                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.CustomColorPanel}"   VerticalAlignment="Center" Margin="0,0,12,8"/>
@@ -850,8 +948,12 @@
                                                 <ColorPicker Grid.Row="5" Grid.Column="1" Color="{Binding CustomOptionOff, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
                                                 <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding Localized.CustomColorOptionAuto}" VerticalAlignment="Center" Margin="0,0,12,8"/>
                                                 <ColorPicker Grid.Row="6" Grid.Column="1" Color="{Binding CustomOptionAuto, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
-                                                <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding Localized.CustomColorOptionOn}" VerticalAlignment="Center" Margin="0,0,12,4"/>
-                                                <ColorPicker Grid.Row="7" Grid.Column="1" Color="{Binding CustomOptionOn, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,4"/>
+                                                <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding Localized.CustomColorOptionOn}" VerticalAlignment="Center" Margin="0,0,12,8"/>
+                                                <ColorPicker Grid.Row="7" Grid.Column="1" Color="{Binding CustomOptionOn, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                                                <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding Localized.CustomColorProgressBar}" VerticalAlignment="Center" Margin="0,0,12,4"
+                                                           ToolTip.Tip="{Binding Localized.TooltipCustomColorProgressBar}"/>
+                                                <ColorPicker Grid.Row="8" Grid.Column="1" Color="{Binding CustomProgressBar, Mode=TwoWay}" IsAlphaEnabled="False" MaxWidth="320" HorizontalAlignment="Left" Margin="0,0,0,4"
+                                                             ToolTip.Tip="{Binding Localized.TooltipCustomColorProgressBar}"/>
                                             </Grid>
                                             <Button Content="{Binding Localized.ResetCustomColors}"
                                                     Click="ResetCustomColorsClick"
@@ -986,6 +1088,8 @@
                                     <CheckBox Content="{Binding Localized.HardwareMonitorEnabled}" IsChecked="{Binding HardwareMonitorEnabled}"
                                               Click="HardwareMonitorEnabledClick"
                                               ToolTip.Tip="{Binding Localized.TooltipHardwareMonitorEnabled}"/>
+                                    <CheckBox Content="{Binding Localized.KillSpawnedProcesses}" IsChecked="{Binding KillSpawnedProcesses}"
+                                              ToolTip.Tip="{Binding Localized.TooltipKillSpawnedProcesses}"/>
 
                                     <Border BorderBrush="{DynamicResource DataPathForegroundBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,8" Padding="0,10,0,0">
                                         <StackPanel>

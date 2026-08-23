@@ -1,12 +1,29 @@
-# LlamaServerLauncher
+<h1 align="center">LlamaServerLauncher</h1>
 
-[Русский](README_ru.md) | [Changelog](CHANGELOG.md)
+<p align="center">
+  <img src="docs/images/preview.png" alt="LlamaServerLauncher" width="350" />
+</p>
 
-![LlamaServerLauncher](docs/images/preview.png)
+<p align="center">
+  <a href="README_ru.md">Русский</a> &nbsp;·&nbsp; <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/pytraveler/LlamaServerLauncherAvalonia/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/pytraveler/LlamaServerLauncherAvalonia?display_name=tag"></a>
+  <a href="https://github.com/pytraveler/LlamaServerLauncherAvalonia/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/pytraveler/LlamaServerLauncherAvalonia/total"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/pytraveler/LlamaServerLauncherAvalonia"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-blue">
+  <img alt=".NET 8" src="https://img.shields.io/badge/.NET-8.0-512BD4">
+  <a href="https://www.youtube.com/watch?v=vcPGTI_VA4k"><img alt="YouTube" src="https://img.shields.io/badge/YouTube-review-FF0000?logo=youtube&logoColor=white"></a>
+</p>
 
 A cross-platform desktop application for launching and managing [llama.cpp](https://github.com/ggerganov/llama.cpp) server instances with an intuitive graphical interface.
 
 Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
+
+<p align="center">
+  <img src="docs/images/main_window_preview_EN.png" alt="Main window" width="820" />
+</p>
 
 ## Features
 
@@ -88,6 +105,7 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 - **Live inference stats** — prompt/generation tokens per second (parsed from server output) and busy/total slots (polled via `/slots`) shown per running instance
 - **Copy menu** — copy the server URL, the OpenAI-compatible base URL (`…/v1`), or a ready-to-run `curl` chat-completion command for any running instance
 - **Crash advisor** — recognizes pinned-memory / CUDA-init failures caused by `--no-mmap` and suggests disabling it in a sticky toast
+- **No leftover processes** — the server and everything it spawns (MCP servers and the applications they start) are held in a Windows job object, so stopping the server, closing the launcher or even a launcher crash takes them all down; can be turned off on the **Behavior** tab (Windows only)
 - Per-instance auto-restart on crash and log toggle
 - Short-lived server error indicator (shows if instance exits within 5 seconds of starting)
 - Instance view in system tray menu with full per-instance controls
@@ -101,8 +119,19 @@ The app automatically parses `llama-server --help` to detect which flags your bi
 ### Benchmarks
 - **Run & save benchmark** — launch a profile in benchmark mode from the Start-server split-button flyout, with an editable llama-server argument line (with per-argument-group toggles)
 - Captures the server's `/metrics` endpoint (Prometheus) and tokens-per-second from the log; optionally drives a built-in standard HTTP workload against the live server
-- Each run is stored per profile in the data directory (`benchmarks/<profile>/<runId>/`: config, command line, server log, metrics, report)
+- **Prompt run** — ask the model your own questions as part of a run: set a system prompt and a list of requests (separated by `---` lines), sent as a conversation or independently; the launcher starts the server, records the answers with per-request speeds and stops it, and the full transcript lands in `prompt-run.md` next to the report
+- Each run is stored per profile in the data directory (`benchmarks/<profile>/<runId>/`: config, command line, server log, metrics, report, prompt-run transcript)
 - **Comparison window** — compare saved runs side by side as Markdown tables, pick which rows (metrics, launch parameters, environment) the table shows, save named comparison sets together with that row selection, export reports as `.md`, and pin extra files to a run
+
+### MCP Servers
+Attach Model Context Protocol servers to a profile so the launched model can call external tools straight from the llama.cpp WebUI (requires a llama.cpp build with `--mcp-servers-config` support).
+- **Per-profile server list** on the **MCP** tab — each server is a row with an on/off switch; on launch the app generates a Cursor-compatible `mcp.json` and passes it to llama-server via `--mcp-servers-config`
+- **Server editor** — command, arguments, environment variables, working directory and timeout, with browse buttons; the **Test** button starts the command the way llama-server would and lists the tools it reports, before any model is loaded
+- **Import** — read servers from an existing `mcp.json` (Cursor / Claude Desktop format) or copy them from another profile via the import button's menu
+- **Tools query** — ask a running server `GET /tools` and see the discovered tools grouped by MCP server
+- MCP problems that llama-server only mentions in its log (a server it could not spawn, one that died) surface as toast notifications
+- **Docker aware** — the generated config directory is mounted into the container and the path rewritten
+- The tab warns about the practical caveats: servers run as child processes with the launcher's rights, enabling MCP limits CORS to localhost unless set explicitly, and tool calls need jinja templates
 
 ### On-Demand Model Proxy (OpenAI-compatible)
 A built-in reverse proxy that loads the right profile on demand when an API request arrives — point a client like Cherry Studio at it and the matching model is loaded automatically, served, and unloaded when idle.
@@ -188,10 +217,11 @@ Drop files onto the window to import configurations or set paths:
 
 ### Appearance & Themes
 - Dark and Light theme variants
-- Multiple color schemes: Default, Ocean, Forest, Sunset, Ubuntu
+- Multiple color schemes: Default, Ocean, Forest, Sunset, Ubuntu, plus a **Custom** scheme where the window and panel backgrounds, accent, separators, command block, toggle positions and progress bar colors are all configurable
+- Colors are owned by the app theme rather than the system accent, so the UI reads the same on every machine
 - Adjustable font size (S, M, L, XL)
 - Custom font family selection
-- Auto-fit height mode (window auto-sizes to content)
+- Auto-fit height mode (window auto-sizes to content, capped by the screen's working area)
 - Collapsible log panel and tab panel
 - Window position and size persistence
 - Dialog position and size persistence
@@ -288,7 +318,7 @@ cd tests
 dotnet run -c Release   # exit code 0 = all checks passed
 ```
 
-Current coverage includes the command-line layer (`CommandLineParser`, `CommandLineBuilder`, `ServerConfiguration`), the optimization (HPO) engine, the on-demand proxy protocol helpers (`ProxyProtocol`), GGUF metadata reading, model folder scanning, the inference/GPU/CPU stats parsers (NVIDIA + AMD), endpoint/curl snippet building, llama.cpp backend asset selection, server log filtering, the crash advisor, and the benchmark metrics/report pipeline. Each area is a separate `*Tests.cs` file wired into `Program.cs`, so coverage grows incrementally.
+Current coverage includes the command-line layer (`CommandLineParser`, `CommandLineBuilder`, `ServerConfiguration`), the optimization (HPO) engine, the on-demand proxy protocol helpers (`ProxyProtocol`), GGUF metadata reading, model folder scanning, the inference/GPU/CPU stats parsers (NVIDIA + AMD), endpoint/curl snippet building, llama.cpp backend asset selection, server log filtering, the crash advisor, the benchmark metrics/report pipeline, the MCP config document (generation, parsing, validation, command-line wiring), and the benchmark prompt run (request splitting, response parsing, transcript rendering). Each area is a separate `*Tests.cs` file wired into `Program.cs`, so coverage grows incrementally.
 
 ## Usage
 
@@ -333,8 +363,18 @@ Benchmark mode captures performance metrics for a profile so different settings 
 
 1. Open the **Start Server** split-button flyout and choose **Run & save benchmark**
 2. Optionally edit the llama-server argument line and choose what to collect (`/metrics` scrape, built-in standard workload, repeats)
-3. Run the benchmark; when the server stops, the run is saved automatically under the profile
-4. Click **Benchmarks** to open the comparison window: select runs, compare them side by side as Markdown tables, narrow the table down with the **Rows** filter, save named comparison sets (runs + row selection), and export reports as `.md`
+3. Optionally enable **Prompt run** — set a system prompt and a list of requests (a line of three or more dashes starts the next one); the launcher sends them to the model, saves the answers into `prompt-run.md` and stops the server when done
+4. Run the benchmark; when the server stops, the run is saved automatically under the profile
+5. Click **Benchmarks** to open the comparison window: select runs, compare them side by side as Markdown tables, narrow the table down with the **Rows** filter, save named comparison sets (runs + row selection), and export reports as `.md`
+
+### Connecting MCP Servers
+
+MCP servers give the launched model external tools, callable straight from the llama.cpp WebUI:
+
+1. On the **MCP** tab, click **Add server** and fill in the command (on Windows include the script extension: `npx.cmd`, not `npx`), arguments and, if needed, environment variables, working directory and timeout
+2. Click **Test** to start the command the way llama-server would and see the tools it reports — no model load required
+3. Alternatively, use **Import mcp.json** to read an existing Cursor / Claude Desktop config, or its menu to copy servers from another profile
+4. Enable **Start the server with these MCP servers** and launch the profile; **Query** then shows the tools the running server actually discovered
 
 ### Log Stream Server
 
@@ -386,7 +426,11 @@ LlamaServerLauncher/
 │   ├── ModelScanEntry                 # Model picker entry + GGUF metadata formatting
 │   ├── EndpointSnippets               # Endpoint URL / curl snippet builders
 │   ├── BackendAssetSelector           # Picks the best llama.cpp build for the detected GPU vendor
-│   ├── Benchmarking/                  # BenchmarkRun, BenchmarkMetrics, BenchmarkComparisonSet
+│   ├── Benchmarking/                  # BenchmarkRun, BenchmarkMetrics, BenchmarkComparisonSet,
+│   │                                  #   PromptRunReport/Document, ChatCompletionResponse, ModelListResponse
+│   ├── McpServerEntry                 # One MCP server of a profile (command, args, env, cwd, timeout)
+│   ├── McpConfigDocument              # Builds/parses/validates the Cursor-compatible mcp.json
+│   ├── ServerToolsResponse            # Parses GET /tools of a running server
 │   └── AppInfo                        # Application version accessor (reflection)
 ├── ViewModels/                        # MVVM view models
 │   ├── MainViewModel                  # Main application logic and state (multi-instance, scenarios)
@@ -395,6 +439,8 @@ LlamaServerLauncher/
 │   ├── ModelPickerViewModel           # Model folder scan/pick dialog logic
 │   ├── BenchmarkLaunchViewModel       # Benchmark run configuration dialog logic
 │   ├── BenchmarkComparisonViewModel   # Benchmark comparison window logic
+│   ├── McpServerDialogViewModel       # MCP server editor dialog logic (validation, probe)
+│   ├── McpValidationFormatter / McpImportSource # MCP issue formatting and import menu entries
 │   ├── DownloadDialogViewModel
 │   ├── ArgumentPickerViewModel
 │   ├── IOnDemandProxyHost             # Bridge for the proxy to drive profile start/stop
@@ -421,7 +467,11 @@ LlamaServerLauncher/
 │   ├── SystemMetrics                  # OS-level CPU/RAM metrics (Windows/Linux/macOS)
 │   ├── GpuVendorDetector              # One-shot GPU vendor probe for backend auto-detect
 │   ├── Benchmarking/                  # PrometheusMetricsParser, BenchmarkReportBuilder/Localizer,
-│   │                                  #   BenchmarkStorageService, BenchmarkRunController, ShellHelper
+│   │                                  #   BenchmarkStorageService, BenchmarkRunController, ShellHelper,
+│   │                                  #   PromptRunService (chat requests of a prompt run)
+│   ├── McpConfigService               # Writes the per-profile mcp.json the server is started with
+│   ├── McpProbeService                # Starts an MCP command and asks it for its tools
+│   ├── WindowsProcessJob              # Job object holding the server and everything it spawns
 │   ├── WindowsFileDialogs             # File/folder picker abstractions
 │   ├── HelpService                    # Loads and shows the built-in per-section help
 │   ├── DialogPositionHelper           # Dialog window position/size persistence
@@ -430,6 +480,7 @@ LlamaServerLauncher/
 ├── Controls/                          # Custom UI controls
 │   ├── HistoryTextBox                 # TextBox with history navigation
 │   ├── TriStateSelector               # Tri-state (on/off/default) option selector
+│   ├── BoolSelector                   # Two-position switch in the same visual language
 │   └── MarkdownRenderer               # Lightweight Markdown renderer (incl. GFM tables)
 ├── Resources/                         # Localization, themes, and assets
 │   ├── Strings.resx                   # English localization
@@ -452,6 +503,7 @@ LlamaServerLauncher/
 ├── ModelPickerWindow.axaml            # GGUF model picker (folder scan + metadata list)
 ├── BenchmarkLaunchWindow.axaml        # Benchmark run configuration dialog
 ├── BenchmarkComparisonWindow.axaml    # Benchmark comparison window (Markdown tables)
+├── McpServerDialogWindow.axaml        # MCP server editor dialog
 ├── MarkdownViewerWindow.axaml         # Markdown viewer (release notes, reports)
 ├── DownloadDialogWindow.axaml
 ├── ArgumentPickerWindow.axaml
@@ -462,6 +514,8 @@ LlamaServerLauncher/
 ## Acknowledgments
 
 Thanks for contributions and moral support — [Methelina](https://github.com/Methelina). Thanks for providing [experimental llama.cpp-turboquant builds](https://github.com/pytraveler/llama-cpp-turboquant).
+
+Thanks to [MrGips](https://www.youtube.com/@ProComfy) for the video review of the launcher — [«Удобный запуск локальных LLM в llama.cpp (Llama Launcher)»](https://www.youtube.com/watch?v=vcPGTI_VA4k) (in Russian).
 
 ## License
 

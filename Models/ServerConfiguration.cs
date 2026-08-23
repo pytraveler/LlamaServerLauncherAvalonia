@@ -183,6 +183,15 @@ public class ServerConfiguration
     [JsonPropertyName("dockerContainerName")]
     public string DockerContainerName { get; set; } = string.Empty;
 
+    [JsonPropertyName("mcpEnabled")]
+    public bool McpEnabled { get; set; }
+
+    [JsonPropertyName("mcpServers")]
+    public List<McpServerEntry> McpServers { get; set; } = new();
+
+    [JsonIgnore]
+    public string McpConfigPath { get; set; } = string.Empty;
+
     public ServerConfiguration Clone()
     {
         return new ServerConfiguration
@@ -245,8 +254,26 @@ public class ServerConfiguration
             DockerImage = DockerImage,
             DockerGpuAll = DockerGpuAll,
             DockerRm = DockerRm,
-            DockerContainerName = DockerContainerName
+            DockerContainerName = DockerContainerName,
+            McpEnabled = McpEnabled,
+            McpServers = CloneMcpServers(),
+            McpConfigPath = McpConfigPath
         };
+    }
+
+    private List<McpServerEntry> CloneMcpServers()
+    {
+        var copy = new List<McpServerEntry>();
+        if (McpServers == null)
+            return copy;
+
+        foreach (var entry in McpServers)
+        {
+            if (entry != null)
+                copy.Add(entry.Clone());
+        }
+
+        return copy;
     }
 
     public static readonly Dictionary<string, ArgumentMapping> KnownArguments = new(StringComparer.OrdinalIgnoreCase)
@@ -363,6 +390,8 @@ public class ServerConfiguration
         ["-hfd"] = new("HfRepoDraft", ArgType.String),
         ["-hfrd"] = new("HfRepoDraft", ArgType.String),
         ["--hf-repo-draft"] = new("HfRepoDraft", ArgType.String),
+
+        ["--mcp-servers-config"] = new("McpConfigPath", ArgType.String),
     };
 
     public static ArgType? GetArgType(string propertyName)

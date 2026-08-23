@@ -49,4 +49,16 @@ public class BenchmarkMetrics
 
     [JsonPropertyName("stdNPredict")]
     public int? StdNPredict { get; set; }
+
+    [JsonPropertyName("promptRunTurns")]
+    public int? PromptRunTurns { get; set; }
+
+    [JsonPropertyName("promptRunGenTps")]
+    public double? PromptRunGenTps { get; set; }
+
+    [JsonPropertyName("promptRunPromptTps")]
+    public double? PromptRunPromptTps { get; set; }
+
+    [JsonPropertyName("promptRunTtftMs")]
+    public double? PromptRunTtftMs { get; set; }
 }

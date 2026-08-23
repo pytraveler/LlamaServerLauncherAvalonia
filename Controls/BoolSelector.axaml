@@ -1,0 +1,43 @@
+<UserControl x:Class="LlamaServerLauncher.Controls.BoolSelector"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <UserControl.Styles>
+        <Style Selector="ToggleButton">
+            <Setter Property="BorderThickness" Value="1.5"/>
+        </Style>
+        <Style Selector="ToggleButton:checked /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton:checked:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+        </Style>
+
+        <Style Selector="ToggleButton#OffButton:checked /template/ ContentPresenter,
+                         ToggleButton#OffButton:checked:pointerover /template/ ContentPresenter,
+                         ToggleButton#OffButton:checked:pressed /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource OptionOffBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OptionOffBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton#OnButton:checked /template/ ContentPresenter,
+                         ToggleButton#OnButton:checked:pointerover /template/ ContentPresenter,
+                         ToggleButton#OnButton:checked:pressed /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource OptionOnBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource OptionOnBrush}"/>
+        </Style>
+
+        <Style Selector="ToggleButton:checked:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel x:Name="Segments" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+        <ToggleButton x:Name="OffButton" Click="OnSegmentClick"
+                      Padding="9,2" MinWidth="46" HorizontalContentAlignment="Center"/>
+        <ToggleButton x:Name="OnButton" Click="OnSegmentClick"
+                      Padding="9,2" MinWidth="46" HorizontalContentAlignment="Center"/>
+    </StackPanel>
+</UserControl>
