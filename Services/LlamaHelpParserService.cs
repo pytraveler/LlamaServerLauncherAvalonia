@@ -18,6 +18,10 @@ public static class LlamaHelpParserService
         @"(-[a-zA-Z][a-zA-Z]*\b)|(--[\w][\w-]*)",
         RegexOptions.Compiled);
 
+    private const int HelpTimeoutSeconds = 10;
+
+    private const int MinPlausibleFlagCount = 10;
+
     public static async Task<HashSet<string>?> GetSupportedFlagsAsync(string executablePath)
     {
         var result = await GetSupportedFlagsWithHelpAsync(executablePath);
@@ -26,11 +30,17 @@ public static class LlamaHelpParserService
 
     public static async Task<HelpParseResult?> GetSupportedFlagsWithHelpAsync(string executablePath)
     {
+        var probe = await ProbeHelpAsync(executablePath);
+        return probe.Parsed;
+    }
+
+    public static async Task<HelpProbeResult> ProbeHelpAsync(string executablePath)
+    {
         if (string.IsNullOrWhiteSpace(executablePath))
-            return null;
+            return new HelpProbeResult { FailureReason = "executable path is not set" };
 
         if (!System.IO.File.Exists(executablePath))
-            return null;
+            return new HelpProbeResult { FailureReason = "executable does not exist" };
 
         try
         {
@@ -54,33 +64,66 @@ public static class LlamaHelpParserService
             var outputTask = process.StandardOutput.ReadToEndAsync();
             var errorTask = process.StandardError.ReadToEndAsync();
 
-            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(10));
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(HelpTimeoutSeconds));
             try
             {
                 await process.WaitForExitAsync(cts.Token);
             }
             catch (OperationCanceledException)
             {
-                // Timeout — kill the process and return null
                 try { process.Kill(entireProcessTree: true); } catch { }
-                return null;
+                return new HelpProbeResult
+                {
+                    TimedOut = true,
+                    FailureReason = $"'--help' did not finish within {HelpTimeoutSeconds}s and was killed"
+                };
             }
 
             var output = await outputTask;
             var error = await errorTask;
 
             var fullOutput = output + "\n" + error;
+            var exitCode = process.ExitCode;
 
-            if (process.ExitCode != 0 && string.IsNullOrWhiteSpace(fullOutput))
-                return null;
+            if (string.IsNullOrWhiteSpace(fullOutput))
+            {
+                return new HelpProbeResult
+                {
+                    ExitCode = exitCode,
+                    FailureReason = $"'--help' exited with code {ProcessExitCodeInfo.Describe(exitCode)} and printed nothing"
+                };
+            }
 
             var flags = ParseFlagsFromHelp(fullOutput);
-            return new HelpParseResult { Flags = flags, HelpText = fullOutput };
+            if (flags.Count < MinPlausibleFlagCount)
+            {
+                return new HelpProbeResult
+                {
+                    ExitCode = exitCode,
+                    OutputTail = Tail(fullOutput),
+                    FailureReason = $"'--help' exited with code {ProcessExitCodeInfo.Describe(exitCode)} and produced only {flags.Count} recognizable flag(s)"
+                };
+            }
+
+            return new HelpProbeResult
+            {
+                ExitCode = exitCode,
+                Parsed = new HelpParseResult { Flags = flags, HelpText = fullOutput }
+            };
         }
-        catch
+        catch (Exception ex)
         {
-            return null;
+            return new HelpProbeResult { FailureReason = $"could not run '--help': {ex.GetType().Name}: {ex.Message}" };
         }
+    }
+
+    private static string Tail(string text, int maxChars = 300)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return "";
+
+        var flat = text.Replace("\r", " ").Replace("\n", " | ").Trim();
+        return flat.Length <= maxChars ? flat : "..." + flat[^maxChars..];
     }
 
     public static HashSet<string> ParseFlagsFromHelp(string helpText)
@@ -574,4 +617,19 @@ public class HelpParseResult
 {
     public HashSet<string> Flags { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string HelpText { get; set; } = "";
+}
+
+public class HelpProbeResult
+{
+    public HelpParseResult? Parsed { get; set; }
+    public string FailureReason { get; set; } = "";
+    public int? ExitCode { get; set; }
+    public bool TimedOut { get; set; }
+    public string OutputTail { get; set; } = "";
+
+    public bool Success => Parsed != null;
+
+    public bool Crashed => ExitCode.HasValue && ProcessExitCodeInfo.IsCrash(ExitCode.Value);
+
+    public string? CrashHint => ExitCode.HasValue ? ProcessExitCodeInfo.GetCrashHint(ExitCode.Value) : null;
 }

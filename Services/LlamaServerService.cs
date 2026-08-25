@@ -24,6 +24,8 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     private DateTime? _processStartTime;
     private bool _serverStateChangedRaised;
     private int? _lastKnownPid;
+    private int _outputLinesSeen;
+    private string? _resolvedExecutablePath;
 
     public string LogPrefix { get; set; } = "";
 
@@ -236,6 +238,8 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         _currentConfig = config;
         _isStoppingIntentionally = false;
         _serverStateChangedRaised = false;
+        _outputLinesSeen = 0;
+        _resolvedExecutablePath = resolvedExecutable;
         IsSingleModelMode = !string.IsNullOrEmpty(config.ModelPath) || !string.IsNullOrEmpty(config.HfRepo) || !string.IsNullOrEmpty(config.HfFile);
 
         var startInfo = new ProcessStartInfo
@@ -320,6 +324,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         _currentConfig = config;
         _isStoppingIntentionally = false;
         _serverStateChangedRaised = false;
+        _outputLinesSeen = 0;
         IsSingleModelMode = !string.IsNullOrEmpty(config.ModelPath) || !string.IsNullOrEmpty(config.HfRepo) || !string.IsNullOrEmpty(config.HfFile);
 
         try
@@ -689,6 +694,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     {
         if (!string.IsNullOrEmpty(e.Data))
         {
+            Interlocked.Increment(ref _outputLinesSeen);
             OutputReceived?.Invoke(this, e.Data);
         }
     }
@@ -697,6 +703,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     {
         if (!string.IsNullOrEmpty(e.Data))
         {
+            Interlocked.Increment(ref _outputLinesSeen);
             OutputReceived?.Invoke(this, e.Data);
         }
     }
@@ -710,9 +717,28 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         {
             try { exitCode = _process.ExitCode; } catch { }
         }
-        _logService.Info($"Server process exited. PID={_lastKnownPid}, ExitCode={exitCode}, Intentional={_isStoppingIntentionally}");
+        var exitCodeText = exitCode.HasValue ? ProcessExitCodeInfo.Describe(exitCode.Value) : "null";
+        _logService.Info($"Server process exited. PID={_lastKnownPid}, ExitCode={exitCodeText}, Intentional={_isStoppingIntentionally}");
 
         var lifetime = _processStartTime.HasValue ? (DateTime.Now - _processStartTime.Value).TotalSeconds : double.MaxValue;
+
+        if (exitCode.HasValue && ProcessExitCodeInfo.IsCrash(exitCode.Value))
+        {
+            var hint = ProcessExitCodeInfo.GetCrashHint(exitCode.Value);
+            var hintSuffix = string.IsNullOrEmpty(hint) ? "" : " " + hint;
+            _logService.Error($"Server was killed by the OS after {lifetime:F1}s.{hintSuffix}");
+
+            if (Volatile.Read(ref _outputLinesSeen) == 0 && string.IsNullOrEmpty(_dockerContainerName))
+            {
+                _logService.Error("The server printed nothing at all before dying, so it crashed during startup, before it even began loading the model. Run the executable manually from a terminal with '--list-devices': if it crashes there too, the problem is in the llama.cpp build or in the GPU runtime, not in the launcher.");
+            }
+
+            if (string.IsNullOrEmpty(_dockerContainerName)
+                && NativeRuntimeProbe.DescribeMsvcRuntime(_resolvedExecutablePath) is { } runtimeReport)
+            {
+                _logService.Error(runtimeReport);
+            }
+        }
 
         // На macOS процесс может быть wrapper-скриптом (например, shell-скрипт из Homebrew),
         // который форкает реальный сервер и сразу завершается. В этом случае .NET Process

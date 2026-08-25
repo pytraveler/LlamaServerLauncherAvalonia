@@ -47,6 +47,8 @@
     <Compile Include="..\Models\AppInfo.cs" />
     <Compile Include="..\Models\LocalAddresses.cs" />
     <Compile Include="..\Services\AppUpdateService.cs" />
+    <Compile Include="..\Services\ProcessExitCodeInfo.cs" />
+    <Compile Include="..\Services\NativeRuntimeProbe.cs" />
     <Compile Include="CommandLineTests.cs" />
     <Compile Include="OptimizationTests.cs" />
     <Compile Include="ProxyProtocolTests.cs" />
@@ -61,6 +63,8 @@
     <Compile Include="ServerLogFilterTests.cs" />
     <Compile Include="McpConfigTests.cs" />
     <Compile Include="ServerCrashAdvisorTests.cs" />
+    <Compile Include="ProcessExitCodeInfoTests.cs" />
+    <Compile Include="NativeRuntimeProbeTests.cs" />
     <Compile Include="BenchmarkTests.cs" />
     <Compile Include="PromptRunTests.cs" />
     <Compile Include="GitHubReleaseSourceTests.cs" />

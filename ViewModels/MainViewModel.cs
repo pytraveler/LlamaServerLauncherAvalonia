@@ -4098,15 +4098,29 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             if (!force && exePath == _lastCheckedExePath && _supportedFlags != null)
                 return;
 
-            var result = await LlamaHelpParserService.GetSupportedFlagsWithHelpAsync(exePath);
-            if (result != null)
+            var probe = await LlamaHelpParserService.ProbeHelpAsync(exePath);
+            if (probe.Success)
             {
-                _supportedFlags = result.Flags;
-                _lastHelpText = result.HelpText;
+                _supportedFlags = probe.Parsed!.Flags;
+                _lastHelpText = probe.Parsed.HelpText;
             }
             else
             {
-                _logService.Warning($"[FlagFilter] Failed to parse --help output from '{exePath}'. Flag filtering disabled.");
+                _logService.Warning($"[FlagFilter] Failed to parse --help output from '{exePath}': {probe.FailureReason}. Flag filtering disabled.");
+
+                if (!string.IsNullOrEmpty(probe.OutputTail))
+                    _logService.Warning($"[FlagFilter] Last output of the probe: {probe.OutputTail}");
+
+                if (probe.Crashed)
+                {
+                    var hint = probe.CrashHint;
+                    var hintSuffix = string.IsNullOrEmpty(hint) ? "" : " " + hint;
+                    _logService.Error($"[FlagFilter] '{exePath}' crashed on '--help', so it will most likely crash on start too.{hintSuffix}");
+
+                    if (NativeRuntimeProbe.DescribeMsvcRuntime(exePath) is { } runtimeReport)
+                        _logService.Error($"[FlagFilter] {runtimeReport}");
+                }
+
                 _supportedFlags = null;
                 _lastHelpText = "";
             }

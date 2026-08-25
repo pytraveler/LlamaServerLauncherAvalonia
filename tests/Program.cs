@@ -15,6 +15,8 @@ BackendAssetSelectorTests.Run(harness);
 ServerLogFilterTests.Run(harness);
 McpConfigTests.Run(harness);
 ServerCrashAdvisorTests.Run(harness);
+ProcessExitCodeInfoTests.Run(harness);
+NativeRuntimeProbeTests.Run(harness);
 BenchmarkTests.Run(harness);
 PromptRunTests.Run(harness);
 GitHubReleaseSourceTests.Run(harness);
