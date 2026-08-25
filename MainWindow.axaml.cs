@@ -42,6 +42,9 @@ public partial class MainWindow : Window
     private System.Threading.CancellationTokenSource? _autoStartCts;
 
     public static MainWindow? Instance { get; private set; }
+
+    public static bool MinimizeToTray { get; set; } = true;
+
     public IntPtr WindowHandle => _windowHandle;
 
     public MainWindow()
@@ -63,7 +66,7 @@ public partial class MainWindow : Window
         {
             ao.PropertyChanged += (s, e) =>
             {
-                if (e.Property == Window.WindowStateProperty && WindowState == WindowState.Minimized)
+                if (e.Property == Window.WindowStateProperty && WindowState == WindowState.Minimized && MinimizeToTray)
                 {
                     Hide();
                 }

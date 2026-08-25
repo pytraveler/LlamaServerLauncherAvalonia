@@ -2274,6 +2274,12 @@
   <data name="TooltipKillSpawnedProcesses" xml:space="preserve">
     <value>MCP-серверы и запущенные ими приложения (например, ComfyUI) удерживаются в job-объекте и завершаются при остановке сервера или выходе из лаунчера, чтобы не оставалось висящих процессов. Выключите, если такие приложения должны переживать сервер. Только для Windows.</value>
   </data>
+  <data name="MinimizeToTray" xml:space="preserve">
+    <value>Сворачивать в трей</value>
+  </data>
+  <data name="TooltipMinimizeToTray" xml:space="preserve">
+    <value>Кнопка сворачивания прячет окно в трей. Выключите, чтобы свёрнутое окно оставалось на панели задач, как любое другое окно. Значок в трее и его меню остаются в любом случае.</value>
+  </data>
   <data name="McpDialogTitle" xml:space="preserve">
     <value>MCP-сервер</value>
   </data>

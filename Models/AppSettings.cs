@@ -147,6 +147,8 @@ public class AppSettings
 
     public bool KillSpawnedProcesses { get; set; } = true;
 
+    public bool MinimizeToTray { get; set; } = true;
+
     public Dictionary<string, DialogGeometry> DialogGeometry { get; set; } = new();
 
     public bool ExperimentalReposEnabled { get; set; }

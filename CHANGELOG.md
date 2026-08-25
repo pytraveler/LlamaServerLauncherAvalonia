@@ -8,6 +8,10 @@ release workflow refuses a tag whose version disagrees with
 screenshots and other per-release extras live in `.github/release-notes/`.
 Nothing is written by hand at tag time.
 
+## v1.9.2 - 2026-08-25
+
+- **Minimize can leave the window on the taskbar** — the minimize button always hid the window into the tray, and anyone who wants the launcher either in sight at the bottom of the screen or closed outright had no way to say so. The "Behavior" tab gained a "Minimize to tray" switch: on by default, exactly as before, and off means a minimized window sits on the taskbar like any other. The tray icon and its menu stay in both cases.
+
 ## v1.9.1 - 2026-08-25
 
 - **A server that crashes on startup now explains itself in the log** — llama-server dying before it printed anything left a single line with a bare number: `ExitCode=-1073741819`. That number is `0xC0000005`, a native access violation, and it was read again and again as "out of memory" — the one thing it is not. Exit codes are now spelled out (`-1073741819 (0xC0000005, STATUS_ACCESS_VIOLATION)`) along with what actually produces them: a missing or outdated Visual C++ Redistributable, a mismatched GPU driver or CUDA runtime, a half-extracted llama.cpp build, foreign ggml/cudart/cublas DLLs picked up from PATH. A server that died without printing a single line is called out as such — it crashed before the model was even touched, so the model, the context size and the free VRAM have nothing to do with it — and the log gains the versions of `msvcp140.dll`, `vcruntime140.dll` and `vcruntime140_1.dll` found in System32 and next to the executable, since a copy lying next to the binary is loaded instead of the system one. The `--help` probe behind the flag filter reports the same way: "Failed to parse --help output" now names the reason, and a binary that crashes on `--help` is flagged as one that will crash on start too.

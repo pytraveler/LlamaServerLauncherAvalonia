@@ -2274,6 +2274,12 @@ Stop and continue?</value>
   <data name="TooltipKillSpawnedProcesses" xml:space="preserve">
     <value>MCP servers and the applications they launch (ComfyUI, for instance) are held in a job object and stopped when the server stops or the launcher exits, so nothing is left running. Turn this off to let such applications outlive the server. Windows only.</value>
   </data>
+  <data name="MinimizeToTray" xml:space="preserve">
+    <value>Minimize to tray</value>
+  </data>
+  <data name="TooltipMinimizeToTray" xml:space="preserve">
+    <value>The minimize button hides the window into the tray. Turn this off to leave a minimized window on the taskbar, the way any other window behaves. The tray icon and its menu stay either way.</value>
+  </data>
   <data name="McpDialogTitle" xml:space="preserve">
     <value>MCP server</value>
   </data>

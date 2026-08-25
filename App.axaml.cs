@@ -169,7 +169,7 @@ public partial class App : Application
 
             _mainWindow.PropertyChanged += (s, e) =>
             {
-                if (e.Property == Window.WindowStateProperty && _mainWindow!.WindowState == WindowState.Minimized)
+                if (e.Property == Window.WindowStateProperty && _mainWindow!.WindowState == WindowState.Minimized && MainWindow.MinimizeToTray)
                 {
                     _mainWindow.Hide();
                 }

@@ -1152,6 +1152,20 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
     }
 
+    public bool MinimizeToTray
+    {
+        get => MainWindow.MinimizeToTray;
+        set
+        {
+            if (MainWindow.MinimizeToTray != value)
+            {
+                MainWindow.MinimizeToTray = value;
+                OnPropertyChanged();
+                _ = SaveSettingsAsync();
+            }
+        }
+    }
+
     public bool ComfyUiFreeEnabled
     {
         get => _comfyUiFreeEnabled;
@@ -1747,6 +1761,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _comfyUiUrl = string.IsNullOrWhiteSpace(settings.ComfyUiUrl) ? "http://127.0.0.1:8188" : settings.ComfyUiUrl;
         LlamaServerService.KillSpawnedProcesses = settings.KillSpawnedProcesses;
         OnPropertyChanged(nameof(KillSpawnedProcesses));
+        MainWindow.MinimizeToTray = settings.MinimizeToTray;
+        OnPropertyChanged(nameof(MinimizeToTray));
 
         ScenariosEnabled = settings.ScenariosEnabled;
         HardwareMonitorEnabled = settings.HardwareMonitorEnabled;
@@ -2187,6 +2203,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             ComfyUiFreeEnabled = _comfyUiFreeEnabled,
             ComfyUiUrl = _comfyUiUrl,
             KillSpawnedProcesses = LlamaServerService.KillSpawnedProcesses,
+            MinimizeToTray = MainWindow.MinimizeToTray,
             ScenariosEnabled = _scenariosEnabled,
             SelectedScenario = _selectedScenario,
             HardwareMonitorEnabled = _hardwareMonitorEnabled,

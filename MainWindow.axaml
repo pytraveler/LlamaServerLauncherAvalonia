@@ -1090,6 +1090,8 @@
                                               ToolTip.Tip="{Binding Localized.TooltipHardwareMonitorEnabled}"/>
                                     <CheckBox Content="{Binding Localized.KillSpawnedProcesses}" IsChecked="{Binding KillSpawnedProcesses}"
                                               ToolTip.Tip="{Binding Localized.TooltipKillSpawnedProcesses}"/>
+                                    <CheckBox Content="{Binding Localized.MinimizeToTray}" IsChecked="{Binding MinimizeToTray}"
+                                              ToolTip.Tip="{Binding Localized.TooltipMinimizeToTray}"/>
 
                                     <Border BorderBrush="{DynamicResource DataPathForegroundBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,8" Padding="0,10,0,0">
                                         <StackPanel>
