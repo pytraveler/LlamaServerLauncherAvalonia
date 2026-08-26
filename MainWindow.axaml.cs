@@ -781,6 +781,8 @@ public partial class MainWindow : Window
             var result = await MessageBox.ShowAsync(this, message, loc.ConfirmMissingFilesTitle,
                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (result != MessageBoxResult.Yes) return;
+
+            _viewModel.AcknowledgeMissingPaths();
         }
 
         _viewModel.DismissServerStartError();

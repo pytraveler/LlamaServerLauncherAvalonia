@@ -16,6 +16,7 @@ public static class CommandLineTests
         HuggingFace(h);
         CustomArgToggles(h);
         CustomArgAliases(h);
+        LoadMode(h);
         ParseBack(h);
         RoundTrip(h);
     }
@@ -290,4 +291,68 @@ public static class CommandLineTests
     private static string Join(List<string> items) => "[" + string.Join(", ", items) + "]";
 
     private static string Val(Dictionary<string, string?> d, string key) => d.TryGetValue(key, out var v) ? v ?? "<null>" : "<missing>";
+
+    private static HashSet<string> Flags(params string[] flags) => new(flags, System.StringComparer.OrdinalIgnoreCase);
+
+    private static void LoadMode(Harness h)
+    {
+        h.Section("CommandLineBuilder.LoadModeFor");
+        h.Check("nothing set -> no flag at all", CommandLineBuilder.LoadModeFor(null, null) == null, "null");
+        h.Check("mmap on", CommandLineBuilder.LoadModeFor(true, null) == "mmap", CommandLineBuilder.LoadModeFor(true, null) ?? "null");
+        h.Check("mmap off", CommandLineBuilder.LoadModeFor(false, null) == "none", CommandLineBuilder.LoadModeFor(false, null) ?? "null");
+        h.Check("mmap on plus mlock", CommandLineBuilder.LoadModeFor(true, true) == "mmap+mlock", CommandLineBuilder.LoadModeFor(true, true) ?? "null");
+        h.Check("mmap off plus mlock", CommandLineBuilder.LoadModeFor(false, true) == "mlock", CommandLineBuilder.LoadModeFor(false, true) ?? "null");
+        h.Check("mlock alone keeps the default mmap",
+            CommandLineBuilder.LoadModeFor(null, true) == "mmap+mlock", CommandLineBuilder.LoadModeFor(null, true) ?? "null");
+        h.Check("mlock switched off is not a mode",
+            CommandLineBuilder.LoadModeFor(null, false) == null, CommandLineBuilder.LoadModeFor(null, false) ?? "null");
+
+        h.Section("CommandLineBuilder.ResolveLoadModeFlag");
+        h.Check("unknown support -> keep the old spelling", CommandLineBuilder.ResolveLoadModeFlag(null) == null, "null");
+        h.Check("long form preferred",
+            CommandLineBuilder.ResolveLoadModeFlag(Flags("-lm", "--load-mode")) == "--load-mode", "ok");
+        h.Check("short form when it is the only one",
+            CommandLineBuilder.ResolveLoadModeFlag(Flags("-lm")) == "-lm", "ok");
+        h.Check("old binary -> null", CommandLineBuilder.ResolveLoadModeFlag(Flags("--mmap", "--no-mmap", "--mlock")) == null, "ok");
+
+        var modern = Flags("-m", "--mmap", "--no-mmap", "--mlock", "-lm", "--load-mode");
+        var legacy = Flags("-m", "--mmap", "--no-mmap", "--mlock");
+
+        h.Section("CommandLineBuilder.Build - new builds get --load-mode");
+        var newLine = CommandLineBuilder.Build(new ServerConfiguration { Mmap = false, Mlock = true }, modern);
+        h.Check("mode emitted", newLine.Contains("--load-mode mlock"), newLine);
+        h.Check("deprecated spelling dropped", !newLine.Contains("--no-mmap") && !newLine.Contains("--mlock"), newLine);
+
+        var newDefault = CommandLineBuilder.Build(new ServerConfiguration(), modern);
+        h.Check("nothing set -> nothing emitted", !newDefault.Contains("load-mode"), newDefault);
+
+        h.Section("CommandLineBuilder.Build - old builds keep the old flags");
+        var oldLine = CommandLineBuilder.Build(new ServerConfiguration { Mmap = false, Mlock = true }, legacy);
+        h.Check("no-mmap kept", oldLine.Contains("--no-mmap"), oldLine);
+        h.Check("mlock kept", oldLine.Contains("--mlock"), oldLine);
+        h.Check("no load-mode", !oldLine.Contains("load-mode"), oldLine);
+
+        var unknownSupport = CommandLineBuilder.Build(new ServerConfiguration { Mmap = false });
+        h.Check("unknown support keeps the old spelling",
+            unknownSupport.Contains("--no-mmap") && !unknownSupport.Contains("load-mode"), unknownSupport);
+
+        h.Section("CommandLineBuilder.Build - custom arguments win");
+        var manualMode = CommandLineBuilder.Build(
+            new ServerConfiguration { Mmap = false, Mlock = true, CustomArguments = "-lm dio" }, modern);
+        h.Check("manual -lm passes through", manualMode.Contains("-lm dio"), manualMode);
+        h.Check("no second mode synthesized", !manualMode.Contains("--load-mode"), manualMode);
+        h.Check("switches not duplicated next to a manual mode",
+            !manualMode.Contains("--no-mmap") && !manualMode.Contains("--mlock"), manualMode);
+
+        var directIo = CommandLineBuilder.Build(
+            new ServerConfiguration { Mmap = false, CustomArguments = "-dio" }, modern);
+        h.Check("direct io left alone", directIo.Contains("-dio"), directIo);
+        h.Check("mode not synthesized over direct io", !directIo.Contains("load-mode"), directIo);
+        h.Check("old flag used instead", directIo.Contains("--no-mmap"), directIo);
+
+        var manualNoMmap = CommandLineBuilder.Build(
+            new ServerConfiguration { Mmap = true, CustomArguments = "--no-mmap" }, modern);
+        h.Check("custom --no-mmap kept", manualNoMmap.Contains("--no-mmap"), manualNoMmap);
+        h.Check("mode not synthesized over it", !manualNoMmap.Contains("load-mode"), manualNoMmap);
+    }
 }

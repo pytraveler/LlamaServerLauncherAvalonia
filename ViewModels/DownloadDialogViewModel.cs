@@ -153,7 +153,44 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     public bool IsLoading
     {
         get => _isLoading;
-        set { _isLoading = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanDownload)); }
+        set { _isLoading = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanDownload)); OnPropertyChanged(nameof(AssetsEmptyText)); }
+    }
+
+    private bool _isCheckingAssets;
+
+    public string AssetsEmptyText
+    {
+        get
+        {
+            if (IsLoading || AvailableAssets.Count > 0)
+                return "";
+
+            if (_selectedRelease == null)
+                return "";
+
+            if (_isCheckingAssets)
+                return LocalizedStrings.GetString("CheckingReleaseAssets");
+
+            if (_selectedRelease.Assets.Count == 0)
+                return LocalizedStrings.GetString("ReleaseHasNoAssets");
+
+            return LlamaCppDownloadService.ContainsPlatformBuild(_selectedRelease.Assets)
+                ? LocalizedStrings.GetString("NoAssetsForOS")
+                : LocalizedStrings.GetString("ReleaseHasNoBuilds");
+        }
+    }
+
+    public string ExperimentalAssetsEmptyText
+    {
+        get
+        {
+            if (_selectedExperimentalRelease == null || ExperimentalAssets.Count > 0)
+                return "";
+
+            return _selectedExperimentalRelease.Assets.Count == 0
+                ? LocalizedStrings.GetString("ReleaseHasNoAssets")
+                : LocalizedStrings.GetString("NoAssetsForFilter");
+        }
     }
 
     private bool _isDownloading;
@@ -333,7 +370,11 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         ExperimentalAssets.Clear();
         SelectedExperimentalAsset = null;
 
-        if (_selectedExperimentalRelease == null || _selectedExperimentalRepo == null) return;
+        if (_selectedExperimentalRelease == null || _selectedExperimentalRepo == null)
+        {
+            OnPropertyChanged(nameof(ExperimentalAssetsEmptyText));
+            return;
+        }
 
         var filtered = ExperimentalRepoService.FilterAssetsByTags(
             _selectedExperimentalRelease.Assets, _selectedExperimentalRepo.FilterTags);
@@ -342,6 +383,8 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
         if (ExperimentalAssets.Count > 0)
             SelectedExperimentalAsset = ExperimentalAssets[0];
+
+        OnPropertyChanged(nameof(ExperimentalAssetsEmptyText));
     }
 
     private async Task LoadReleasesAsync(string? preselectedTag = null)
@@ -463,12 +506,14 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         else
         {
             DetectedBackendText = "";
-            StatusMessage = LocalizedStrings.GetString("NoAssetsForOS");
         }
+
+        OnPropertyChanged(nameof(AssetsEmptyText));
     }
 
     private async Task RefreshSelectedReleaseAssetsAsync(ReleaseInfo release)
     {
+        SetCheckingAssets(release, true);
         try
         {
             var fresh = await _downloadService.GetReleaseByTagAsync(release.Tag, TimeSpan.FromMinutes(2));
@@ -486,6 +531,19 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         {
             // oh nooo...
         }
+        finally
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => SetCheckingAssets(release, false));
+        }
+    }
+
+    private void SetCheckingAssets(ReleaseInfo release, bool value)
+    {
+        if (!ReferenceEquals(_selectedRelease, release))
+            return;
+
+        _isCheckingAssets = value;
+        OnPropertyChanged(nameof(AssetsEmptyText));
     }
 
     private void ApplyBackendSelection()

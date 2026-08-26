@@ -100,6 +100,7 @@ public class LocalizedStrings : INotifyPropertyChanged
     public string ConfirmMissingFilesTitle => GetString("ConfirmMissingFilesTitle");
     public string ConfirmMissingFilesMessage => GetString("ConfirmMissingFilesMessage");
     public string ConfirmMissingFilesProceed => GetString("ConfirmMissingFilesProceed");
+    public string ToastProfilePathMissing => GetString("ToastProfilePathMissing");
     public string Export => GetString("Export");
     public string ExportDialogTitle => GetString("ExportDialogTitle");
     public string ExportFormatJson => GetString("ExportFormatJson");

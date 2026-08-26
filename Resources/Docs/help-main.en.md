@@ -40,3 +40,5 @@ Invalid values are flagged with a message right below the field.
 The top row of the window is the profile bar: a full set of settings under a name. Type a name, press **Save**; picking another entry in the dropdown loads it. The **Save** button menu holds rename, clone, delete, export to JSON / `.bat` / `.sh` / `.command`, and import.
 
 You can also drop `.json`, `.bat`, `.cmd`, `.sh`, `.command`, `.exe` and `.gguf` files straight onto the window.
+
+A profile name shown in warning colour in the dropdown points at files that are no longer on disk - models moved to another drive, most often. Hover it to see exactly which paths are gone. The same check runs at every launch, whichever way the server is started, and names the missing path in the log.

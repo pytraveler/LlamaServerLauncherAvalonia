@@ -49,6 +49,8 @@
     <Compile Include="..\Services\AppUpdateService.cs" />
     <Compile Include="..\Services\ProcessExitCodeInfo.cs" />
     <Compile Include="..\Services\NativeRuntimeProbe.cs" />
+    <Compile Include="..\Models\ReferencedPathScanner.cs" />
+    <Compile Include="..\Models\ProfilePathStatus.cs" />
     <Compile Include="CommandLineTests.cs" />
     <Compile Include="OptimizationTests.cs" />
     <Compile Include="ProxyProtocolTests.cs" />
@@ -65,6 +67,7 @@
     <Compile Include="ServerCrashAdvisorTests.cs" />
     <Compile Include="ProcessExitCodeInfoTests.cs" />
     <Compile Include="NativeRuntimeProbeTests.cs" />
+    <Compile Include="ReferencedPathScannerTests.cs" />
     <Compile Include="BenchmarkTests.cs" />
     <Compile Include="PromptRunTests.cs" />
     <Compile Include="GitHubReleaseSourceTests.cs" />

@@ -585,6 +585,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(ModelMaxContextText));
         OnPropertyChanged(nameof(McpGeneratedFileText));
         McpValidationText = BuildMcpValidationText();
+
+        RefreshProfileItems();
     }
 
     /// <summary>Unsubscribes from things the view model hooked into at startup.</summary>
@@ -2621,12 +2623,55 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         var missing = new System.Collections.Generic.List<string>();
         if (!PathValidationActive) return missing;
-        var loc = LocalizedStrings.Instance;
-        if (HasMissingExecutable) missing.Add($"{loc.LlamaServerExe}  {ExecutablePath}");
-        if (HasMissingModelFile) missing.Add($"{loc.ModelM}  {ModelPath}");
-        if (HasMissingModelsDir) missing.Add($"{loc.ModelsDir}  {ModelsDir}");
-        if (HasMissingMmprojFile) missing.Add($"{loc.MMProj}  {MmprojPath}");
+
+        foreach (var entry in ReferencedPathScanner.FindMissing(GetCurrentConfig(), CreatePathProbe()))
+            missing.Add(ReferencedPathText.Line(entry));
+
         return missing;
+    }
+
+    private static ReferencedPathProbe CreatePathProbe() => new()
+    {
+        ExecutableResolver = LlamaServerService.ResolveExecutablePath
+    };
+
+    public void AcknowledgeMissingPaths() => _missingPathsAcknowledged = true;
+
+    private bool _missingPathsAcknowledged;
+
+    private void WarnAboutMissingPaths(string profileName, ServerConfiguration config)
+    {
+        var acknowledged = _missingPathsAcknowledged;
+        _missingPathsAcknowledged = false;
+
+        var snapshot = config.Clone();
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var missing = ReferencedPathScanner.FindMissing(snapshot, CreatePathProbe());
+                if (missing.Count == 0)
+                    return;
+
+                foreach (var entry in missing)
+                    _logService.Warning($"Profile '{profileName}': referenced path not found: {ReferencedPathText.Line(entry)}");
+
+                if (acknowledged)
+                    return;
+
+                var message = string.Format(
+                    LocalizedStrings.GetString("ToastProfilePathMissing"),
+                    profileName,
+                    ReferencedPathText.Line(missing[0]));
+
+                Dispatcher.UIThread.Post(() => Toasts.ShowError(message));
+            }
+            catch (Exception ex)
+            {
+                _logService.Warning($"Path check for profile '{profileName}' failed: {ex.Message}");
+            }
+        });
     }
 
     public string CacheTypeK
@@ -6479,6 +6524,8 @@ public void RebuildCustomArgumentsFromToggles()
                     config.ExecutablePath = defaultPath;
             }
 
+            WarnAboutMissingPaths(profileName, config);
+
             var targetHost = string.IsNullOrWhiteSpace(config.Host) ? "127.0.0.1" : config.Host;
             var targetPort = config.Port;
             var collision = RunningInstances.FirstOrDefault(i => i.IsRunning
@@ -6588,6 +6635,76 @@ public void RebuildCustomArgumentsFromToggles()
                 if (profile.Configuration != null && !string.IsNullOrWhiteSpace(profile.Configuration.ModelsDir))
                     _routingProfileNames.Add(profile.Name);
             }
+
+            ScanProfilePathsInBackground(profiles);
+        }
+        finally
+        {
+            _suppressProfileAutoLoad = false;
+        }
+    }
+
+    private int _profileScanGeneration;
+
+    private void ScanProfilePathsInBackground(List<ProfileInfo> profiles)
+    {
+        var generation = ++_profileScanGeneration;
+        var snapshot = profiles
+            .Where(p => p.Configuration != null && !string.IsNullOrEmpty(p.Name))
+            .Select(p => (p.Name, p.Configuration))
+            .ToList();
+
+        _ = Task.Run(() =>
+        {
+            var found = new Dictionary<string, IReadOnlyList<ReferencedPath>>(StringComparer.OrdinalIgnoreCase);
+            var probe = CreatePathProbe();
+
+            foreach (var (name, config) in snapshot)
+            {
+                try
+                {
+                    var missing = ReferencedPathScanner.FindMissing(config, probe);
+                    if (missing.Count > 0)
+                        found[name] = missing;
+                }
+                catch (Exception ex)
+                {
+                    _logService.Warning($"Path check for profile '{name}' failed: {ex.Message}");
+                }
+            }
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (generation != _profileScanGeneration)
+                    return;
+
+                ApplyProfileValidation(found);
+            });
+        });
+    }
+
+    private void ApplyProfileValidation(Dictionary<string, IReadOnlyList<ReferencedPath>> found)
+    {
+        if (!ProfilePathStatus.Update(found))
+            return;
+
+        RefreshProfileItems();
+    }
+
+    private void RefreshProfileItems()
+    {
+        var selected = SelectedProfile;
+        var names = Profiles.ToList();
+
+        _suppressProfileAutoLoad = true;
+        try
+        {
+            Profiles.Clear();
+            foreach (var name in names)
+                Profiles.Add(name);
+
+            if (!string.IsNullOrEmpty(selected) && Profiles.Contains(selected))
+                SelectedProfile = selected;
         }
         finally
         {

@@ -82,6 +82,14 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
+                <TextBlock Grid.Row="5"
+                           Text="{Binding AssetsEmptyText}"
+                           IsVisible="{Binding AssetsEmptyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           Margin="20,0,20,10" Opacity="0.75"
+                           IsHitTestVisible="False"/>
+
                 <ProgressBar Grid.Row="6" Minimum="0" Maximum="100"
                              Value="{Binding DownloadProgress}"
                              IsVisible="{Binding ShowProgress}"
@@ -162,6 +170,14 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+
+                <TextBlock Grid.Row="4"
+                           Text="{Binding ExperimentalAssetsEmptyText}"
+                           IsVisible="{Binding ExperimentalAssetsEmptyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           Margin="20,0,20,10" Opacity="0.75"
+                           IsHitTestVisible="False"/>
 
                 <ProgressBar Grid.Row="5" Minimum="0" Maximum="100"
                              Value="{Binding DownloadProgress}"

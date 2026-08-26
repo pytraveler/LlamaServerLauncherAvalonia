@@ -89,6 +89,22 @@ public class LlamaCppDownloadService
         return result.Releases.FirstOrDefault();
     }
 
+    public static bool ContainsPlatformBuild(IEnumerable<ReleaseAsset>? assets)
+    {
+        if (assets == null) return false;
+
+        foreach (var asset in assets)
+        {
+            var name = asset.Name.ToLowerInvariant();
+            if (name.StartsWith("cudart-")) continue;
+
+            if (name.Contains("-win-") || name.Contains("-ubuntu-") || name.Contains("-macos-"))
+                return true;
+        }
+
+        return false;
+    }
+
     public List<ReleaseAsset> FilterAssetsForCurrentOS(List<ReleaseAsset> assets)
     {
         return assets.Where(a =>

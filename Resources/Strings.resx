@@ -623,6 +623,18 @@
   <data name="NoAssetsForOS" xml:space="preserve">
     <value>No compatible builds found for your OS</value>
   </data>
+  <data name="ReleaseHasNoAssets" xml:space="preserve">
+    <value>This release has no files published. Pick another one.</value>
+  </data>
+  <data name="ReleaseHasNoBuilds" xml:space="preserve">
+    <value>This release carries no llama.cpp builds, only service files. Pick another one.</value>
+  </data>
+  <data name="CheckingReleaseAssets" xml:space="preserve">
+    <value>Checking what this release has published...</value>
+  </data>
+  <data name="NoAssetsForFilter" xml:space="preserve">
+    <value>No file of this release matches the tag filter of the repository</value>
+  </data>
   <data name="Downloading" xml:space="preserve">
     <value>Downloading...</value>
   </data>
@@ -1889,6 +1901,9 @@ Stop and continue?</value>
   </data>
   <data name="ConfirmMissingFilesProceed" xml:space="preserve">
     <value>The server will most likely fail to start. Start anyway?</value>
+  </data>
+  <data name="ToastProfilePathMissing" xml:space="preserve">
+    <value>Profile '{0}': path not found - {1}</value>
   </data>
   <data name="BenchmarkRunSave" xml:space="preserve">
     <value>Run &amp; save benchmark</value>

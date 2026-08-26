@@ -78,13 +78,13 @@ Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
 - Cache prompt (`--cache-prompt`, `--no-cache-prompt`)
 - Context shift (`--context-shift`, `--no-context-shift`)
 - Memory lock (`--mlock`)
-- Memory map (`--mmap`, `--no-mmap`)
+- Memory map (`--mmap`, `--no-mmap`) — on builds where these are deprecated, both switches are emitted as a single `--load-mode`; older builds keep the old spelling
 - API key authentication (`--api-key`)
 - Alias (`-a`, `--alias`)
 - Custom command-line arguments (with toggleable enable/disable per argument)
 
 ### Feature Detection
-The app automatically parses `llama-server --help` to detect which flags your binary supports. Unsupported options are visually indicated in the UI.
+The app automatically parses `llama-server --help` to detect which flags your binary supports. Unsupported options are visually indicated in the UI. When that probe fails, the log says why — including the case where the binary crashes on `--help` and will therefore crash on start as well — and flag filtering switches itself off instead of stripping the command line.
 
 ### Built-in Help
 - **Section help** — a button at the bottom of the navigation rail (or the `F1` key) opens a short guide for the section you are currently on: what its fields do, what changing them costs, and where to start
@@ -160,6 +160,8 @@ A built-in reverse proxy that loads the right profile on demand when an API requ
 - Auto-restart on crash
 - Automatic log file rotation (configurable max file count and size)
 - Health/slots polling heartbeats are filtered out of the log view
+- **A crash is explained, not just numbered** — an exit code from the OS is decoded in the log (`-1073741819 (0xC0000005, STATUS_ACCESS_VIOLATION)`) together with what usually causes it; a server that died without printing a single line is called out as such, and the versions of the MSVC runtime DLLs found in System32 and next to the binary are written down, since a missing or outdated Visual C++ Redistributable is a common reason
+- **Referenced paths are checked at every launch** — whichever way the server is started, a model, projector, draft model or file behind a custom argument that is no longer on disk is named in the log and in a notification
 - **Built-in Log Stream Server** — WebSocket-based log streaming with HTTP API endpoints:
   - `/ws` — Real-time WebSocket log streaming with optional token authentication
   - `/api/logs/history` — JSON endpoint for log history
@@ -173,6 +175,7 @@ A built-in reverse proxy that loads the right profile on demand when an API requ
 - **Version management** — Install and switch between different versions
 - **PATH integration** — Optionally add llama.cpp directory to PATH
 - **Experimental build repositories** — Add custom GitHub release sources (e.g. [llama-cpp-turboquant](https://github.com/pytraveler/llama-cpp-turboquant)) with tag filters and periodic update checks to download experimental builds
+- **An empty build list explains itself** — a release still being reread by tag says so, and after that the dialog distinguishes a release with no files at all, one carrying no llama.cpp builds for any platform (the experimental `v0.*` tags), and one whose builds do not match your OS
 
 ### App Updates
 - **Auto-update** — Automatically checks for new application releases and supports one-click update with restart
@@ -196,6 +199,7 @@ A built-in reverse proxy that loads the right profile on demand when an API requ
 - Export/import all profiles as a ZIP archive
 - Unsaved changes tracking
 - Clone profiles to quickly create variants
+- **Profiles pointing at files that are gone** are marked in the profile list in the warning colour, with a tooltip naming exactly which paths are missing — models moved to another drive stop being a mystery
 
 ### Drag & Drop
 Drop files onto the window to import configurations or set paths:
@@ -207,7 +211,7 @@ Drop files onto the window to import configurations or set paths:
 - `.gguf` — Set model path
 
 ### System Tray
-- Minimize to system tray on window minimize
+- Minimize to system tray on window minimize — switchable off on the **Behavior** tab, so a minimized window stays on the taskbar like any other; the tray icon remains either way
 - Tray icon menu with per-instance server controls (start, stop, restart, auto-restart toggle, log toggle, unload model, open in browser)
 - Double-click tray icon to restore window
 

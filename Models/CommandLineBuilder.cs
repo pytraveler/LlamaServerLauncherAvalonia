@@ -255,16 +255,46 @@ public static class CommandLineBuilder
         AddBoolFlag(args, "-cb", config.ContBatching, "--no-cont-batching");
         AddBoolFlag(args, "--cache-prompt", config.CachePrompt, "--no-cache-prompt");
         AddBoolFlag(args, "--context-shift", config.ContextShift, "--no-context-shift");
-        AddBoolFlag(args, "--mmap", config.Mmap, "--no-mmap");
+        var loadModeFlag = ResolveLoadModeFlag(supportedFlags);
+        var manualLoadMode = customArgValues.ContainsKey("-lm") || customArgValues.ContainsKey("--load-mode");
 
-        if (config.Mlock == true)
+        if (manualLoadMode)
         {
-            string? mlockProp = GetPropertyNameForFlag("--mlock");
-            if (mlockProp != null && !processedProperties.Contains(mlockProp))
+            MarkProcessed("--mmap");
+            MarkProcessed("--mlock");
+        }
+        else if (loadModeFlag != null
+                 && !CustomArgsRequestDirectIo(customArgValues)
+                 && !IsFlagPresentInCustomArgs("--mmap")
+                 && !IsFlagPresentInCustomArgs("--mlock"))
+        {
+            MarkProcessed("--mmap");
+            MarkProcessed("--mlock");
+
+            var loadMode = LoadModeFor(config.Mmap, config.Mlock);
+            if (loadMode != null)
+                args.Add($"{loadModeFlag} {loadMode}");
+        }
+        else
+        {
+            AddBoolFlag(args, "--mmap", config.Mmap, "--no-mmap");
+
+            if (config.Mlock == true)
             {
-                processedProperties.Add(mlockProp);
-                args.Add("--mlock");
+                string? mlockProp = GetPropertyNameForFlag("--mlock");
+                if (mlockProp != null && !processedProperties.Contains(mlockProp))
+                {
+                    processedProperties.Add(mlockProp);
+                    args.Add("--mlock");
+                }
             }
+        }
+
+        void MarkProcessed(string flag)
+        {
+            var propertyName = GetPropertyNameForFlag(flag);
+            if (propertyName != null)
+                processedProperties.Add(propertyName);
         }
 
         AddBoolOnOff(args, "-fa", config.FlashAttention);
@@ -370,6 +400,45 @@ public static class CommandLineBuilder
         if (ServerConfiguration.KnownArguments.TryGetValue(flag, out var mapping))
             return mapping.PropertyName;
         return null;
+    }
+
+    private static readonly string[] DirectIoFlags =
+    {
+        "-dio", "--direct-io", "-ndio", "--no-direct-io"
+    };
+
+    private static bool CustomArgsRequestDirectIo(Dictionary<string, string?> customArgValues)
+    {
+        foreach (var flag in DirectIoFlags)
+        {
+            if (customArgValues.ContainsKey(flag))
+                return true;
+        }
+
+        return false;
+    }
+
+    internal static string? ResolveLoadModeFlag(HashSet<string>? supportedFlags)
+    {
+        if (supportedFlags == null)
+            return null;
+
+        if (supportedFlags.Contains("--load-mode"))
+            return "--load-mode";
+
+        return supportedFlags.Contains("-lm") ? "-lm" : null;
+    }
+
+    internal static string? LoadModeFor(bool? mmap, bool? mlock)
+    {
+        if (mlock != true)
+        {
+            if (mmap == true) return "mmap";
+            if (mmap == false) return "none";
+            return null;
+        }
+
+        return mmap == false ? "mlock" : "mmap+mlock";
     }
 
     private static string QuoteIfNeeded(string value)

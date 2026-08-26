@@ -623,6 +623,18 @@
   <data name="NoAssetsForOS" xml:space="preserve">
     <value>Совместимые сборки для вашей ОС не найдены</value>
   </data>
+  <data name="ReleaseHasNoAssets" xml:space="preserve">
+    <value>В этом релизе не опубликовано ни одного файла. Выберите другой.</value>
+  </data>
+  <data name="ReleaseHasNoBuilds" xml:space="preserve">
+    <value>В этом релизе нет сборок llama.cpp, только служебные файлы. Выберите другой.</value>
+  </data>
+  <data name="CheckingReleaseAssets" xml:space="preserve">
+    <value>Проверяю, что опубликовано в этом релизе...</value>
+  </data>
+  <data name="NoAssetsForFilter" xml:space="preserve">
+    <value>Ни один файл этого релиза не подходит под фильтр тегов репозитория</value>
+  </data>
   <data name="Downloading" xml:space="preserve">
     <value>Загрузка...</value>
   </data>
@@ -1889,6 +1901,9 @@
   </data>
   <data name="ConfirmMissingFilesProceed" xml:space="preserve">
     <value>Сервер, скорее всего, не запустится. Всё равно запустить?</value>
+  </data>
+  <data name="ToastProfilePathMissing" xml:space="preserve">
+    <value>Профиль '{0}': путь не найден - {1}</value>
   </data>
   <data name="BenchmarkRunSave" xml:space="preserve">
     <value>Запустить и сохранить бенчмарк</value>
