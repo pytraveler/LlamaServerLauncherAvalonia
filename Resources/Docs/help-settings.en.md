@@ -47,6 +47,7 @@ The proxy starts that profile, waits until it is ready and proxies the response,
 - **ComfyUI** — call ComfyUI's `/free` endpoint before loading any profile so it releases VRAM. Lets you hand GPU memory back and forth between ComfyUI and llama.cpp without manual juggling.
 - **Stop processes started by the server together with it** — the server and all of its descendants are held in a Windows job object, so stopping the server, closing the launcher or even crashing it leaves nothing running. It matters for MCP servers: they launch applications of their own (ComfyUI, for one) and a process-tree walk does not always reach them. Turn it off when such an application should keep running after the server stops. Windows only.
 - **Minimize to tray** — the minimize button hides the window into the tray, where the icon's menu keeps the running instances at hand. Turn it off and a minimized window stays on the taskbar like any other; the tray icon remains either way.
+- **Ask what to import** - an imported file, dropped or picked from the menu, first shows what it would change and lets you check off what to take. Turn it off and an import overwrites the whole form the way it used to.
 
 ## Experimental repos
 

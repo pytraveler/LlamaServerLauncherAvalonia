@@ -585,6 +585,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(ModelMaxContextText));
         OnPropertyChanged(nameof(McpGeneratedFileText));
         McpValidationText = BuildMcpValidationText();
+        OnPropertyChanged(nameof(FavoriteToggleTooltip));
 
         RefreshProfileItems();
     }
@@ -1154,6 +1155,20 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
     }
 
+    private bool _reviewImports = true;
+
+    public bool ReviewImports
+    {
+        get => _reviewImports;
+        set
+        {
+            if (_reviewImports == value) return;
+            _reviewImports = value;
+            OnPropertyChanged();
+            _ = SaveSettingsAsync();
+        }
+    }
+
     public bool MinimizeToTray
     {
         get => MainWindow.MinimizeToTray;
@@ -1610,6 +1625,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(SelectedLanguage));
         
         ProfileNameInput = settings.ProfileNameInput;
+        ProfileFavorites.Set(settings.FavoriteProfiles);
+        RefreshProfileItems();
+        OnPropertyChanged(nameof(IsSelectedProfileFavorite));
+        OnPropertyChanged(nameof(FavoriteToggleTooltip));
         ExecutablePath = ResolveExecutablePath(settings.ExecutablePath);
         ModelPath = settings.ModelPath;
         ModelsDir = settings.ModelsDir;
@@ -1765,6 +1784,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(KillSpawnedProcesses));
         MainWindow.MinimizeToTray = settings.MinimizeToTray;
         OnPropertyChanged(nameof(MinimizeToTray));
+        _reviewImports = settings.ReviewImports;
+        OnPropertyChanged(nameof(ReviewImports));
 
         ScenariosEnabled = settings.ScenariosEnabled;
         HardwareMonitorEnabled = settings.HardwareMonitorEnabled;
@@ -2102,6 +2123,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             WindowTop = _windowTop,
             Language = SelectedLanguage,
             ProfileNameInput = ProfileNameInput,
+            FavoriteProfiles = ProfileFavorites.Names,
             ExecutablePath = NormalizeExecutablePathForSaving(ExecutablePath),
             ModelPath = ModelPath,
             ModelsDir = ModelsDir,
@@ -2206,6 +2228,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             ComfyUiUrl = _comfyUiUrl,
             KillSpawnedProcesses = LlamaServerService.KillSpawnedProcesses,
             MinimizeToTray = MainWindow.MinimizeToTray,
+            ReviewImports = ReviewImports,
             ScenariosEnabled = _scenariosEnabled,
             SelectedScenario = _selectedScenario,
             HardwareMonitorEnabled = _hardwareMonitorEnabled,
@@ -4475,7 +4498,27 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public string SelectedProfile
     {
         get => _selectedProfile;
-        set { _selectedProfile = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); OnPropertyChanged(nameof(WindowTitleWithProfile)); OnPropertyChanged(nameof(McpGeneratedFileText)); }
+        set { _selectedProfile = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); OnPropertyChanged(nameof(WindowTitleWithProfile)); OnPropertyChanged(nameof(McpGeneratedFileText)); OnPropertyChanged(nameof(HasSelectedProfile)); OnPropertyChanged(nameof(IsSelectedProfileFavorite)); OnPropertyChanged(nameof(FavoriteToggleTooltip)); }
+    }
+
+    public bool HasSelectedProfile => !string.IsNullOrWhiteSpace(SelectedProfile);
+
+    public bool IsSelectedProfileFavorite => ProfileFavorites.IsFavorite(SelectedProfile);
+
+    public string FavoriteToggleTooltip => IsSelectedProfileFavorite
+        ? Localized.FavoriteRemove
+        : Localized.FavoriteAdd;
+
+    public void ToggleSelectedProfileFavorite()
+    {
+        var name = SelectedProfile;
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        ProfileFavorites.Toggle(name);
+        RefreshProfileItems();
+        OnPropertyChanged(nameof(IsSelectedProfileFavorite));
+        OnPropertyChanged(nameof(FavoriteToggleTooltip));
+        _ = SaveSettingsAsync();
     }
 
     private void SetSelectedProfileSilently(string name)
@@ -6629,9 +6672,11 @@ public void RebuildCustomArgumentsFromToggles()
             Profiles.Clear();
             _routingProfileNames.Clear();
             var profiles = _configService.GetAllProfiles();
+            foreach (var name in ProfileFavorites.Order(profiles.Select(p => p.Name)))
+                Profiles.Add(name);
+
             foreach (var profile in profiles)
             {
-                Profiles.Add(profile.Name);
                 if (profile.Configuration != null && !string.IsNullOrWhiteSpace(profile.Configuration.ModelsDir))
                     _routingProfileNames.Add(profile.Name);
             }
@@ -6694,7 +6739,7 @@ public void RebuildCustomArgumentsFromToggles()
     private void RefreshProfileItems()
     {
         var selected = SelectedProfile;
-        var names = Profiles.ToList();
+        var names = ProfileFavorites.Order(Profiles);
 
         _suppressProfileAutoLoad = true;
         try
@@ -7071,7 +7116,11 @@ public void RebuildCustomArgumentsFromToggles()
         {
             await _configService.DeleteProfileAsync(name);
             _mcpConfigService.DeleteConfig(name);
+            ProfileFavorites.Remove(name);
             LoadProfiles();
+            OnPropertyChanged(nameof(IsSelectedProfileFavorite));
+            OnPropertyChanged(nameof(FavoriteToggleTooltip));
+            await SaveSettingsAsync();
         }
     }
 
@@ -7092,10 +7141,12 @@ public void RebuildCustomArgumentsFromToggles()
             await _configService.RenameProfileAsync(oldName, newName);
             _mcpConfigService.DeleteConfig(oldName);
             _loadedProfileName = newName;
+            ProfileFavorites.Rename(oldName, newName);
             LoadProfiles();
             SetSelectedProfileSilently(newName);
             OnPropertyChanged(nameof(WindowTitleWithProfile));
             OnPropertyChanged(nameof(McpGeneratedFileText));
+            await SaveSettingsAsync();
         }
         catch (Exception ex)
         {
@@ -7405,7 +7456,7 @@ public void RebuildCustomArgumentsFromToggles()
             var config = await _configService.ImportProfileAsync(result[0]);
             if (config != null)
             {
-                LoadConfigToUI(config);
+                ImportConfiguration(config, System.IO.Path.GetFileName(result[0]), null);
             }
         }
     }
@@ -7527,6 +7578,144 @@ public void RebuildCustomArgumentsFromToggles()
         ContextShift = null;
 
         LoadConfigToUI(config);
+    }
+
+    private ServerConfiguration? _importCurrent;
+    private ServerConfiguration? _importIncoming;
+    private readonly List<ImportChangeItem> _importItems = new();
+    private bool _isImportReviewVisible;
+    private bool _importFromCommandLine;
+    private string _importReviewSource = string.Empty;
+
+    public ObservableCollection<ImportChangeGroup> ImportReviewGroups { get; } = new();
+
+    public bool IsImportReviewVisible
+    {
+        get => _isImportReviewVisible;
+        private set { _isImportReviewVisible = value; OnPropertyChanged(); }
+    }
+
+    public string ImportReviewSource
+    {
+        get => _importReviewSource;
+        private set { _importReviewSource = value; OnPropertyChanged(); }
+    }
+
+    public string ImportReviewHint => LocalizedStrings.GetString(
+        _importFromCommandLine ? "ImportHintScript" : "ImportHintProfile");
+
+    public int ImportSelectedCount
+    {
+        get
+        {
+            var count = 0;
+            foreach (var item in _importItems)
+                if (item.IsSelected) count++;
+            return count;
+        }
+    }
+
+    public string ImportApplyText => string.Format(Localized.ImportApply, ImportSelectedCount);
+
+    public bool CanApplyImport => ImportSelectedCount > 0;
+
+    public void ImportConfiguration(ServerConfiguration incoming, string sourceName, ISet<string>? mentioned)
+    {
+        if (incoming == null) return;
+
+        var current = GetCurrentConfig();
+        var changes = ConfigurationDiff.Build(current, incoming, mentioned);
+
+        if (changes.Count == 0)
+        {
+            Toasts.Show(Localized.ImportNothingToApply);
+            _logService.AppLog(string.Format(Localized.ImportNothingToApplyLog, sourceName));
+            return;
+        }
+
+        if (!ReviewImports)
+        {
+            var everything = changes.Select(c => c.PropertyName).ToList();
+            ApplyImportedChanges(current, incoming, everything, sourceName);
+            return;
+        }
+
+        _importCurrent = current;
+        _importIncoming = incoming;
+        _importFromCommandLine = mentioned != null;
+        ImportReviewSource = sourceName;
+
+        _importItems.Clear();
+        ImportReviewGroups.Clear();
+        foreach (var group in changes.GroupBy(c => c.GroupKey))
+        {
+            var items = group.Select(c => new ImportChangeItem(c, OnImportSelectionChanged)).ToList();
+            _importItems.AddRange(items);
+            ImportReviewGroups.Add(new ImportChangeGroup(group.Key, items));
+        }
+
+        OnPropertyChanged(nameof(ImportReviewHint));
+        OnImportSelectionChanged();
+        IsImportReviewVisible = true;
+    }
+
+    public void ApplyImportReview()
+    {
+        if (_importCurrent == null || _importIncoming == null) return;
+
+        var selected = _importItems.Where(i => i.IsSelected).Select(i => i.PropertyName).ToList();
+        if (selected.Count == 0) return;
+
+        ApplyImportedChanges(_importCurrent, _importIncoming, selected, ImportReviewSource);
+        CloseImportReview();
+    }
+
+    public void CancelImportReview()
+    {
+        if (!IsImportReviewVisible) return;
+
+        _logService.AppLog(string.Format(Localized.ImportCancelledLog, ImportReviewSource));
+        CloseImportReview();
+    }
+
+    public void SelectAllImportChanges() => SetAllImportChanges(true);
+
+    public void SelectNoImportChanges() => SetAllImportChanges(false);
+
+    private void SetAllImportChanges(bool selected)
+    {
+        foreach (var item in _importItems)
+            item.SetSelectedSilently(selected);
+
+        OnImportSelectionChanged();
+    }
+
+    private void OnImportSelectionChanged()
+    {
+        OnPropertyChanged(nameof(ImportSelectedCount));
+        OnPropertyChanged(nameof(ImportApplyText));
+        OnPropertyChanged(nameof(CanApplyImport));
+    }
+
+    private void CloseImportReview()
+    {
+        IsImportReviewVisible = false;
+        ImportReviewGroups.Clear();
+        _importItems.Clear();
+        _importCurrent = null;
+        _importIncoming = null;
+    }
+
+    private void ApplyImportedChanges(
+        ServerConfiguration current,
+        ServerConfiguration incoming,
+        List<string> properties,
+        string sourceName)
+    {
+        var merged = ConfigurationDiff.Merge(current, incoming, properties);
+        LoadConfigToUI(merged);
+        _logService.AppLog(string.Format(Localized.ImportAppliedLog, properties.Count, sourceName));
+        Toasts.Show(string.Format(Localized.ImportAppliedToast, properties.Count));
     }
 
     private async Task ExportToBatAsync()

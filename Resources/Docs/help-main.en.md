@@ -41,4 +41,8 @@ The top row of the window is the profile bar: a full set of settings under a nam
 
 You can also drop `.json`, `.bat`, `.cmd`, `.sh`, `.command`, `.exe` and `.gguf` files straight onto the window.
 
+An import - dropped or picked from the **Import** menu - opens a panel over the window listing what the file would change: field by field, the value on the form against the one in the file, each with a checkbox. Only differences are listed, so a file that matches the form says so instead of opening an empty panel. A profile arrives with everything checked, since a `.json` holds a complete set of values. A `.bat` or `.sh` only speaks about the flags it names, so the fields it does not mention are listed unchecked and keep what the form has - check one to clear the field anyway. Enter applies the checked lines, Escape leaves the form untouched. The panel can be switched off on the **Behavior** tab, and then an import overwrites the whole form as it used to.
+
+The star next to the dropdown pins the selected profile as a favorite. Favorites are kept at the top of the list, above a separator line, and carry the star next to their name, so the profiles you work with every day are the first ones the dropdown offers instead of something to scroll for. The star toggles the pin off again, and the choice is remembered between sessions.
+
 A profile name shown in warning colour in the dropdown points at files that are no longer on disk - models moved to another drive, most often. Hover it to see exactly which paths are gone. The same check runs at every launch, whichever way the server is started, and names the missing path in the log.

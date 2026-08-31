@@ -32,6 +32,9 @@
         <conv:IsErrorBrushConverter x:Key="IsErrorBrushConverter"/>
         <conv:ProfilePathBrokenConverter x:Key="ProfilePathBrokenConverter"/>
         <conv:ProfilePathTooltipConverter x:Key="ProfilePathTooltipConverter"/>
+        <conv:ProfileFavoriteConverter x:Key="ProfileFavoriteConverter"/>
+        <conv:ProfileFavoriteBoundaryConverter x:Key="ProfileFavoriteBoundaryConverter"/>
+        <StreamGeometry x:Key="StarIcon">M1664 615q0 22-26 48l-363 354l86 500q1 7 1 20q0 50-41 50q-19 0-40-12l-449-236l-449 236q-22 12-40 12q-21 0-31.5-14.5T291 1537q0-6 2-20l86-500L15 663Q0 636 0 615q0-37 56-46l502-73L783 41q19-41 49-41t49 41l225 455l502 73q56 9 56 46</StreamGeometry>
         <StreamGeometry x:Key="AboutIcon">M896 1248v-192q0-14-9-23t-23-9H672q-14 0-23 9t-9 23v192q0 14 9 23t23 9h192q14 0 23-9t9-23m256-672q0-88-55.5-163T958 297t-170-41q-243 0-371 213q-15 24 8 42l132 100q7 6 19 6q16 0 25-12q53-68 86-92q34-24 86-24q48 0 85.5 26t37.5 59q0 38-20 61t-68 45q-63 28-115.5 86.5T640 892v36q0 14 9 23t23 9h192q14 0 23-9t9-23q0-19 21.5-49.5T972 829q32-18 49-28.5t46-35t44.5-48t28-60.5t12.5-81m384 192q0 209-103 385.5T1153.5 1433T768 1536t-385.5-103T103 1153.5T0 768t103-385.5T382.5 103T768 0t385.5 103T1433 382.5T1536 768</StreamGeometry>
         <StreamGeometry x:Key="NavMainIcon">M1600 917V301q-169 91-306 91q-82 0-145-32q-100-49-184-76.5T787 256q-173 0-403 127v599q245-113 433-113q55 0 103.5 7.5t98 26t77 31T1178 973l28 14q44 22 101 22q120 0 293-92M256 128q0 35-17.5 64T192 238v1266q0 14-9 23t-23 9H96q-14 0-23-9t-9-23V238q-29-17-46.5-46T0 128q0-53 37.5-90.5T128 0t90.5 37.5T256 128m1472 64v763q0 39-35 57q-10 5-17 9q-218 116-369 116q-88 0-158-35l-28-14q-64-33-99-48t-91-29t-114-14q-102 0-235.5 44T353 1143q-15 9-33 9q-16 0-32-8q-32-19-32-56V346q0-35 31-55q35-21 78.5-42.5t114-52T632 147t155-19q112 0 209 31t209 86q38 19 89 19q122 0 310-112q22-12 31-17q31-16 62 2q31 20 31 55</StreamGeometry>
         <StreamGeometry x:Key="NavCustomIcon">M1431 1320q56 89 21.5 152.5T1312 1536H160q-106 0-140.5-63.5T41 1320l503-793V128h-64q-26 0-45-19t-19-45t19-45t45-19h512q26 0 45 19t19 45t-19 45t-45 19h-64v399zM652 595l-272 429h712L820 595l-20-31V128H672v436z</StreamGeometry>
@@ -50,9 +53,22 @@
         <Style Selector="TextBlock.profilePathMissing">
             <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}"/>
         </Style>
-        <!-- Failed (not running) instance toggle button: highlight with an error color
-             while still letting the user click it to load the problematic profile.
-             A red foreground + border reads as an error on any theme/hover state. -->
+        <Style Selector="PathIcon.favoriteStar">
+            <Setter Property="Foreground" Value="{DynamicResource FavoriteForegroundBrush}"/>
+            <Setter Property="Opacity" Value="0.3"/>
+        </Style>
+        <Style Selector="PathIcon.favoriteStar.favoriteOn">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="TextBlock.importClears">
+            <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}"/>
+        </Style>
+        <Style Selector="ComboBoxItem Border.favoriteBoundary">
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Margin" Value="0,2,0,0"/>
+            <Setter Property="Padding" Value="0,3,0,0"/>
+        </Style>
         <Style Selector="SplitButton.instanceError">
             <Setter Property="Foreground" Value="#E74C3C"/>
             <Setter Property="BorderBrush" Value="#E74C3C"/>
@@ -83,7 +99,7 @@
             </Grid.RowDefinitions>
             <!-- Compact header: About + profile selector + profile actions + update/overflow/language -->
             <Border Grid.Row="0" Margin="5,5,5,0" Padding="8,5" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
                     <Button Grid.Column="0" Click="AboutClick" ToolTip.Tip="{Binding Localized.TooltipAbout}"
                             AutomationProperties.Name="{Binding Localized.TooltipAbout}"
                             VerticalAlignment="Center" Margin="0,0,8,0" Padding="4">
@@ -98,17 +114,33 @@
                               HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="0,0,6,0">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding}"
-                                           Classes.profilePathMissing="{Binding Converter={StaticResource ProfilePathBrokenConverter}}"
-                                           ToolTip.Tip="{Binding Converter={StaticResource ProfilePathTooltipConverter}}"/>
+                                <Border Classes.favoriteBoundary="{Binding Converter={StaticResource ProfileFavoriteBoundaryConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <PathIcon Data="{StaticResource StarIcon}" Width="11" Height="11"
+                                                  VerticalAlignment="Center" Margin="0,0,6,0"
+                                                  Classes="favoriteStar"
+                                                  IsVisible="{Binding Converter={StaticResource ProfileFavoriteConverter}}"/>
+                                        <TextBlock Text="{Binding}"
+                                                   Classes.profilePathMissing="{Binding Converter={StaticResource ProfilePathBrokenConverter}}"
+                                                   ToolTip.Tip="{Binding Converter={StaticResource ProfilePathTooltipConverter}}"/>
+                                    </StackPanel>
+                                </Border>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <TextBlock Grid.Column="3" Text="{Binding Localized.UnsavedChangesWarning}"
+                    <Button Grid.Column="3" Click="ToggleFavoriteClick" IsEnabled="{Binding HasSelectedProfile}"
+                            ToolTip.Tip="{Binding FavoriteToggleTooltip}"
+                            AutomationProperties.Name="{Binding FavoriteToggleTooltip}"
+                            VerticalAlignment="Center" Margin="0,0,8,0" Padding="4">
+                        <PathIcon Data="{StaticResource StarIcon}" Width="15" Height="15"
+                                  Classes="favoriteStar"
+                                  Classes.favoriteOn="{Binding IsSelectedProfileFavorite}"/>
+                    </Button>
+                    <TextBlock Grid.Column="4" Text="{Binding Localized.UnsavedChangesWarning}"
                                Foreground="{DynamicResource WarningForegroundBrush}" VerticalAlignment="Center" Margin="0,0,8,0"
                                IsVisible="{Binding HasUnsavedChanges}"/>
 
-                    <SplitButton Grid.Column="4" Content="{Binding Localized.Save}" Click="SaveClick"
+                    <SplitButton Grid.Column="5" Content="{Binding Localized.Save}" Click="SaveClick"
                                  ToolTip.Tip="{Binding Localized.Save, StringFormat='{}{0} (Ctrl+S)'}"
                                  VerticalAlignment="Center" Margin="0,0,8,0">
                         <SplitButton.Flyout>
@@ -125,7 +157,7 @@
                         </SplitButton.Flyout>
                     </SplitButton>
 
-                    <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Content="{Binding Localized.UpdateApp}" IsVisible="{Binding ShowAppUpdateButton}"
                                 Background="{DynamicResource SuccessBackgroundBrush}" Foreground="White" Click="UpdateAppClick"
                                 ToolTip.Tip="{Binding AppUpdateTooltip}" Margin="0,0,5,0"/>
@@ -1105,6 +1137,8 @@
                                               ToolTip.Tip="{Binding Localized.TooltipKillSpawnedProcesses}"/>
                                     <CheckBox Content="{Binding Localized.MinimizeToTray}" IsChecked="{Binding MinimizeToTray}"
                                               ToolTip.Tip="{Binding Localized.TooltipMinimizeToTray}"/>
+                                    <CheckBox Content="{Binding Localized.ReviewImports}" IsChecked="{Binding ReviewImports}"
+                                              ToolTip.Tip="{Binding Localized.TooltipReviewImports}"/>
 
                                     <Border BorderBrush="{DynamicResource DataPathForegroundBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,8" Padding="0,10,0,0">
                                         <StackPanel>
@@ -1458,6 +1492,75 @@
                                 Foreground="{DynamicResource OverlaySubtextForegroundBrush}" 
                                 HorizontalAlignment="Center"/>
                 </StackPanel>
+            </Border>
+        </Border>
+
+        <Border x:Name="ImportOverlay"
+                IsVisible="{Binding IsImportReviewVisible}"
+                Background="{DynamicResource OverlayBackgroundBrush}">
+            <Border Background="{DynamicResource PanelBackgroundBrush}"
+                    BorderBrush="{DynamicResource SeparatorBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Margin="30"
+                    MaxWidth="760"
+                    Padding="16">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <TextBlock Text="{Binding Localized.ImportReviewTitle}" FontWeight="Bold" FontSize="16"/>
+                        <TextBlock Text="{Binding ImportReviewSource}" Margin="0,4,0,0"
+                                   Foreground="{DynamicResource DataPathForegroundBrush}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding ImportReviewHint}" Margin="0,6,0,0" FontSize="11"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource OverlaySubtextForegroundBrush}"/>
+                    </StackPanel>
+
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+                        <Button Content="{Binding Localized.ImportSelectAll}" Click="ImportSelectAllClick" Padding="10,2"/>
+                        <Button Content="{Binding Localized.ImportSelectNone}" Click="ImportSelectNoneClick" Padding="10,2"/>
+                    </StackPanel>
+
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right"
+                                Spacing="8" Margin="0,12,0,0">
+                        <Button Content="{Binding Localized.Cancel}" Click="ImportCancelClick" Padding="14,4"/>
+                        <Button Content="{Binding ImportApplyText}" Click="ImportApplyClick" Padding="14,4"
+                                IsEnabled="{Binding CanApplyImport}"
+                                Background="{DynamicResource SuccessBackgroundBrush}" Foreground="White"/>
+                    </StackPanel>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ImportReviewGroups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,10">
+                                        <TextBlock Text="{Binding Header}" FontWeight="Bold" Margin="0,0,0,4"
+                                                   Foreground="{DynamicResource AccentForegroundBrush}"/>
+                                        <ItemsControl ItemsSource="{Binding Items}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,2">
+                                                        <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" Margin="0,0,6,0"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis" Margin="0,0,10,0"/>
+                                                        <TextBlock Grid.Column="2" Text="{Binding OldText}" VerticalAlignment="Center"
+                                                                   MaxWidth="200" TextTrimming="CharacterEllipsis"
+                                                                   ToolTip.Tip="{Binding OldText}"
+                                                                   Foreground="{DynamicResource OverlaySubtextForegroundBrush}"/>
+                                                        <TextBlock Grid.Column="3" Text="  -&gt;  " VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource OverlaySubtextForegroundBrush}"/>
+                                                        <TextBlock Grid.Column="4" Text="{Binding NewText}" VerticalAlignment="Center"
+                                                                   MaxWidth="220" TextTrimming="CharacterEllipsis"
+                                                                   ToolTip.Tip="{Binding NewText}"
+                                                                   Classes.importClears="{Binding ClearsValue}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
             </Border>
         </Border>
     </Grid>

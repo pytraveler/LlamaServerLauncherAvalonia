@@ -149,6 +149,63 @@
   <data name="Profile" xml:space="preserve">
     <value>Profile:</value>
   </data>
+  <data name="FavoriteAdd" xml:space="preserve">
+    <value>Add to favorites (shown at the top of the list)</value>
+  </data>
+  <data name="FavoriteRemove" xml:space="preserve">
+    <value>Remove from favorites</value>
+  </data>
+  <data name="ImportReviewTitle" xml:space="preserve">
+    <value>What to import</value>
+  </data>
+  <data name="ImportHintProfile" xml:space="preserve">
+    <value>Only the values that differ are listed. Unchecked lines stay as they are on the form.</value>
+  </data>
+  <data name="ImportHintScript" xml:space="preserve">
+    <value>Only the values that differ are listed. Fields the script does not mention are left unchecked, so nothing is wiped by accident - check a line to clear the field.</value>
+  </data>
+  <data name="ImportSelectAll" xml:space="preserve">
+    <value>Check all</value>
+  </data>
+  <data name="ImportSelectNone" xml:space="preserve">
+    <value>Uncheck all</value>
+  </data>
+  <data name="ImportApply" xml:space="preserve">
+    <value>Apply ({0})</value>
+  </data>
+  <data name="ImportValueNotSet" xml:space="preserve">
+    <value>(not set)</value>
+  </data>
+  <data name="ImportValueOn" xml:space="preserve">
+    <value>on</value>
+  </data>
+  <data name="ImportValueOff" xml:space="preserve">
+    <value>off</value>
+  </data>
+  <data name="ImportFieldMcpServers" xml:space="preserve">
+    <value>MCP servers</value>
+  </data>
+  <data name="ImportNothingToApply" xml:space="preserve">
+    <value>The file matches the form - nothing to import</value>
+  </data>
+  <data name="ImportNothingToApplyLog" xml:space="preserve">
+    <value>Import: '{0}' matches the form, nothing to apply</value>
+  </data>
+  <data name="ImportAppliedLog" xml:space="preserve">
+    <value>Import: applied {0} value(s) from '{1}'</value>
+  </data>
+  <data name="ImportAppliedToast" xml:space="preserve">
+    <value>Imported {0} value(s)</value>
+  </data>
+  <data name="ImportCancelledLog" xml:space="preserve">
+    <value>Import of '{0}' cancelled, the form is unchanged</value>
+  </data>
+  <data name="ReviewImports" xml:space="preserve">
+    <value>Ask what to import</value>
+  </data>
+  <data name="TooltipReviewImports" xml:space="preserve">
+    <value>An imported file (including a dropped one) shows what it would change, so you can pick. Off means the file overwrites the form as a whole.</value>
+  </data>
   <data name="Save" xml:space="preserve">
     <value>Save</value>
   </data>

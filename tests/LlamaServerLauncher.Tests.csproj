@@ -51,6 +51,8 @@
     <Compile Include="..\Services\NativeRuntimeProbe.cs" />
     <Compile Include="..\Models\ReferencedPathScanner.cs" />
     <Compile Include="..\Models\ProfilePathStatus.cs" />
+    <Compile Include="..\Models\ProfileFavorites.cs" />
+    <Compile Include="..\Models\ConfigurationDiff.cs" />
     <Compile Include="CommandLineTests.cs" />
     <Compile Include="OptimizationTests.cs" />
     <Compile Include="ProxyProtocolTests.cs" />
@@ -68,6 +70,8 @@
     <Compile Include="ProcessExitCodeInfoTests.cs" />
     <Compile Include="NativeRuntimeProbeTests.cs" />
     <Compile Include="ReferencedPathScannerTests.cs" />
+    <Compile Include="ProfileFavoritesTests.cs" />
+    <Compile Include="ConfigurationDiffTests.cs" />
     <Compile Include="BenchmarkTests.cs" />
     <Compile Include="PromptRunTests.cs" />
     <Compile Include="GitHubReleaseSourceTests.cs" />

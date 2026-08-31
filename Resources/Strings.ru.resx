@@ -149,6 +149,63 @@
   <data name="Profile" xml:space="preserve">
     <value>Профиль:</value>
   </data>
+  <data name="FavoriteAdd" xml:space="preserve">
+    <value>Добавить в избранное (будет вверху списка)</value>
+  </data>
+  <data name="FavoriteRemove" xml:space="preserve">
+    <value>Убрать из избранного</value>
+  </data>
+  <data name="ImportReviewTitle" xml:space="preserve">
+    <value>Что импортировать</value>
+  </data>
+  <data name="ImportHintProfile" xml:space="preserve">
+    <value>Показаны только отличия. Строки без галочки останутся такими, какие они сейчас на форме.</value>
+  </data>
+  <data name="ImportHintScript" xml:space="preserve">
+    <value>Показаны только отличия. Поля, которых нет в скрипте, оставлены без галочки, чтобы ничего не стереть случайно - поставьте галочку, если поле нужно очистить.</value>
+  </data>
+  <data name="ImportSelectAll" xml:space="preserve">
+    <value>Отметить все</value>
+  </data>
+  <data name="ImportSelectNone" xml:space="preserve">
+    <value>Снять все</value>
+  </data>
+  <data name="ImportApply" xml:space="preserve">
+    <value>Применить ({0})</value>
+  </data>
+  <data name="ImportValueNotSet" xml:space="preserve">
+    <value>(не задано)</value>
+  </data>
+  <data name="ImportValueOn" xml:space="preserve">
+    <value>вкл</value>
+  </data>
+  <data name="ImportValueOff" xml:space="preserve">
+    <value>выкл</value>
+  </data>
+  <data name="ImportFieldMcpServers" xml:space="preserve">
+    <value>MCP-серверы</value>
+  </data>
+  <data name="ImportNothingToApply" xml:space="preserve">
+    <value>Файл совпадает с формой - импортировать нечего</value>
+  </data>
+  <data name="ImportNothingToApplyLog" xml:space="preserve">
+    <value>Импорт: '{0}' совпадает с формой, применять нечего</value>
+  </data>
+  <data name="ImportAppliedLog" xml:space="preserve">
+    <value>Импорт: применено значений - {0}, файл '{1}'</value>
+  </data>
+  <data name="ImportAppliedToast" xml:space="preserve">
+    <value>Импортировано значений: {0}</value>
+  </data>
+  <data name="ImportCancelledLog" xml:space="preserve">
+    <value>Импорт '{0}' отменён, форма не изменилась</value>
+  </data>
+  <data name="ReviewImports" xml:space="preserve">
+    <value>Спрашивать, что импортировать</value>
+  </data>
+  <data name="TooltipReviewImports" xml:space="preserve">
+    <value>Импортируемый файл (в том числе брошенный на окно) сначала показывает, что он изменит, и даёт выбрать. Выключено - файл перезаписывает форму целиком.</value>
+  </data>
   <data name="Save" xml:space="preserve">
     <value>Сохранить</value>
   </data>

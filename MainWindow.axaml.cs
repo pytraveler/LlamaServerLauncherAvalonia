@@ -561,6 +561,31 @@ public partial class MainWindow : Window
         _viewModel?.SaveProfileCommand.Execute(null);
     }
 
+    private void ToggleFavoriteClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.ToggleSelectedProfileFavorite();
+    }
+
+    private void ImportApplyClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.ApplyImportReview();
+    }
+
+    private void ImportCancelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.CancelImportReview();
+    }
+
+    private void ImportSelectAllClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.SelectAllImportChanges();
+    }
+
+    private void ImportSelectNoneClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.SelectNoImportChanges();
+    }
+
     private void SaveAsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.SaveProfileAsCommand.Execute(null);
@@ -810,6 +835,21 @@ public partial class MainWindow : Window
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         var noMods = e.KeyModifiers == KeyModifiers.None;
         var args = new Avalonia.Interactivity.RoutedEventArgs();
+
+        if (_viewModel?.IsImportReviewVisible == true)
+        {
+            if (noMods && e.Key == Key.Escape)
+            {
+                _viewModel.CancelImportReview();
+                e.Handled = true;
+            }
+            else if (noMods && e.Key == Key.Enter)
+            {
+                _viewModel.ApplyImportReview();
+                e.Handled = true;
+            }
+            return;
+        }
 
         if (ctrl && !shift && e.Key == Key.S)
         {
@@ -1584,7 +1624,10 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
     private async void Window_Drop(object? sender, Avalonia.Input.DragEventArgs e)
     {
         DragDropOverlay.IsVisible = false;
-        
+
+        if (_viewModel?.IsImportReviewVisible == true)
+            return;
+
         if (!e.DataTransfer.Formats.Contains(Avalonia.Input.DataFormat.File))
             return;
 
@@ -1740,8 +1783,8 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         var config = await _configService.LoadProfileFromFileAsync(filePath);
         if (config != null)
         {
-            _viewModel.LoadConfigFromCommandLine(config);
             _viewModel.LogService.AppLog($"Profile imported from JSON: {filePath}");
+            _viewModel.ImportConfiguration(config, Path.GetFileName(filePath), null);
         }
         else
         {
@@ -1771,16 +1814,18 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         }
 
         // Only set exePath if it's a meaningful absolute path (not just ".\" or similar relative)
-        if (!string.IsNullOrEmpty(exePath) && 
-            exePath != ".\\" && exePath != "./" && 
-            exePath != "." && 
+        var mentioned = ConfigurationDiff.PropertiesMentionedIn(tokens);
+        if (!string.IsNullOrEmpty(exePath) &&
+            exePath != ".\\" && exePath != "./" &&
+            exePath != "." &&
             !string.Equals(exePath, ".", StringComparison.OrdinalIgnoreCase))
         {
             config.ExecutablePath = exePath;
+            mentioned.Add(nameof(ServerConfiguration.ExecutablePath));
         }
 
-        _viewModel.LoadConfigFromCommandLine(config);
         _viewModel.LogService.AppLog($"Profile imported from batch file: {filePath}");
+        _viewModel.ImportConfiguration(config, Path.GetFileName(filePath), mentioned);
     }
 
     private async Task LoadShellFileAsync(string filePath)
@@ -1805,16 +1850,18 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         }
 
         // Only set exePath if it's a meaningful absolute path (not just "./" or similar relative)
-        if (!string.IsNullOrEmpty(exePath) && 
-            exePath != "./" && exePath != ".\\" && 
-            exePath != "." && 
+        var mentioned = ConfigurationDiff.PropertiesMentionedIn(tokens);
+        if (!string.IsNullOrEmpty(exePath) &&
+            exePath != "./" && exePath != ".\\" &&
+            exePath != "." &&
             !string.Equals(exePath, ".", StringComparison.OrdinalIgnoreCase))
         {
             config.ExecutablePath = exePath;
+            mentioned.Add(nameof(ServerConfiguration.ExecutablePath));
         }
 
-        _viewModel.LoadConfigFromCommandLine(config);
         _viewModel.LogService.AppLog($"Profile imported from shell script: {filePath}");
+        _viewModel.ImportConfiguration(config, Path.GetFileName(filePath), mentioned);
     }
 
     private (string? exePath, List<string> tokens) ExtractLlamaCommand(string batContent)

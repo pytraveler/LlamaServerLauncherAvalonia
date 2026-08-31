@@ -34,3 +34,29 @@ public class ProfilePathTooltipConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+public class ProfileFavoriteConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return ProfileFavorites.IsFavorite(value as string);
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public class ProfileFavoriteBoundaryConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return ProfileFavorites.IsFirstAfterFavorites(value as string);
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

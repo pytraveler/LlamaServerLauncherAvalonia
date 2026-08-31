@@ -199,6 +199,8 @@ A built-in reverse proxy that loads the right profile on demand when an API requ
 - Export/import all profiles as a ZIP archive
 - Unsaved changes tracking
 - Clone profiles to quickly create variants
+- **Favorites** - the star next to the profile dropdown pins a profile to the top of the list, above a separator, so the profiles you use daily are not something to scroll for
+- **Import review** - an imported file (dropped or picked from the menu) first shows what it would change, field by field, and you check off what to take; a `.bat` or `.sh` leaves the fields it never mentions alone. Can be switched off on the **Behavior** tab
 - **Profiles pointing at files that are gone** are marked in the profile list in the warning colour, with a tooltip naming exactly which paths are missing — models moved to another drive stop being a mystery
 
 ### Drag & Drop

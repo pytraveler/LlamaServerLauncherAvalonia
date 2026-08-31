@@ -26,7 +26,9 @@ public class AppSettings
     public string Language { get; set; } = "en";
 
     public string ProfileNameInput { get; set; } = "";
-    
+
+    public List<string> FavoriteProfiles { get; set; } = new();
+
     public string ExecutablePath { get; set; } = "";
     public string ModelPath { get; set; } = "";
     public string ModelsDir { get; set; } = "";
@@ -148,6 +150,8 @@ public class AppSettings
     public bool KillSpawnedProcesses { get; set; } = true;
 
     public bool MinimizeToTray { get; set; } = true;
+
+    public bool ReviewImports { get; set; } = true;
 
     public Dictionary<string, DialogGeometry> DialogGeometry { get; set; } = new();
 

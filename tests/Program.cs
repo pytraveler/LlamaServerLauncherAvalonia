@@ -18,6 +18,8 @@ ServerCrashAdvisorTests.Run(harness);
 ProcessExitCodeInfoTests.Run(harness);
 NativeRuntimeProbeTests.Run(harness);
 ReferencedPathScannerTests.Run(harness);
+ProfileFavoritesTests.Run(harness);
+ConfigurationDiffTests.Run(harness);
 BenchmarkTests.Run(harness);
 PromptRunTests.Run(harness);
 GitHubReleaseSourceTests.Run(harness);

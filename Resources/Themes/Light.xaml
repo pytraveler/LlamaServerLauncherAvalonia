@@ -29,6 +29,7 @@
     <SolidColorBrush x:Key="OptionAutoBrush">#0277BD</SolidColorBrush>
     <SolidColorBrush x:Key="OptionOnBrush">#2E7D32</SolidColorBrush>
     <SolidColorBrush x:Key="WarningForegroundBrush">#D47600</SolidColorBrush>
+    <SolidColorBrush x:Key="FavoriteForegroundBrush">#B8860B</SolidColorBrush>
     <SolidColorBrush x:Key="SuccessBackgroundBrush">#5A9B6A</SolidColorBrush>
     <SolidColorBrush x:Key="DataPathForegroundBrush">#0066CC</SolidColorBrush>
     <SolidColorBrush x:Key="OverlayDropForegroundBrush">#4FC3F7</SolidColorBrush>
