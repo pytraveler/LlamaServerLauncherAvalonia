@@ -1021,6 +1021,9 @@
                                     </Grid>
 
                                     <TextBlock Text="{Binding Localized.UpdateIntervalWarning}" FontSize="11" Foreground="Orange" Margin="0,8,0,0" TextWrapping="Wrap" IsVisible="{Binding ShowUpdateIntervalWarning}"/>
+
+                                    <CheckBox Content="{Binding Localized.KeepPreviousLlamaBuild}" IsChecked="{Binding KeepPreviousLlamaBuild}"
+                                              ToolTip.Tip="{Binding Localized.TooltipKeepPreviousLlamaBuild}" Margin="0,12,0,0"/>
                                 </StackPanel>
                             </ScrollViewer>
                         </TabItem>

@@ -1444,6 +1444,8 @@ public partial class MainWindow : Window
             var downloadedTag = vm.DownloadedReleaseTag;
             if (!string.IsNullOrEmpty(downloadedTag))
                 vm2.UpdateInstalledTag(downloadedTag);
+            else
+                await vm2.CheckDefaultLlamaVersionAsync();
 
             if (!string.IsNullOrEmpty(vm.DownloadedExecutablePath))
             {
@@ -1456,17 +1458,13 @@ public partial class MainWindow : Window
                 var defaultPath = vm2.DownloadService.GetDefaultLlamaServerPath();
                 if (defaultPath != null && string.IsNullOrEmpty(vm2.ExecutablePath))
                     vm2.ExecutablePath = defaultPath;
+
+                await vm2.RefreshSupportedFlagsAsync(force: true);
             }
         }
 
         if (wasRunning != null)
         {
-            // The binary may have changed (new version), so re-detect supported flags
-            // before relaunching. Force bypasses the path-string cache, since an in-place
-            // update keeps the same executable path.
-            if (vm.DownloadSucceeded)
-                await vm2.RefreshSupportedFlagsAsync(force: true);
-
             foreach (var (profileName, config) in wasRunning)
             {
                 try

@@ -12,6 +12,8 @@ The download and update progress bars take their color from the app theme rather
 
 How often to check for new releases — separately for the app and for llama.cpp. Checking too often runs into GitHub API rate limits, which the hint under the fields warns about. A found update shows up as a button in the main window header.
 
+"Keep the replaced llama.cpp build for rollback" decides what happens to the build an update replaces: by default it is moved next to the install directory, into `llama.cpp.prev`, instead of being deleted, and the download window offers to roll back to it — instantly and without a network. The rollback swaps the two, so the build it replaces takes the kept slot and the rollback can be undone the same way. Exactly one build is kept, taking as much disk space as the one in use; the download window can delete it. Turn the setting off and an update deletes the old build as it used to.
+
 ## Data storage
 
 Where profiles, settings, logs, benchmarks and downloaded llama.cpp builds live. The default is the per-user system data folder; you can point it elsewhere (another drive, for instance). When you change the directory, the app offers to migrate the existing data there.

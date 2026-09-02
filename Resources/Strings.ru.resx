@@ -2469,4 +2469,55 @@
   <data name="BenchmarkReportFinishReason" xml:space="preserve">
     <value>Причина остановки</value>
   </data>
+  <data name="PreviousBuildInfo" xml:space="preserve">
+    <value>Сохраненная сборка: {0}, от {1}, {2} МБ</value>
+  </data>
+  <data name="PreviousBuildUnknownTag" xml:space="preserve">
+    <value>версия неизвестна</value>
+  </data>
+  <data name="RestorePreviousBuild" xml:space="preserve">
+    <value>Откатить</value>
+  </data>
+  <data name="TooltipRestorePreviousBuild" xml:space="preserve">
+    <value>Вернуть сохраненную сборку в работу. Заменяемая сборка займет ее место, поэтому откат можно отменить тем же способом.</value>
+  </data>
+  <data name="DeletePreviousBuild" xml:space="preserve">
+    <value>Удалить</value>
+  </data>
+  <data name="TooltipDeletePreviousBuild" xml:space="preserve">
+    <value>Удалить сохраненную сборку и освободить занятое ею место на диске. Для отката ее придется скачивать заново.</value>
+  </data>
+  <data name="ConfirmRestorePreviousBuild" xml:space="preserve">
+    <value>Откатить llama.cpp на {0}?
+
+Текущая сборка будет сохранена на ее место, поэтому вернуться назад можно тем же способом.</value>
+  </data>
+  <data name="ConfirmDeletePreviousBuild" xml:space="preserve">
+    <value>Удалить сохраненную сборку {0}?
+
+Откат на нее будет возможен только после повторной загрузки с GitHub.</value>
+  </data>
+  <data name="DeletePreviousBuildFailed" xml:space="preserve">
+    <value>Не удалось удалить сохраненную сборку: часть ее файлов занята.</value>
+  </data>
+  <data name="RestoringPreviousBuild" xml:space="preserve">
+    <value>Восстановление сохраненной сборки...</value>
+  </data>
+  <data name="PreviousBuildRestored" xml:space="preserve">
+    <value>Сохраненная сборка возвращена в работу</value>
+  </data>
+  <data name="RestorePreviousBuildFailed" xml:space="preserve">
+    <value>Не удалось восстановить сохраненную сборку: {0}</value>
+  </data>
+  <data name="DownloadIntoManagedFolderWarning" xml:space="preserve">
+    <value>Эта папка находится внутри служебного каталога llama.cpp самого лаунчера ({0}). Его содержимое заменяется при каждом обновлении, поэтому загруженная сюда сборка будет потеряна.
+
+Все равно загрузить сюда?</value>
+  </data>
+  <data name="KeepPreviousLlamaBuild" xml:space="preserve">
+    <value>Сохранять заменяемую сборку llama.cpp для отката</value>
+  </data>
+  <data name="TooltipKeepPreviousLlamaBuild" xml:space="preserve">
+    <value>Перед обновлением текущая сборка переносится в llama.cpp.prev, а не удаляется, и ее можно вернуть без повторной загрузки. Занимает столько же места, сколько одна сборка.</value>
+  </data>
 </root>

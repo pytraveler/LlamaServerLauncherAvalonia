@@ -37,6 +37,44 @@ public class ReleaseAsset
     public double SizeMB => Size / (1024.0 * 1024.0);
 }
 
+public class LlamaBuildBackupInfo
+{
+    public string Directory { get; set; } = "";
+    public string Tag { get; set; } = "";
+    public DateTime SavedAt { get; set; }
+    public long SizeBytes { get; set; }
+
+    public double SizeMB => SizeBytes / (1024.0 * 1024.0);
+}
+
+public sealed class InstallStaging
+{
+    public string TargetDirectory { get; }
+    public string? StagedPath { get; }
+    public bool StagedAsBackup { get; }
+
+    internal InstallStaging(string targetDirectory, string? stagedPath, bool stagedAsBackup)
+    {
+        TargetDirectory = targetDirectory;
+        StagedPath = stagedPath;
+        StagedAsBackup = stagedAsBackup;
+    }
+
+    public void Commit()
+    {
+        if (StagedPath != null && !StagedAsBackup)
+            LlamaCppDownloadService.TryDeleteDirectory(StagedPath);
+    }
+
+    public void Rollback()
+    {
+        if (StagedPath == null || !Directory.Exists(StagedPath)) return;
+
+        LlamaCppDownloadService.TryDeleteDirectory(TargetDirectory);
+        try { Directory.Move(StagedPath, TargetDirectory); } catch { }
+    }
+}
+
 public class LlamaCppDownloadService
 {
     private static readonly HttpClient _http = new()
@@ -47,7 +85,9 @@ public class LlamaCppDownloadService
 
     private const string RepoOwner = "ggml-org";
     private const string RepoName = "llama.cpp";
+    private const string BuildMarkerFileName = ".llama-build.json";
     private readonly string _installDir;
+    private readonly string _backupDir;
 
     public GitHubReleaseResult? LastReleaseFetch { get; private set; }
 
@@ -63,9 +103,14 @@ public class LlamaCppDownloadService
             "LlamaServerLauncherAvalonia"
         );
         _installDir = Path.GetFullPath(Path.Combine(basePath, "llama.cpp"));
+        _backupDir = _installDir + ".prev";
     }
 
     public string InstallDirectory => _installDir;
+
+    public string BackupDirectory => _backupDir;
+
+    public bool KeepPreviousBuild { get; set; } = true;
 
     private static readonly TimeSpan ReleaseCacheLifetime = TimeSpan.FromMinutes(30);
 
@@ -147,12 +192,12 @@ public class LlamaCppDownloadService
         });
     }
 
-    public async Task DownloadAndExtractAsync(ReleaseAsset asset, IProgress<double>? progress, CancellationToken ct, ReleaseAsset? cudaDllAsset = null)
+    public async Task DownloadAndExtractAsync(ReleaseAsset asset, IProgress<double>? progress, CancellationToken ct, ReleaseAsset? cudaDllAsset = null, string? releaseTag = null)
     {
-        await DownloadAndExtractAsync(asset, _installDir, progress, ct, cudaDllAsset);
+        await DownloadAndExtractAsync(asset, _installDir, progress, ct, cudaDllAsset, releaseTag);
     }
 
-    public async Task DownloadAndExtractAsync(ReleaseAsset asset, string targetDirectory, IProgress<double>? progress, CancellationToken ct, ReleaseAsset? cudaDllAsset = null)
+    public async Task DownloadAndExtractAsync(ReleaseAsset asset, string targetDirectory, IProgress<double>? progress, CancellationToken ct, ReleaseAsset? cudaDllAsset = null, string? releaseTag = null)
     {
         var tempFile = Path.Combine(Path.GetTempPath(), asset.Name);
         string? tempDllFile = null;
@@ -170,38 +215,51 @@ public class LlamaCppDownloadService
 
             progress?.Report(-1);
 
-            if (Directory.Exists(targetDirectory) || File.Exists(targetDirectory))
-            {
-                Directory.Delete(targetDirectory, true);
-            }
+            var keepAsBackup = KeepPreviousBuild && IsSameDirectory(targetDirectory, _installDir);
+            var previousTag = keepAsBackup ? await ReadInstalledTagAsync(targetDirectory) : null;
+
+            var staging = StageForReplace(targetDirectory, previousTag, keepAsBackup);
             Directory.CreateDirectory(targetDirectory);
 
-            if (asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                ExtractZipWithFlatten(tempFile, targetDirectory);
-            }
-            else if (asset.Name.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
-            {
-                ExtractTarGzWithFlatten(tempFile, targetDirectory);
-            }
-
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                try
+                if (asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
-                    var exePath = GetLlamaServerPath(targetDirectory);
-                    if (exePath != null && File.Exists(exePath))
-                    {
-                        var mode = File.GetUnixFileMode(exePath);
-                        File.SetUnixFileMode(exePath, mode | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
-                    }
+                    ExtractZipWithFlatten(tempFile, targetDirectory);
                 }
-                catch { }
-            }
+                else if (asset.Name.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
+                {
+                    ExtractTarGzWithFlatten(tempFile, targetDirectory);
+                }
 
-            if (tempDllFile != null && File.Exists(tempDllFile))
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    try
+                    {
+                        var exePath = GetLlamaServerPath(targetDirectory);
+                        if (exePath != null && File.Exists(exePath))
+                        {
+                            var mode = File.GetUnixFileMode(exePath);
+                            File.SetUnixFileMode(exePath, mode | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+                        }
+                    }
+                    catch { }
+                }
+
+                if (tempDllFile != null && File.Exists(tempDllFile))
+                {
+                    ExtractDllsFromZip(tempDllFile, targetDirectory);
+                }
+
+                if (!string.IsNullOrEmpty(releaseTag))
+                    RecordBuildTag(targetDirectory, releaseTag!);
+
+                staging.Commit();
+            }
+            catch
             {
-                ExtractDllsFromZip(tempDllFile, targetDirectory);
+                staging.Rollback();
+                throw;
             }
         }
         finally
@@ -250,12 +308,245 @@ public class LlamaCppDownloadService
     {
         if (!Directory.Exists(directory)) return null;
 
-        var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? "llama-server.exe"
-            : "llama-server";
-
-        var path = Path.Combine(directory, exeName);
+        var path = Path.Combine(directory, ServerExecutableName);
         return File.Exists(path) ? path : null;
+    }
+
+    public static string ServerExecutableName =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "llama-server.exe" : "llama-server";
+
+    public LlamaBuildBackupInfo? GetBackupInfo()
+    {
+        try
+        {
+            if (GetLlamaServerPath(_backupDir) == null) return null;
+
+            var marker = ReadBuildMarker(_backupDir);
+            return new LlamaBuildBackupInfo
+            {
+                Directory = _backupDir,
+                Tag = marker?.Tag ?? "",
+                SavedAt = marker?.SavedAt ?? Directory.GetLastWriteTime(_backupDir),
+                SizeBytes = GetDirectorySize(_backupDir)
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public bool DeleteBackup() => TryDeleteDirectory(_backupDir);
+
+    public async Task<string> RestorePreviousBuildAsync()
+    {
+        var info = GetBackupInfo();
+        if (info == null)
+            throw new InvalidOperationException("There is no saved llama.cpp build to restore.");
+
+        var currentTag = await ReadInstalledTagAsync(_installDir);
+
+        var swapDir = _installDir + ".swap";
+        TryDeleteDirectory(swapDir);
+
+        var hasCurrent = HasContent(_installDir);
+        if (hasCurrent)
+        {
+            WriteBuildMarker(_installDir, currentTag);
+            Directory.Move(_installDir, swapDir);
+        }
+        else
+        {
+            TryDeleteDirectory(_installDir);
+        }
+
+        try
+        {
+            Directory.Move(_backupDir, _installDir);
+        }
+        catch
+        {
+            if (hasCurrent && Directory.Exists(swapDir))
+            {
+                TryDeleteDirectory(_installDir);
+                Directory.Move(swapDir, _installDir);
+            }
+            throw;
+        }
+
+        if (hasCurrent)
+        {
+            try { Directory.Move(swapDir, _backupDir); }
+            catch { TryDeleteDirectory(swapDir); }
+        }
+
+        return info.Tag;
+    }
+
+    public InstallStaging StageForReplace(string targetDirectory, string? previousTag, bool keepAsBackup)
+    {
+        targetDirectory = Path.GetFullPath(targetDirectory);
+
+        if (File.Exists(targetDirectory))
+        {
+            File.Delete(targetDirectory);
+            return new InstallStaging(targetDirectory, null, false);
+        }
+
+        if (!HasContent(targetDirectory))
+        {
+            TryDeleteDirectory(targetDirectory);
+            return new InstallStaging(targetDirectory, null, false);
+        }
+
+        var asBackup = keepAsBackup && IsSameDirectory(targetDirectory, _installDir);
+        var stagedPath = asBackup ? _backupDir : targetDirectory + ".replaced";
+
+        if (asBackup)
+            WriteBuildMarker(targetDirectory, previousTag);
+
+        TryDeleteDirectory(stagedPath);
+
+        try
+        {
+            Directory.Move(targetDirectory, stagedPath);
+            return new InstallStaging(targetDirectory, stagedPath, asBackup);
+        }
+        catch
+        {
+            Directory.Delete(targetDirectory, true);
+            return new InstallStaging(targetDirectory, null, false);
+        }
+    }
+
+    public bool IsInsideManagedInstall(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+
+        string full;
+        try { full = Path.GetFullPath(path); }
+        catch { return false; }
+
+        return IsSameOrUnder(full, _installDir) || IsSameOrUnder(full, _backupDir);
+    }
+
+    private async Task<string?> ReadInstalledTagAsync(string directory)
+    {
+        var recorded = ReadBuildMarker(directory)?.Tag;
+        if (!string.IsNullOrEmpty(recorded)) return recorded;
+
+        var exePath = GetLlamaServerPath(directory);
+        return exePath == null ? null : await GetLocalVersionTagAsync(exePath);
+    }
+
+    public static void RecordBuildTag(string directory, string tag) => WriteBuildMarker(directory, tag);
+
+    public async Task<string?> IdentifyBackupBuildAsync()
+    {
+        var exePath = GetLlamaServerPath(_backupDir);
+        if (exePath == null) return null;
+
+        var tag = await GetLocalVersionTagAsync(exePath);
+        if (string.IsNullOrEmpty(tag)) return null;
+
+        var savedAt = ReadBuildMarker(_backupDir)?.SavedAt;
+        WriteBuildMarker(_backupDir, tag, savedAt);
+        return tag;
+    }
+
+    private static void WriteBuildMarker(string directory, string? tag, DateTime? savedAt = null)
+    {
+        try
+        {
+            var marker = new BuildMarker { Tag = tag ?? "", SavedAt = savedAt ?? DateTime.Now };
+            File.WriteAllText(
+                Path.Combine(directory, BuildMarkerFileName),
+                JsonSerializer.Serialize(marker));
+        }
+        catch { }
+    }
+
+    private static BuildMarker? ReadBuildMarker(string directory)
+    {
+        try
+        {
+            var path = Path.Combine(directory, BuildMarkerFileName);
+            if (!File.Exists(path)) return null;
+            return JsonSerializer.Deserialize<BuildMarker>(File.ReadAllText(path));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool HasContent(string directory)
+    {
+        try
+        {
+            return Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static long GetDirectorySize(string directory)
+    {
+        long total = 0;
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+            {
+                try { total += new FileInfo(file).Length; } catch { }
+            }
+        }
+        catch { }
+        return total;
+    }
+
+    internal static bool TryDeleteDirectory(string directory)
+    {
+        try
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, true);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsSameDirectory(string left, string right) =>
+        string.Equals(Normalize(left), Normalize(right), PathComparison);
+
+    private static bool IsSameOrUnder(string path, string root)
+    {
+        var normalizedPath = Normalize(path);
+        var normalizedRoot = Normalize(root);
+
+        if (string.Equals(normalizedPath, normalizedRoot, PathComparison)) return true;
+        return normalizedPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, PathComparison);
+    }
+
+    private static string Normalize(string path)
+    {
+        try { path = Path.GetFullPath(path); }
+        catch { }
+        return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private static StringComparison PathComparison => RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
+
+    private class BuildMarker
+    {
+        public string Tag { get; set; } = "";
+        public DateTime SavedAt { get; set; }
     }
 
     public static string GetUniqueSubfolderPath(string baseDirectory, string name)
@@ -332,20 +623,27 @@ public class LlamaCppDownloadService
             var stderr = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
 
-            var output = stdout + "\n" + stderr;
-            var match = Regex.Match(output, @"version\s*:\s*(\d+)", RegexOptions.IgnoreCase);
-            if (match.Success && long.TryParse(match.Groups[1].Value, out var number) && number > 0)
-            {
-                // "version: 0" means the binary has no embedded build number 
-                return $"b{number}";
-            }
-
-            return null;
+            return ParseVersionTag(stdout + "\n" + stderr);
         }
         catch
         {
             return null;
         }
+    }
+
+    public static string? ParseVersionTag(string output)
+    {
+        var build = Regex.Match(output, @"\bbuild\s+(\d+)", RegexOptions.IgnoreCase);
+        if (build.Success && long.TryParse(build.Groups[1].Value, out var buildNumber) && buildNumber > 0)
+            return $"b{buildNumber}";
+
+        var version = Regex.Match(output, @"version\s*:\s*(\d+)", RegexOptions.IgnoreCase);
+        if (version.Success && long.TryParse(version.Groups[1].Value, out var number) && number > 0)
+        {
+            return $"b{number}";
+        }
+
+        return null;
     }
 
     public bool IsInPath(string directory)

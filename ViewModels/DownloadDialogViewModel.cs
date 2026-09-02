@@ -285,6 +285,51 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     public string? LastCustomDownloadPath { get; set; }
     public bool DownloadSucceeded { get; private set; }
 
+    private LlamaBuildBackupInfo? _previousBuild;
+
+    public bool HasPreviousBuild => _previousBuild != null;
+
+    public string PreviousBuildText
+    {
+        get
+        {
+            if (_previousBuild == null) return "";
+
+            var tag = string.IsNullOrEmpty(_previousBuild.Tag)
+                ? LocalizedStrings.GetString("PreviousBuildUnknownTag")
+                : _previousBuild.Tag;
+
+            return string.Format(
+                LocalizedStrings.GetString("PreviousBuildInfo"),
+                tag,
+                _previousBuild.SavedAt.ToString("yyyy-MM-dd HH:mm"),
+                _previousBuild.SizeMB.ToString("F0"));
+        }
+    }
+
+    public void RefreshPreviousBuild()
+    {
+        _previousBuild = _downloadService.GetBackupInfo();
+        OnPropertyChanged(nameof(HasPreviousBuild));
+        OnPropertyChanged(nameof(PreviousBuildText));
+
+        if (_previousBuild != null && string.IsNullOrEmpty(_previousBuild.Tag))
+            _ = IdentifyPreviousBuildAsync();
+    }
+
+    private async Task IdentifyPreviousBuildAsync()
+    {
+        var tag = await _downloadService.IdentifyBackupBuildAsync();
+        if (string.IsNullOrEmpty(tag)) return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_previousBuild == null || !string.IsNullOrEmpty(_previousBuild.Tag)) return;
+            _previousBuild.Tag = tag!;
+            OnPropertyChanged(nameof(PreviousBuildText));
+        });
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
     public event Action? RequestClose;
 
@@ -295,6 +340,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         _bodyCacheOrder = bodyCacheOrder;
         _releaseCache = releaseCache;
         _releaseCacheTimestamp = releaseCacheTimestamp;
+        RefreshPreviousBuild();
         _ = LoadReleasesAsync(preselectedTag);
         _ = DetectVendorAsync();
     }
@@ -693,6 +739,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
         var folder = await WindowsFileDialogs.OpenFolderDialogAsync(LocalizedStrings.GetString("SelectDownloadFolder"));
         if (string.IsNullOrEmpty(folder)) return;
+        if (!await ConfirmManagedFolderAsync(folder)) return;
 
         var tag = _selectedRelease?.Tag ?? "llama.cpp";
         var targetDirectory = LlamaCppDownloadService.GetUniqueSubfolderPath(folder, tag);
@@ -712,6 +759,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
         var folder = await WindowsFileDialogs.OpenFolderDialogAsync(LocalizedStrings.GetString("SelectDownloadFolder"));
         if (string.IsNullOrEmpty(folder)) return;
+        if (!await ConfirmManagedFolderAsync(folder)) return;
 
         var repoName = !string.IsNullOrEmpty(_selectedExperimentalRepo.DisplayName)
             ? _selectedExperimentalRepo.DisplayName
@@ -720,7 +768,8 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         var subFolder = Path.Combine(folder, "ExperimentalRepos", repoName);
         var targetDirectory = LlamaCppDownloadService.GetUniqueSubfolderPath(subFolder, tag);
 
-        await ExecuteDownloadAsync(targetDirectory, promptForPath: false, asset: SelectedExperimentalAsset, allAssets: _selectedExperimentalRelease?.Assets);
+        await ExecuteDownloadAsync(targetDirectory, promptForPath: false, asset: SelectedExperimentalAsset,
+            allAssets: _selectedExperimentalRelease?.Assets, releaseTag: _selectedExperimentalRelease?.Tag);
 
         if (DownloadSucceeded)
         {
@@ -729,10 +778,94 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task ExecuteDownloadAsync(string targetDirectory, bool promptForPath, ReleaseAsset? asset = null, List<ReleaseAsset>? allAssets = null)
+    private async Task<bool> ConfirmManagedFolderAsync(string folder)
+    {
+        if (!_downloadService.IsInsideManagedInstall(folder)) return true;
+
+        var message = string.Format(
+            LocalizedStrings.GetString("DownloadIntoManagedFolderWarning"),
+            _downloadService.InstallDirectory);
+
+        var result = await MessageBox.ShowAsync(
+            MainWindow.Instance!,
+            message,
+            LocalizedStrings.GetString("ConfirmTitle"),
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning);
+
+        return result == MessageBoxResult.Yes;
+    }
+
+    public async Task RestorePreviousBuildAsync()
+    {
+        if (_previousBuild == null || IsDownloading) return;
+
+        var tag = string.IsNullOrEmpty(_previousBuild.Tag)
+            ? LocalizedStrings.GetString("PreviousBuildUnknownTag")
+            : _previousBuild.Tag;
+
+        var confirm = await MessageBox.ShowAsync(
+            MainWindow.Instance!,
+            string.Format(LocalizedStrings.GetString("ConfirmRestorePreviousBuild"), tag),
+            LocalizedStrings.GetString("ConfirmTitle"),
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (confirm != MessageBoxResult.Yes) return;
+
+        IsDownloading = true;
+        StatusMessage = LocalizedStrings.GetString("RestoringPreviousBuild");
+
+        try
+        {
+            var restoredTag = await _downloadService.RestorePreviousBuildAsync();
+
+            DownloadedReleaseTag = string.IsNullOrEmpty(restoredTag) ? null : restoredTag;
+            DownloadedExecutablePath = null;
+            DownloadSucceeded = true;
+            IsDownloading = false;
+            RefreshPreviousBuild();
+            StatusMessage = LocalizedStrings.GetString("PreviousBuildRestored");
+
+            _ = Task.Delay(800).ContinueWith(_ =>
+                Dispatcher.UIThread.Post(() => RequestClose?.Invoke()));
+        }
+        catch (Exception ex)
+        {
+            IsDownloading = false;
+            RefreshPreviousBuild();
+            StatusMessage = string.Format(LocalizedStrings.GetString("RestorePreviousBuildFailed"), ex.Message);
+        }
+    }
+
+    public async Task DeletePreviousBuildAsync()
+    {
+        if (_previousBuild == null || IsDownloading) return;
+
+        var tag = string.IsNullOrEmpty(_previousBuild.Tag)
+            ? LocalizedStrings.GetString("PreviousBuildUnknownTag")
+            : _previousBuild.Tag;
+
+        var confirm = await MessageBox.ShowAsync(
+            MainWindow.Instance!,
+            string.Format(LocalizedStrings.GetString("ConfirmDeletePreviousBuild"), tag),
+            LocalizedStrings.GetString("ConfirmTitle"),
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (confirm != MessageBoxResult.Yes) return;
+
+        if (!_downloadService.DeleteBackup())
+            StatusMessage = LocalizedStrings.GetString("DeletePreviousBuildFailed");
+
+        RefreshPreviousBuild();
+    }
+
+    private async Task ExecuteDownloadAsync(string targetDirectory, bool promptForPath, ReleaseAsset? asset = null, List<ReleaseAsset>? allAssets = null, string? releaseTag = null)
     {
         asset ??= SelectedAsset;
         allAssets ??= _selectedRelease?.Assets;
+        releaseTag ??= _selectedRelease?.Tag;
         if (asset == null) return;
 
         IsDownloading = true;
@@ -756,7 +889,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
         try
         {
             await _downloadService.DownloadAndExtractAsync(asset, targetDirectory, progress, _cts.Token,
-                _downloadService.FindMatchingCudaDllAsset(asset, allAssets));
+                _downloadService.FindMatchingCudaDllAsset(asset, allAssets), releaseTag);
 
             if (promptForPath && !_downloadService.IsInPath(targetDirectory))
             {
@@ -783,6 +916,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
             Dispatcher.UIThread.Post(() =>
             {
+                RefreshPreviousBuild();
                 StatusMessage = LocalizedStrings.GetString("DownloadComplete");
                 IsDownloading = false;
                 _ = Task.Delay(800).ContinueWith(_ =>

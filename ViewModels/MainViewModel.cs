@@ -1707,6 +1707,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         ColorScheme = string.IsNullOrEmpty(settings.ColorScheme) ? "Default" : settings.ColorScheme;
         SelectedFontFamily = settings.FontFamily ?? "";
         _llamaCppInstalledTag = settings.LlamaCppInstalledTag ?? "";
+        _keepPreviousLlamaBuild = settings.KeepPreviousLlamaBuild;
+        _downloadService.KeepPreviousBuild = _keepPreviousLlamaBuild;
+        OnPropertyChanged(nameof(KeepPreviousLlamaBuild));
         SelectedTabIndex = settings.SelectedTabIndex;
         RunInDocker = settings.RunInDocker;
         DockerImage = string.IsNullOrEmpty(settings.DockerImage) ? "ghcr.io/ggml-org/llama.cpp:server" : settings.DockerImage;
@@ -2069,6 +2072,13 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 await CopyDirectoryAsync(llamaSource, llamaTarget);
             }
 
+            var backupName = Path.GetFileName(_downloadService.BackupDirectory);
+            var backupSource = Path.Combine(sourceDir, backupName);
+            if (Directory.Exists(backupSource))
+            {
+                await CopyDirectoryAsync(backupSource, Path.Combine(targetDir, backupName));
+            }
+
             DeleteDirectoryContents(sourceDir);
 
             return null;
@@ -2195,6 +2205,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             FontFamily = SelectedFontFamily ?? "",
             CustomArgumentToggleStates = GetToggleStates(),
             LlamaCppInstalledTag = _llamaCppInstalledTag,
+            KeepPreviousLlamaBuild = _keepPreviousLlamaBuild,
             SelectedTabIndex = SelectedTabIndex,
             RecentValuesHistory = new Dictionary<string, List<string>>(_recentValues),
             ReleaseBodyCache = new Dictionary<string, string>(_releaseBodyCache),
@@ -2307,6 +2318,22 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 UpdateModelLoadModeStatus();
                 if (StartServerCommand is AsyncRelayCommand startCmd)
                     startCmd.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private bool _keepPreviousLlamaBuild = true;
+    public bool KeepPreviousLlamaBuild
+    {
+        get => _keepPreviousLlamaBuild;
+        set
+        {
+            if (_keepPreviousLlamaBuild != value)
+            {
+                _keepPreviousLlamaBuild = value;
+                _downloadService.KeepPreviousBuild = value;
+                OnPropertyChanged();
+                _ = SaveSettingsAsync();
             }
         }
     }
@@ -7817,7 +7844,7 @@ public void RebuildCustomArgumentsFromToggles()
         }
     }
 
-    private async Task CheckDefaultLlamaVersionAsync()
+    public async Task CheckDefaultLlamaVersionAsync()
     {
         try
         {
@@ -7934,7 +7961,7 @@ public void RebuildCustomArgumentsFromToggles()
     public void UpdateInstalledTag(string tag)
     {
         _llamaCppInstalledTag = tag;
-        IsLlamaUpdateAvailable = false;
+        IsLlamaUpdateAvailable = _cachedLlamaReleases.Count > 0 && _cachedLlamaReleases[0].Tag != tag;
         OnPropertyChanged(nameof(CanStartServer));
         OnPropertyChanged(nameof(ShowLlamaUpdateButton));
         OnPropertyChanged(nameof(ShowLlamaDownloadButton));

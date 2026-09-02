@@ -14,7 +14,7 @@
 
     <TabControl x:Name="MainTabControl" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
         <TabItem Header="{Binding Localized.OfficialTab}">
-            <Grid Margin="15" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto">
+            <Grid Margin="15" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto">
                 <TextBlock Grid.Row="0" Text="{Binding Localized.SelectRelease}" FontWeight="Bold" Margin="0,0,0,5"/>
 
                 <ComboBox Grid.Row="1"
@@ -98,7 +98,20 @@
                 <TextBlock Grid.Row="7" Text="{Binding StatusMessage}" Margin="0,0,0,10"
                            IsVisible="{Binding IsDownloading}"/>
 
-                <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel Grid.Row="8" Orientation="Horizontal" Margin="0,0,0,8"
+                            IsVisible="{Binding HasPreviousBuild}">
+                    <TextBlock Text="{Binding PreviousBuildText}" FontSize="11" Opacity="0.8"
+                               VerticalAlignment="Center" Margin="0,0,8,0" TextWrapping="Wrap"
+                               ToolTip.Tip="{Binding Localized.TooltipRestorePreviousBuild}"/>
+                    <Button Content="{Binding Localized.RestorePreviousBuild}" Click="RestorePreviousBuildClick"
+                            IsEnabled="{Binding !IsDownloading}" FontSize="11" Padding="10,3" Margin="0,0,6,0"
+                            ToolTip.Tip="{Binding Localized.TooltipRestorePreviousBuild}"/>
+                    <Button Content="{Binding Localized.DeletePreviousBuild}" Click="DeletePreviousBuildClick"
+                            IsEnabled="{Binding !IsDownloading}" FontSize="11" Padding="10,3"
+                            ToolTip.Tip="{Binding Localized.TooltipDeletePreviousBuild}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="{Binding Localized.DownloadButton}" Click="DownloadClick"
                             IsEnabled="{Binding CanDownload}" Width="100" Margin="0,0,10,0"/>
                     <Button Content="{Binding Localized.DownloadToFolder}" Click="DownloadToFolderClick"

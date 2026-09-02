@@ -102,6 +102,7 @@ public class AppSettings
     public double LogHeight { get; set; } = 200;
     public string LlamaCppInstalledTag { get; set; } = "";
     public string LlamaCppCustomDownloadPath { get; set; } = "";
+    public bool KeepPreviousLlamaBuild { get; set; } = true;
     public int SelectedTabIndex { get; set; }
     public Dictionary<string, List<string>> RecentValuesHistory { get; set; } = new();
     public Dictionary<string, string> ReleaseBodyCache { get; set; } = new();

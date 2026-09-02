@@ -64,6 +64,18 @@ public partial class DownloadDialogWindow : Window
             await _viewModel.DownloadExperimentalAsync();
     }
 
+    private async void RestorePreviousBuildClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.RestorePreviousBuildAsync();
+    }
+
+    private async void DeletePreviousBuildClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.DeletePreviousBuildAsync();
+    }
+
     private void CancelClick(object? sender, RoutedEventArgs e)
     {
         _viewModel?.Close();

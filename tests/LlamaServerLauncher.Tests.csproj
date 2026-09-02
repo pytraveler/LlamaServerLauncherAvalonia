@@ -77,6 +77,7 @@
     <Compile Include="GitHubReleaseSourceTests.cs" />
     <Compile Include="LocalAddressTests.cs" />
     <Compile Include="AppUpdateDecisionTests.cs" />
+    <Compile Include="LlamaBuildBackupTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>
