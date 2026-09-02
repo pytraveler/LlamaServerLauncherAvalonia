@@ -33,7 +33,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public ConfigurationService ConfigService => _configService;
     public Dictionary<string, DialogGeometry> DialogGeometryDict { get; } = new();
     private readonly LogService _logService;
-    private readonly LlamaCppDownloadService _downloadService;
+    private LlamaCppDownloadService _downloadService;
     private readonly DockerCliService _dockerService;
     private readonly AppUpdateService _appUpdateService;
     private readonly AutoStartService _autoStartService;
@@ -2047,9 +2047,18 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     private void ReinitializeServices(string appDataPath)
     {
+        _logService.Repoint(appDataPath);
+
         _configService = new ConfigurationService(_logService, appDataPath);
         _configService.CorruptFileSkipped += OnCorruptFileSkipped;
         _mcpConfigService = new McpConfigService(_logService, appDataPath);
+
+        _downloadService = new LlamaCppDownloadService(appDataPath) { KeepPreviousBuild = _keepPreviousLlamaBuild };
+        OnPropertyChanged(nameof(ShowLlamaUpdateButton));
+        OnPropertyChanged(nameof(ShowLlamaDownloadButton));
+        OnPropertyChanged(nameof(ShowLlamaChangeVersionButton));
+        OnPropertyChanged(nameof(LlamaButtonText));
+
         OnPropertyChanged(nameof(McpGeneratedFileText));
         LoadProfiles();
     }
@@ -2107,45 +2116,28 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
             Directory.CreateDirectory(targetDir);
 
-            var profilesSource = Path.Combine(sourceDir, "profiles");
-            if (Directory.Exists(profilesSource))
+            // The source folder is wiped once the copy is done, so everything it holds has to be
+            // carried over - profiles, scenarios, settings, rotated logs, the MCP config, the
+            // release cache, the llama.cpp builds and the one kept for a rollback. A fixed list
+            // would silently destroy whatever a later version starts keeping here.
+            var pointerFile = Path.GetFileName(_dataPathResolver.PointerFilePath);
+
+            foreach (var dir in Directory.GetDirectories(sourceDir))
             {
-                var profilesTarget = Path.Combine(targetDir, "profiles");
-                await CopyDirectoryAsync(profilesSource, profilesTarget);
+                // A target chosen inside the source must not be copied into itself.
+                if (IsSameOrUnder(targetDir, dir)) continue;
+                await CopyDirectoryAsync(dir, Path.Combine(targetDir, Path.GetFileName(dir)));
             }
 
-            var scenariosSource = Path.Combine(sourceDir, "scenarios");
-            if (Directory.Exists(scenariosSource))
+            foreach (var file in Directory.GetFiles(sourceDir))
             {
-                var scenariosTarget = Path.Combine(targetDir, "scenarios");
-                await CopyDirectoryAsync(scenariosSource, scenariosTarget);
+                var name = Path.GetFileName(file);
+                // The pointer to the data folder belongs to the default location, not to the data.
+                if (string.Equals(name, pointerFile, StringComparison.OrdinalIgnoreCase)) continue;
+                File.Copy(file, Path.Combine(targetDir, name), overwrite: true);
             }
 
-            foreach (var file in new[] { "app.json", "app.log" })
-            {
-                var src = Path.Combine(sourceDir, file);
-                if (File.Exists(src))
-                {
-                    var dst = Path.Combine(targetDir, file);
-                    File.Copy(src, dst, overwrite: true);
-                }
-            }
-
-            var llamaSource = Path.Combine(sourceDir, "llama.cpp");
-            if (Directory.Exists(llamaSource))
-            {
-                var llamaTarget = Path.Combine(targetDir, "llama.cpp");
-                await CopyDirectoryAsync(llamaSource, llamaTarget);
-            }
-
-            var backupName = Path.GetFileName(_downloadService.BackupDirectory);
-            var backupSource = Path.Combine(sourceDir, backupName);
-            if (Directory.Exists(backupSource))
-            {
-                await CopyDirectoryAsync(backupSource, Path.Combine(targetDir, backupName));
-            }
-
-            DeleteDirectoryContents(sourceDir);
+            DeleteDirectoryContents(sourceDir, keep: targetDir);
 
             return null;
         }
@@ -2174,7 +2166,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
     }
 
-    private static void DeleteDirectoryContents(string path)
+    private static void DeleteDirectoryContents(string path, string? keep = null)
     {
         if (!Directory.Exists(path)) return;
 
@@ -2185,8 +2177,26 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
         foreach (var dir in Directory.GetDirectories(path))
         {
+            // The data may have been moved into a folder inside this one.
+            if (keep != null && IsSameOrUnder(keep, dir)) continue;
             try { Directory.Delete(dir, true); } catch { }
         }
+    }
+
+    /// <summary>True when <paramref name="path"/> is <paramref name="root"/> or sits inside it.</summary>
+    private static bool IsSameOrUnder(string path, string root)
+    {
+        string fullPath, fullRoot;
+        try
+        {
+            fullPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch { return false; }
+
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        return string.Equals(fullPath, fullRoot, comparison)
+            || fullPath.StartsWith(fullRoot + Path.DirectorySeparatorChar, comparison);
     }
 
     public AppSettings GetAppSettings()

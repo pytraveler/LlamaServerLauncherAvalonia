@@ -360,7 +360,20 @@ public class LlamaCppDownloadService
         }
     }
 
-    public bool DeleteBackup() => TryDeleteDirectory(_backupDir);
+    public bool DeleteBackup()
+    {
+        try
+        {
+            var marker = Path.Combine(_backupDir, BuildMarkerFileName);
+            if (File.Exists(marker)) File.Delete(marker);
+
+            var exePath = GetLlamaServerPath(_backupDir);
+            if (exePath != null) File.Delete(exePath);
+        }
+        catch { }
+
+        return TryDeleteDirectory(_backupDir);
+    }
 
     public async Task<string> RestorePreviousBuildAsync()
     {
@@ -466,11 +479,15 @@ public class LlamaCppDownloadService
         var exePath = GetLlamaServerPath(_backupDir);
         if (exePath == null) return null;
 
+        var before = ReadBuildMarker(_backupDir);
+
         var tag = await GetLocalVersionTagAsync(exePath);
         if (string.IsNullOrEmpty(tag)) return null;
 
-        var savedAt = ReadBuildMarker(_backupDir)?.SavedAt;
-        WriteBuildMarker(_backupDir, tag, savedAt);
+        var after = ReadBuildMarker(_backupDir);
+        if (after?.SavedAt != before?.SavedAt || !string.IsNullOrEmpty(after?.Tag)) return null;
+
+        WriteBuildMarker(_backupDir, tag, before?.SavedAt);
         return tag;
     }
 

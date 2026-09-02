@@ -308,7 +308,7 @@ public partial class MainWindow : Window
         var width = Width;
         if (double.IsNaN(width) || width <= 0) return; // skip bad sizes during layout/teardown
 
-        bool wide = width >= NavAutoCollapseWidth;
+        bool wide = width / UiScaleService.Instance.Scale >= NavAutoCollapseWidth;
         if (_navWideState == null || wide != _navWideState)
         {
             _navWideState = wide;
@@ -417,7 +417,7 @@ public partial class MainWindow : Window
         if (mainGrid == null || mainGrid.RowDefinitions.Count <= 4) return;
 
         var currentY = e.GetPosition(this).Y;
-        var delta = currentY - _customLogDragStartY;
+        var delta = (currentY - _customLogDragStartY) / UiScaleService.Instance.Scale;
         var newHeight = Math.Max(50, _customLogDragStartHeight + delta);
         mainGrid.RowDefinitions[4].Height = new GridLength(newHeight);
         e.Handled = true;

@@ -124,6 +124,27 @@ public static class LlamaBuildBackupTests
             h.Check("the build kept earlier is untouched by a staging elsewhere",
                 ReadBuild(backup) == "b1000", ReadBuild(backup));
 
+            if (OperatingSystem.IsWindows())
+            {
+                var doomed = service.StageForReplace(install, "b3000", keepAsBackup: true);
+                WriteBuild(install, "b3500");
+                doomed.Commit();
+
+                using (File.Open(Path.Combine(backup, "ggml.dll"), FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    h.Check("a delete that cannot finish says so", !service.DeleteBackup(), "failed");
+                    h.Check("its remains are no longer offered as a rollback",
+                        service.GetBackupInfo() == null, "not offered");
+                }
+
+                service.DeleteBackup();
+            }
+
+            WriteBuild(install, "b4000");
+            var lastStaging = service.StageForReplace(install, "b4000", keepAsBackup: true);
+            WriteBuild(install, "b4500");
+            lastStaging.Commit();
+
             h.Check("deleting the kept build clears the rollback",
                 service.DeleteBackup() && service.GetBackupInfo() == null, "deleted");
 

@@ -15,8 +15,8 @@ public enum LogLevel
 
 public class LogService : IDisposable
 {
-    private readonly string _logFilePath;
-    private readonly string _baseLogPath;
+    private string _logFilePath;
+    private string _baseLogPath;
     private readonly object _lock = new();
     private StreamWriter _writer;
     private bool _disposed;
@@ -34,15 +34,49 @@ public class LogService : IDisposable
 
     public LogService(string? appDataPath = null)
     {
-        var basePath = appDataPath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "LlamaServerLauncherAvalonia"
-        );
+        var basePath = ResolveBasePath(appDataPath);
         Directory.CreateDirectory(basePath);
         _logFilePath = Path.Combine(basePath, "app.log");
         _baseLogPath = Path.Combine(basePath, "app");
         _writer = CreateWriter();
     }
+
+    public void Repoint(string appDataPath)
+    {
+        var basePath = ResolveBasePath(appDataPath);
+
+        lock (_lock)
+        {
+            if (_disposed) return;
+
+            var newLogFilePath = Path.Combine(basePath, "app.log");
+            if (string.Equals(newLogFilePath, _logFilePath, StringComparison.OrdinalIgnoreCase)) return;
+
+            try
+            {
+                Directory.CreateDirectory(basePath);
+
+                var writer = new StreamWriter(
+                    new FileStream(newLogFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite),
+                    Encoding.UTF8);
+
+                try { _writer.Dispose(); } catch { }
+
+                _writer = writer;
+                _logFilePath = newLogFilePath;
+                _baseLogPath = Path.Combine(basePath, "app");
+            }
+            catch
+            {
+                // the new location cannot be written to
+            }
+        }
+    }
+
+    private static string ResolveBasePath(string? appDataPath) =>
+        appDataPath ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "LlamaServerLauncherAvalonia");
 
     private StreamWriter CreateWriter()
     {
