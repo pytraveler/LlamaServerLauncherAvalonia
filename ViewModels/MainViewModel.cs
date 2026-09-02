@@ -370,6 +370,46 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     public double ContentFontSize => FontSizeOptions.FirstOrDefault(o => o.Value == _fontSizeLevel)?.Size ?? 14;
 
+    private double _uiScale = 1.0;
+    public double UiScale
+    {
+        get => _uiScale;
+        set
+        {
+            UiScalePosition = value;
+            CommitUiScale();
+        }
+    }
+
+    private double _uiScalePosition = 1.0;
+    public double UiScalePosition
+    {
+        get => _uiScalePosition;
+        set
+        {
+            var clamped = Math.Round(Math.Clamp(value, UiScaleService.MinScale, UiScaleService.MaxScale), 2);
+            if (Math.Abs(_uiScalePosition - clamped) < 0.001) return;
+
+            _uiScalePosition = clamped;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(UiScaleText));
+        }
+    }
+
+    public void CommitUiScale()
+    {
+        if (Math.Abs(_uiScale - _uiScalePosition) < 0.001) return;
+
+        _uiScale = _uiScalePosition;
+        UiScaleService.Instance.Scale = _uiScale;
+        OnPropertyChanged(nameof(UiScale));
+        _ = SaveSettingsAsync();
+    }
+
+    public double UiScaleMinimum => UiScaleService.MinScale;
+    public double UiScaleMaximum => UiScaleService.MaxScale;
+    public string UiScaleText => $"{_uiScalePosition * 100:F0}%";
+
     private string _themeVariant = "Dark";
     public string ThemeVariant
     {
@@ -1696,6 +1736,14 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         AutoFitHeightSavedHeight = settings.AutoFitHeightSavedHeight > 0 ? settings.AutoFitHeightSavedHeight : 650;
         LogHeight = settings.LogHeight > 0 ? settings.LogHeight : 200;
         FontSizeLevel = string.IsNullOrEmpty(settings.FontSizeLevel) ? "Medium" : settings.FontSizeLevel;
+        _uiScale = settings.UiScale <= 0
+            ? 1.0
+            : Math.Round(Math.Clamp(settings.UiScale, UiScaleService.MinScale, UiScaleService.MaxScale), 2);
+        _uiScalePosition = _uiScale;
+        UiScaleService.Instance.Initialize(_uiScale);
+        OnPropertyChanged(nameof(UiScale));
+        OnPropertyChanged(nameof(UiScalePosition));
+        OnPropertyChanged(nameof(UiScaleText));
         ThemeVariant = string.IsNullOrEmpty(settings.ThemeVariant) ? "Dark" : settings.ThemeVariant;
         _customColors.Clear();
         if (settings.CustomColors != null)
@@ -2199,6 +2247,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             AutoFitHeightSavedHeight = AutoFitHeightSavedHeight,
             LogHeight = LogHeight,
             FontSizeLevel = FontSizeLevel,
+            UiScale = _uiScale,
             ThemeVariant = ThemeVariant,
             ColorScheme = ColorScheme,
             CustomColors = new Dictionary<string, string>(_customColors),

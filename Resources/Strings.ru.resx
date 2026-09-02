@@ -2520,4 +2520,10 @@
   <data name="TooltipKeepPreviousLlamaBuild" xml:space="preserve">
     <value>Перед обновлением текущая сборка переносится в llama.cpp.prev, а не удаляется, и ее можно вернуть без повторной загрузки. Занимает столько же места, сколько одна сборка.</value>
   </data>
+  <data name="UiScale" xml:space="preserve">
+    <value>Масштаб интерфейса</value>
+  </data>
+  <data name="TooltipUiScale" xml:space="preserve">
+    <value>Масштабирует весь интерфейс - текст, элементы управления, отступы - во всех окнах программы. Окна растут и уменьшаются вместе с ним; меню в трее нативное и остается системного размера.</value>
+  </data>
 </root>

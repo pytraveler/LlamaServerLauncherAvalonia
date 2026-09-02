@@ -966,6 +966,19 @@
                                         </ComboBox.ItemTemplate>
                                     </ComboBox>
 
+                                    <TextBlock Text="{Binding Localized.UiScale}" Margin="0,0,0,5" ToolTip.Tip="{Binding Localized.TooltipUiScale}"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10" Spacing="8">
+                                        <Slider x:Name="UiScaleSlider"
+                                                Value="{Binding UiScalePosition, Mode=TwoWay}"
+                                                Minimum="{Binding UiScaleMinimum}" Maximum="{Binding UiScaleMaximum}"
+                                                TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                                Width="220" VerticalAlignment="Center"
+                                                ToolTip.Tip="{Binding Localized.TooltipUiScale}"/>
+                                        <TextBlock Text="{Binding UiScaleText}" Width="45" VerticalAlignment="Center"/>
+                                        <Button Content="100%" Click="ResetUiScaleClick" Padding="10,2" VerticalAlignment="Center"
+                                                ToolTip.Tip="{Binding Localized.TooltipUiScale}"/>
+                                    </StackPanel>
+
                                     <TextBlock Text="{Binding Localized.FontFamily}" Margin="0,0,0,5" ToolTip.Tip="{Binding Localized.TooltipFontFamily}"/>
                                     <ComboBox ItemsSource="{Binding AvailableFonts}"
                                               SelectedItem="{Binding SelectedFontFamily}"

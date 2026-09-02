@@ -51,6 +51,7 @@ public partial class MainWindow : Window
     {
         Instance = this;
         InitializeComponent();
+        HookUiScaleSlider();
         DataContextChanged += OnDataContextChanged;
         
         // Subscribe to window state changes for minimize-to-tray
@@ -427,6 +428,32 @@ public partial class MainWindow : Window
         if (!_isCustomLogDrag) return;
         _isCustomLogDrag = false;
         e.Handled = true;
+    }
+
+    private void HookUiScaleSlider()
+    {
+        var slider = this.FindControl<Slider>("UiScaleSlider");
+        if (slider == null) return;
+
+        slider.AddHandler(PointerReleasedEvent, CommitUiScale,
+            RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
+        slider.AddHandler(KeyUpEvent, CommitUiScale,
+            RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
+        slider.AddHandler(PointerWheelChangedEvent,
+            (object? _, PointerWheelEventArgs _) => Dispatcher.UIThread.Post(() => _viewModel?.CommitUiScale()),
+            RoutingStrategies.Bubble, handledEventsToo: true);
+        slider.LostFocus += CommitUiScale;
+    }
+
+    private void CommitUiScale(object? sender, RoutedEventArgs e)
+    {
+        _viewModel?.CommitUiScale();
+    }
+
+    private void ResetUiScaleClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.UiScale = 1.0;
     }
 
     private async Task LoadWindowPositionAsync()

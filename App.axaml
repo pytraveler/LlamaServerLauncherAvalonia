@@ -1,6 +1,8 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 
+             xmlns:primitives="using:Avalonia.Controls.Primitives"
+             xmlns:services="using:LlamaServerLauncher.Services"
              x:Class="LlamaServerLauncher.App"
              RequestedThemeVariant="Dark">
     <Application.Resources>
@@ -14,6 +16,10 @@
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+        <Style Selector="primitives|Popup">
+            <Setter Property="ShouldUseOverlayLayer"
+                    Value="{Binding Source={x:Static services:UiScaleService.Instance}, Path=UseOverlayPopups}"/>
+        </Style>
         <Style Selector="ProgressBar">
             <Setter Property="Foreground" Value="{DynamicResource ProgressBarForegroundBrush}"/>
             <Setter Property="Background" Value="{DynamicResource ProgressBarTrackBrush}"/>

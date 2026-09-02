@@ -2520,4 +2520,10 @@ Download here anyway?</value>
   <data name="TooltipKeepPreviousLlamaBuild" xml:space="preserve">
     <value>Before an update the current build is moved to llama.cpp.prev instead of being deleted, so it can be put back without downloading it again. It takes as much disk space as one build.</value>
   </data>
+  <data name="UiScale" xml:space="preserve">
+    <value>Interface scale</value>
+  </data>
+  <data name="TooltipUiScale" xml:space="preserve">
+    <value>Scales the whole interface - text, controls, spacing - in every window of the app. Windows grow and shrink with it; the tray menu, being native, keeps the system size.</value>
+  </data>
 </root>

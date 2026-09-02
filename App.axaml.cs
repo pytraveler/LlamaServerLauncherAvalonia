@@ -85,6 +85,8 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            UiScaleService.Install();
+
             _mainWindow = new MainWindow();
             _viewModel = new MainViewModel();
             _mainWindow.DataContext = _viewModel;
