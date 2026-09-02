@@ -2524,6 +2524,12 @@ Download here anyway?</value>
     <value>Interface scale</value>
   </data>
   <data name="TooltipUiScale" xml:space="preserve">
-    <value>Scales the whole interface - text, controls, spacing - in every window of the app. Windows grow and shrink with it; the tray menu, being native, keeps the system size.</value>
+    <value>Scales the whole interface - text, controls, spacing - in every window of the app. The tray menu, being native, keeps the system size.</value>
+  </data>
+  <data name="UiScaleAutoSizeWindows" xml:space="preserve">
+    <value>Resize windows with the scale</value>
+  </data>
+  <data name="TooltipUiScaleAutoSizeWindows" xml:space="preserve">
+    <value>Windows grow and shrink together with the scale, and one opened at a larger scale opens larger, up to what the scale asks for. With this off only the content is scaled and every window keeps the size you gave it.</value>
   </data>
 </root>

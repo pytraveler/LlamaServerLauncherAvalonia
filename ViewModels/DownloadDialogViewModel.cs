@@ -285,6 +285,21 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
     public string? LastCustomDownloadPath { get; set; }
     public bool DownloadSucceeded { get; private set; }
 
+    public Avalonia.Controls.Window? DialogWindow { get; set; }
+
+    private Avalonia.Controls.Window OwnerWindow => DialogWindow ?? MainWindow.Instance!;
+
+    private bool _operationInFlight;
+
+    private bool TryBeginOperation()
+    {
+        if (_operationInFlight || IsDownloading) return false;
+        _operationInFlight = true;
+        return true;
+    }
+
+    private void EndOperation() => _operationInFlight = false;
+
     private LlamaBuildBackupInfo? _previousBuild;
 
     public bool HasPreviousBuild => _previousBuild != null;
@@ -728,15 +743,34 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
     public async Task DownloadAsync()
     {
-        if (SelectedAsset == null || IsDownloading) return;
+        if (SelectedAsset == null || !TryBeginOperation()) return;
 
-        await ExecuteDownloadAsync(_downloadService.InstallDirectory, promptForPath: true);
+        try
+        {
+            await ExecuteDownloadAsync(_downloadService.InstallDirectory, promptForPath: true);
+        }
+        finally
+        {
+            EndOperation();
+        }
     }
 
     public async Task DownloadToFolderAsync()
     {
-        if (SelectedAsset == null || IsDownloading) return;
+        if (SelectedAsset == null || !TryBeginOperation()) return;
 
+        try
+        {
+            await DownloadToFolderCoreAsync();
+        }
+        finally
+        {
+            EndOperation();
+        }
+    }
+
+    private async Task DownloadToFolderCoreAsync()
+    {
         var folder = await WindowsFileDialogs.OpenFolderDialogAsync(LocalizedStrings.GetString("SelectDownloadFolder"));
         if (string.IsNullOrEmpty(folder)) return;
         if (!await ConfirmManagedFolderAsync(folder)) return;
@@ -755,14 +789,30 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
     public async Task DownloadExperimentalAsync()
     {
-        if (SelectedExperimentalAsset == null || IsDownloading || _selectedExperimentalRepo == null) return;
+        if (SelectedExperimentalAsset == null || _selectedExperimentalRepo == null) return;
+        if (!TryBeginOperation()) return;
 
+        try
+        {
+            await DownloadExperimentalCoreAsync();
+        }
+        finally
+        {
+            EndOperation();
+        }
+    }
+
+    private async Task DownloadExperimentalCoreAsync()
+    {
         var folder = await WindowsFileDialogs.OpenFolderDialogAsync(LocalizedStrings.GetString("SelectDownloadFolder"));
         if (string.IsNullOrEmpty(folder)) return;
         if (!await ConfirmManagedFolderAsync(folder)) return;
 
-        var repoName = !string.IsNullOrEmpty(_selectedExperimentalRepo.DisplayName)
-            ? _selectedExperimentalRepo.DisplayName
+        var repo = _selectedExperimentalRepo;
+        if (repo == null) return;
+
+        var repoName = !string.IsNullOrEmpty(repo.DisplayName)
+            ? repo.DisplayName
             : "experimental";
         var tag = _selectedExperimentalRelease?.Tag ?? repoName;
         var subFolder = Path.Combine(folder, "ExperimentalRepos", repoName);
@@ -780,14 +830,15 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
     private async Task<bool> ConfirmManagedFolderAsync(string folder)
     {
-        if (!_downloadService.IsInsideManagedInstall(folder)) return true;
+        var managedRoot = _downloadService.GetManagedRoot(folder);
+        if (managedRoot == null) return true;
 
         var message = string.Format(
             LocalizedStrings.GetString("DownloadIntoManagedFolderWarning"),
-            _downloadService.InstallDirectory);
+            managedRoot);
 
         var result = await MessageBox.ShowAsync(
-            MainWindow.Instance!,
+            OwnerWindow,
             message,
             LocalizedStrings.GetString("ConfirmTitle"),
             MessageBoxButtons.YesNo,
@@ -798,67 +849,85 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
 
     public async Task RestorePreviousBuildAsync()
     {
-        if (_previousBuild == null || IsDownloading) return;
-
-        var tag = string.IsNullOrEmpty(_previousBuild.Tag)
-            ? LocalizedStrings.GetString("PreviousBuildUnknownTag")
-            : _previousBuild.Tag;
-
-        var confirm = await MessageBox.ShowAsync(
-            MainWindow.Instance!,
-            string.Format(LocalizedStrings.GetString("ConfirmRestorePreviousBuild"), tag),
-            LocalizedStrings.GetString("ConfirmTitle"),
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Question);
-
-        if (confirm != MessageBoxResult.Yes) return;
-
-        IsDownloading = true;
-        StatusMessage = LocalizedStrings.GetString("RestoringPreviousBuild");
+        if (!TryBeginOperation()) return;
 
         try
         {
-            var restoredTag = await _downloadService.RestorePreviousBuildAsync();
+            if (_previousBuild == null) return;
 
-            DownloadedReleaseTag = string.IsNullOrEmpty(restoredTag) ? null : restoredTag;
-            DownloadedExecutablePath = null;
-            DownloadSucceeded = true;
-            IsDownloading = false;
-            RefreshPreviousBuild();
-            StatusMessage = LocalizedStrings.GetString("PreviousBuildRestored");
+            var tag = string.IsNullOrEmpty(_previousBuild.Tag)
+                ? LocalizedStrings.GetString("PreviousBuildUnknownTag")
+                : _previousBuild.Tag;
 
-            _ = Task.Delay(800).ContinueWith(_ =>
-                Dispatcher.UIThread.Post(() => RequestClose?.Invoke()));
+            var confirm = await MessageBox.ShowAsync(
+                OwnerWindow,
+                string.Format(LocalizedStrings.GetString("ConfirmRestorePreviousBuild"), tag),
+                LocalizedStrings.GetString("ConfirmTitle"),
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (confirm != MessageBoxResult.Yes) return;
+
+            IsDownloading = true;
+            StatusMessage = LocalizedStrings.GetString("RestoringPreviousBuild");
+
+            try
+            {
+                var restoredTag = await _downloadService.RestorePreviousBuildAsync();
+
+                DownloadedReleaseTag = string.IsNullOrEmpty(restoredTag) ? null : restoredTag;
+                DownloadedExecutablePath = null;
+                DownloadSucceeded = true;
+                IsDownloading = false;
+                RefreshPreviousBuild();
+                StatusMessage = LocalizedStrings.GetString("PreviousBuildRestored");
+
+                _ = Task.Delay(800).ContinueWith(_ =>
+                    Dispatcher.UIThread.Post(() => RequestClose?.Invoke()));
+            }
+            catch (Exception ex)
+            {
+                IsDownloading = false;
+                RefreshPreviousBuild();
+                StatusMessage = string.Format(LocalizedStrings.GetString("RestorePreviousBuildFailed"), ex.Message);
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            IsDownloading = false;
-            RefreshPreviousBuild();
-            StatusMessage = string.Format(LocalizedStrings.GetString("RestorePreviousBuildFailed"), ex.Message);
+            EndOperation();
         }
     }
 
     public async Task DeletePreviousBuildAsync()
     {
-        if (_previousBuild == null || IsDownloading) return;
+        if (!TryBeginOperation()) return;
 
-        var tag = string.IsNullOrEmpty(_previousBuild.Tag)
-            ? LocalizedStrings.GetString("PreviousBuildUnknownTag")
-            : _previousBuild.Tag;
+        try
+        {
+            if (_previousBuild == null) return;
 
-        var confirm = await MessageBox.ShowAsync(
-            MainWindow.Instance!,
-            string.Format(LocalizedStrings.GetString("ConfirmDeletePreviousBuild"), tag),
-            LocalizedStrings.GetString("ConfirmTitle"),
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Question);
+            var tag = string.IsNullOrEmpty(_previousBuild.Tag)
+                ? LocalizedStrings.GetString("PreviousBuildUnknownTag")
+                : _previousBuild.Tag;
 
-        if (confirm != MessageBoxResult.Yes) return;
+            var confirm = await MessageBox.ShowAsync(
+                OwnerWindow,
+                string.Format(LocalizedStrings.GetString("ConfirmDeletePreviousBuild"), tag),
+                LocalizedStrings.GetString("ConfirmTitle"),
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
 
-        if (!_downloadService.DeleteBackup())
-            StatusMessage = LocalizedStrings.GetString("DeletePreviousBuildFailed");
+            if (confirm != MessageBoxResult.Yes) return;
 
-        RefreshPreviousBuild();
+            if (!_downloadService.DeleteBackup())
+                StatusMessage = LocalizedStrings.GetString("DeletePreviousBuildFailed");
+
+            RefreshPreviousBuild();
+        }
+        finally
+        {
+            EndOperation();
+        }
     }
 
     private async Task ExecuteDownloadAsync(string targetDirectory, bool promptForPath, ReleaseAsset? asset = null, List<ReleaseAsset>? allAssets = null, string? releaseTag = null)
@@ -897,7 +966,7 @@ public class DownloadDialogViewModel : INotifyPropertyChanged
                 var result = await Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     var dlgResult = await MessageBox.ShowAsync(
-                        MainWindow.Instance!,
+                        OwnerWindow,
                         pathPrompt,
                         LocalizedStrings.GetString("ConfirmTitle"),
                         MessageBoxButtons.YesNoCancel,

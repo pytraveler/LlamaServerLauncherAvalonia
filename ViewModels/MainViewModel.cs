@@ -406,6 +406,21 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _ = SaveSettingsAsync();
     }
 
+    private bool _uiScaleAutoSizeWindows;
+    public bool UiScaleAutoSizeWindows
+    {
+        get => _uiScaleAutoSizeWindows;
+        set
+        {
+            if (_uiScaleAutoSizeWindows == value) return;
+
+            _uiScaleAutoSizeWindows = value;
+            UiScaleService.Instance.AutoSizeWindows = value;
+            OnPropertyChanged();
+            _ = SaveSettingsAsync();
+        }
+    }
+
     public double UiScaleMinimum => UiScaleService.MinScale;
     public double UiScaleMaximum => UiScaleService.MaxScale;
     public string UiScaleText => $"{_uiScalePosition * 100:F0}%";
@@ -1740,10 +1755,13 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             ? 1.0
             : Math.Round(Math.Clamp(settings.UiScale, UiScaleService.MinScale, UiScaleService.MaxScale), 2);
         _uiScalePosition = _uiScale;
+        _uiScaleAutoSizeWindows = settings.UiScaleAutoSizeWindows;
+        UiScaleService.Instance.AutoSizeWindows = _uiScaleAutoSizeWindows;
         UiScaleService.Instance.Initialize(_uiScale);
         OnPropertyChanged(nameof(UiScale));
         OnPropertyChanged(nameof(UiScalePosition));
         OnPropertyChanged(nameof(UiScaleText));
+        OnPropertyChanged(nameof(UiScaleAutoSizeWindows));
         ThemeVariant = string.IsNullOrEmpty(settings.ThemeVariant) ? "Dark" : settings.ThemeVariant;
         _customColors.Clear();
         if (settings.CustomColors != null)
@@ -2248,6 +2266,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             LogHeight = LogHeight,
             FontSizeLevel = FontSizeLevel,
             UiScale = _uiScale,
+            UiScaleAutoSizeWindows = _uiScaleAutoSizeWindows,
             ThemeVariant = ThemeVariant,
             ColorScheme = ColorScheme,
             CustomColors = new Dictionary<string, string>(_customColors),

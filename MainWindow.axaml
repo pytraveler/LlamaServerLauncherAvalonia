@@ -979,6 +979,11 @@
                                                 ToolTip.Tip="{Binding Localized.TooltipUiScale}"/>
                                     </StackPanel>
 
+                                    <CheckBox Content="{Binding Localized.UiScaleAutoSizeWindows}"
+                                              IsChecked="{Binding UiScaleAutoSizeWindows}"
+                                              ToolTip.Tip="{Binding Localized.TooltipUiScaleAutoSizeWindows}"
+                                              Margin="0,0,0,10"/>
+
                                     <TextBlock Text="{Binding Localized.FontFamily}" Margin="0,0,0,5" ToolTip.Tip="{Binding Localized.TooltipFontFamily}"/>
                                     <ComboBox ItemsSource="{Binding AvailableFonts}"
                                               SelectedItem="{Binding SelectedFontFamily}"

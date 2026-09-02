@@ -51,27 +51,47 @@ public sealed class InstallStaging
 {
     public string TargetDirectory { get; }
     public string? StagedPath { get; }
-    public bool StagedAsBackup { get; }
 
-    internal InstallStaging(string targetDirectory, string? stagedPath, bool stagedAsBackup)
+    public string? PromoteTo { get; }
+
+    public bool StagedAsBackup => PromoteTo != null;
+
+    internal InstallStaging(string targetDirectory, string? stagedPath, string? promoteTo)
     {
         TargetDirectory = targetDirectory;
         StagedPath = stagedPath;
-        StagedAsBackup = stagedAsBackup;
+        PromoteTo = promoteTo;
     }
 
     public void Commit()
     {
-        if (StagedPath != null && !StagedAsBackup)
-            LlamaCppDownloadService.TryDeleteDirectory(StagedPath);
-    }
-
-    public void Rollback()
-    {
         if (StagedPath == null || !Directory.Exists(StagedPath)) return;
 
+        if (PromoteTo == null)
+        {
+            LlamaCppDownloadService.TryDeleteDirectory(StagedPath);
+            return;
+        }
+
+        LlamaCppDownloadService.TryDeleteDirectory(PromoteTo);
+        try { Directory.Move(StagedPath, PromoteTo); }
+        catch { LlamaCppDownloadService.TryDeleteDirectory(StagedPath); }
+    }
+
+    public bool Rollback()
+    {
+        if (StagedPath == null || !Directory.Exists(StagedPath)) return true;
+
         LlamaCppDownloadService.TryDeleteDirectory(TargetDirectory);
-        try { Directory.Move(StagedPath, TargetDirectory); } catch { }
+        try
+        {
+            Directory.Move(StagedPath, TargetDirectory);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
 
@@ -256,10 +276,14 @@ public class LlamaCppDownloadService
 
                 staging.Commit();
             }
-            catch
+            catch (Exception ex)
             {
-                staging.Rollback();
-                throw;
+                if (staging.Rollback())
+                    throw;
+
+                throw new IOException(
+                    $"The update failed and the previous build could not be put back. It is kept in '{staging.StagedPath}'.",
+                    ex);
             }
         }
         finally
@@ -390,44 +414,40 @@ public class LlamaCppDownloadService
         if (File.Exists(targetDirectory))
         {
             File.Delete(targetDirectory);
-            return new InstallStaging(targetDirectory, null, false);
+            return new InstallStaging(targetDirectory, null, null);
         }
 
         if (!HasContent(targetDirectory))
         {
             TryDeleteDirectory(targetDirectory);
-            return new InstallStaging(targetDirectory, null, false);
+            return new InstallStaging(targetDirectory, null, null);
         }
 
         var asBackup = keepAsBackup && IsSameDirectory(targetDirectory, _installDir);
-        var stagedPath = asBackup ? _backupDir : targetDirectory + ".replaced";
-
         if (asBackup)
             WriteBuildMarker(targetDirectory, previousTag);
 
+        var stagedPath = targetDirectory + ".replaced";
         TryDeleteDirectory(stagedPath);
 
-        try
-        {
-            Directory.Move(targetDirectory, stagedPath);
-            return new InstallStaging(targetDirectory, stagedPath, asBackup);
-        }
-        catch
-        {
-            Directory.Delete(targetDirectory, true);
-            return new InstallStaging(targetDirectory, null, false);
-        }
+        Directory.Move(targetDirectory, stagedPath);
+
+        return new InstallStaging(targetDirectory, stagedPath, asBackup ? _backupDir : null);
     }
 
-    public bool IsInsideManagedInstall(string path)
+    public bool IsInsideManagedInstall(string path) => GetManagedRoot(path) != null;
+
+    public string? GetManagedRoot(string path)
     {
-        if (string.IsNullOrWhiteSpace(path)) return false;
+        if (string.IsNullOrWhiteSpace(path)) return null;
 
         string full;
         try { full = Path.GetFullPath(path); }
-        catch { return false; }
+        catch { return null; }
 
-        return IsSameOrUnder(full, _installDir) || IsSameOrUnder(full, _backupDir);
+        if (IsSameOrUnder(full, _installDir)) return _installDir;
+        if (IsSameOrUnder(full, _backupDir)) return _backupDir;
+        return null;
     }
 
     private async Task<string?> ReadInstalledTagAsync(string directory)

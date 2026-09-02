@@ -1468,12 +1468,6 @@ public partial class MainWindow : Window
 
         if (vm.DownloadSucceeded)
         {
-            var downloadedTag = vm.DownloadedReleaseTag;
-            if (!string.IsNullOrEmpty(downloadedTag))
-                vm2.UpdateInstalledTag(downloadedTag);
-            else
-                await vm2.CheckDefaultLlamaVersionAsync();
-
             if (!string.IsNullOrEmpty(vm.DownloadedExecutablePath))
             {
                 vm2.ExecutablePath = vm.DownloadedExecutablePath;
@@ -1482,6 +1476,12 @@ public partial class MainWindow : Window
             }
             else
             {
+                var downloadedTag = vm.DownloadedReleaseTag;
+                if (!string.IsNullOrEmpty(downloadedTag))
+                    vm2.UpdateInstalledTag(downloadedTag);
+                else
+                    await vm2.CheckDefaultLlamaVersionAsync();
+
                 var defaultPath = vm2.DownloadService.GetDefaultLlamaServerPath();
                 if (defaultPath != null && string.IsNullOrEmpty(vm2.ExecutablePath))
                     vm2.ExecutablePath = defaultPath;

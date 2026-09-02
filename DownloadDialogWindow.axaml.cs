@@ -30,6 +30,7 @@ public partial class DownloadDialogWindow : Window
     {
         _viewModel = viewModel;
         _configService = configService;
+        _viewModel.DialogWindow = this;
         DataContext = _viewModel;
         _viewModel.RequestClose += OnRequestClose;
         if (dialogGeometryDict != null)

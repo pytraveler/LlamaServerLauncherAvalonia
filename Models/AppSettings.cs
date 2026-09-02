@@ -92,6 +92,7 @@ public class AppSettings
     public Dictionary<string, bool> CustomArgumentToggleStates { get; set; } = new();
     public string FontSizeLevel { get; set; } = "Medium";
     public double UiScale { get; set; } = 1.0;
+    public bool UiScaleAutoSizeWindows { get; set; }
     public string ThemeVariant { get; set; } = "Dark";
     public string ColorScheme { get; set; } = "Default";
     public Dictionary<string, string> CustomColors { get; set; } = new();

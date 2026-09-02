@@ -65,21 +65,30 @@ public static class LlamaBuildBackupTests
 
             WriteBuild(install, "b1000");
             var staging = service.StageForReplace(install, "b1000", keepAsBackup: true);
-            h.Check("the old build is moved into the backup directory",
-                staging.StagedPath == backup && ReadBuild(backup) == "b1000", staging.StagedPath ?? "null");
+            h.Check("the old build is moved aside, not straight into the backup slot",
+                staging.StagedPath != backup && ReadBuild(staging.StagedPath!) == "b1000",
+                staging.StagedPath ?? "null");
+            h.Check("it is headed for the backup slot once the update succeeds",
+                staging.PromoteTo == backup, staging.PromoteTo ?? "null");
             h.Check("the install directory is left free for the new build",
                 !Directory.Exists(install) || Directory.GetFileSystemEntries(install).Length == 0, "empty");
 
             Directory.CreateDirectory(install);
             File.WriteAllText(Path.Combine(install, "half-extracted.tmp"), "junk");
-            staging.Rollback();
+            h.Check("a failed extraction reports the old build restored", staging.Rollback(), "rolled back");
             h.Check("a failed extraction restores the old build", ReadBuild(install) == "b1000", ReadBuild(install));
             h.Check("the half-extracted leftovers are gone",
                 !File.Exists(Path.Combine(install, "half-extracted.tmp")), "gone");
+            h.Check("a failed update leaves no staging directory behind",
+                !Directory.Exists(staging.StagedPath!), "gone");
 
             staging = service.StageForReplace(install, "b1000", keepAsBackup: true);
             WriteBuild(install, "b2000");
+            h.Check("the build kept from the previous update survives until the new one is in place",
+                Directory.Exists(staging.StagedPath!) && !Directory.Exists(backup), "not promoted yet");
             staging.Commit();
+            h.Check("commit moves the replaced build into the backup slot",
+                !Directory.Exists(staging.StagedPath!) && ReadBuild(backup) == "b1000", ReadBuild(backup));
 
             var info = service.GetBackupInfo();
             h.Check("after an update the replaced build is kept", info != null, info == null ? "null" : info.Directory);
@@ -96,6 +105,14 @@ public static class LlamaBuildBackupTests
             var back = service.RestorePreviousBuildAsync().GetAwaiter().GetResult();
             h.Check("a rollback can be undone the same way",
                 back == "b2000" && ReadBuild(install) == "b2000" && ReadBuild(backup) == "b1000", back);
+
+            var failing = service.StageForReplace(install, "b2000", keepAsBackup: true);
+            h.Check("an update in flight leaves the existing rollback point alone",
+                ReadBuild(backup) == "b1000", ReadBuild(backup));
+            failing.Rollback();
+            h.Check("a failed update costs neither the install nor the kept build",
+                ReadBuild(install) == "b2000" && ReadBuild(backup) == "b1000",
+                ReadBuild(install) + " / " + ReadBuild(backup));
 
             var noKeep = service.StageForReplace(install, "b2000", keepAsBackup: false);
             h.Check("without the setting the old build is only staged, not kept as backup",
