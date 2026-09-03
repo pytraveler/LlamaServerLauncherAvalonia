@@ -39,6 +39,8 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
     private int? _slotsTotal;
     private int _statsVersion;
 
+    private readonly ServerMemoryAccumulator _memory = new();
+
     private const int MaxRunLogLines = 8000;
     private readonly object _runLogLock = new();
     private readonly List<string> _runLog = new();
@@ -50,6 +52,8 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
     public void UpdateConfiguration(ServerConfiguration config) => Configuration = config;
 
     public LlamaServerService Service => _service;
+
+    public ServerMemoryReport MemoryReport => _memory.Snapshot();
 
     public bool IsRunning => _service.IsRunning;
     public bool IsBusy => _service.IsBusy;
@@ -142,11 +146,6 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
         }
     }
 
-    /// <summary>
-    /// True when the instance is shown as a failed (not running) server so the user can
-    /// still click it to load its profile. The button is highlighted in the error color
-    /// and its submenu actions are disabled. Stays set until restart or dismiss.
-    /// </summary>
     public bool StartFailed
     {
         get => _startFailed;
@@ -196,6 +195,7 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
         List<string>? validCacheTypeValues = null)
     {
         IsStarting = true;
+        _memory.Reset();
         try
         {
             if (PrepareGpuForLaunchAsync != null)
@@ -297,6 +297,8 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
 
     private void OnServiceOutput(object? sender, string output)
     {
+        _memory.Add(output);
+
         if (InferenceStatsParser.TryParse(output) is { } stat)
         {
             Dispatcher.UIThread.Post(() =>
@@ -414,7 +416,6 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
 
                 if (!isRunning && !_autoRestart && !_service.WasStoppedIntentionally)
                 {
-                    // Keep the failed server in the panel so the profile is still loadable.
                     StartFailed = true;
                 }
 
@@ -465,8 +466,36 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
         _isReady = ready;
         OnPropertyChanged(nameof(IsReady));
         OnPropertyChanged(nameof(IsLoading));
-        if (ready) StartStatsPoll();
-        else StopStatsPoll();
+        if (ready)
+        {
+            StartStatsPoll();
+            LogVramComparison();
+        }
+        else
+        {
+            StopStatsPoll();
+        }
+    }
+
+    private void LogVramComparison()
+    {
+        var report = _memory.Snapshot();
+        if (!report.HasAny) return;
+
+        var config = Configuration;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var info = GgufMetadataService.TryReadDetailed(config.ModelPath);
+                var estimate = VramEstimator.Estimate(info, VramPlan.RequestFrom(config, info?.MaxContext));
+                _logService.Info(VramComparison.Describe(ProfileName, report, estimate));
+            }
+            catch (Exception ex)
+            {
+                _logService.Warning($"Could not compare the VRAM estimate for '{ProfileName}': {ex.Message}");
+            }
+        });
     }
 
     private void StartStatsPoll()

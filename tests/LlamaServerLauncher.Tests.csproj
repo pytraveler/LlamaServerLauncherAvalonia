@@ -24,6 +24,7 @@
     <Compile Include="..\Models\McpConfigDocument.cs" />
     <Compile Include="..\Models\ServerToolsResponse.cs" />
     <Compile Include="..\Models\ServerCrashAdvisor.cs" />
+    <Compile Include="..\Models\ServerMemoryParser.cs" />
     <Compile Include="..\Optimization\**\*.cs" />
     <Compile Include="..\Models\Optimization\BenchmarkResult.cs" />
     <Compile Include="..\Models\Optimization\BenchMetric.cs" />
@@ -36,6 +37,7 @@
     <Compile Include="..\Services\GgufMetadataService.cs" />
     <Compile Include="..\Services\VramEstimator.cs" />
     <Compile Include="..\Services\VramPlan.cs" />
+    <Compile Include="..\Services\VramComparison.cs" />
     <Compile Include="..\Models\Benchmarking\BenchmarkMetrics.cs" />
     <Compile Include="..\Models\Benchmarking\BenchmarkRun.cs" />
     <Compile Include="..\Models\Benchmarking\PromptRunReport.cs" />
@@ -82,6 +84,7 @@
     <Compile Include="LlamaBuildBackupTests.cs" />
     <Compile Include="VramEstimatorTests.cs" />
     <Compile Include="VramPlanTests.cs" />
+    <Compile Include="ServerMemoryTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>

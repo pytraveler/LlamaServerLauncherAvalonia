@@ -34,7 +34,11 @@ public partial class BoolSelector : UserControl
         ApplyCaptions();
         UpdateVisualState();
 
-        AttachedToVisualTree += (_, _) => LocalizedStrings.CultureChanged += ApplyCaptions;
+        AttachedToVisualTree += (_, _) =>
+        {
+            LocalizedStrings.CultureChanged += ApplyCaptions;
+            ApplyCaptions();
+        };
         DetachedFromVisualTree += (_, _) => LocalizedStrings.CultureChanged -= ApplyCaptions;
 
         Tapped += OnTapped;

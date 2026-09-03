@@ -129,6 +129,27 @@ public static class CommandLineTests
 
         var moe = CommandLineBuilder.Build(new ServerConfiguration { CpuMoe = 3 });
         h.Check("emits --n-cpu-moe for CpuMoe", moe.Contains("--n-cpu-moe 3"), moe);
+
+        var verbose = CommandLineBuilder.Build(new ServerConfiguration { VerboseLogging = true });
+        h.Check("emits -v when verbose logging is on", verbose.Split(' ').Contains("-v"), verbose);
+
+        var verboseAuto = CommandLineBuilder.Build(new ServerConfiguration { VerboseLogging = null });
+        h.Check("auto leaves -v out", !verboseAuto.Split(' ').Contains("-v"), verboseAuto);
+
+        var verboseOff = CommandLineBuilder.Build(new ServerConfiguration { VerboseLogging = false });
+        h.Check("off leaves -v out as well", !verboseOff.Split(' ').Contains("-v"), verboseOff);
+
+        var verboseLong = CommandLineBuilder.Build(new ServerConfiguration { VerboseLogging = true }, Flags("--verbose"));
+        h.Check("falls back to --verbose when only that is advertised", verboseLong.Split(' ').Contains("--verbose"), verboseLong);
+
+        var verboseUnsupported = CommandLineBuilder.Build(new ServerConfiguration { VerboseLogging = true }, Flags("--port"));
+        h.Check("a build without the flag does not get it", !verboseUnsupported.Split(' ').Contains("-v"), verboseUnsupported);
+
+        var verboseTyped = CommandLineBuilder.Build(new ServerConfiguration { CustomArguments = "-v" });
+        h.Check("a hand-typed -v is not doubled", verboseTyped.Split(' ').Count(t => t == "-v") == 1, verboseTyped);
+
+        var verboseTypedAndSet = CommandLineBuilder.Build(new ServerConfiguration { CustomArguments = "--verbose", VerboseLogging = true });
+        h.Check("the typed spelling wins over the switch", verboseTypedAndSet.Split(' ').Count(t => t == "--verbose" || t == "-v") == 1, verboseTypedAndSet);
     }
 
     private static void ParseBack(Harness h)
@@ -147,6 +168,12 @@ public static class CommandLineTests
 
         var spaced = ServerConfigurationExtensions.ParseFromCommandLine("--unknown-flag \"two words\"");
         h.Check("spaced unknown value re-quoted", spaced!.CustomArguments.Contains("\"two words\""), spaced.CustomArguments);
+
+        var seenVerbose = ServerConfigurationExtensions.ParseFromCommandLine("-v");
+        h.Check("-v parsed as verbose logging on", seenVerbose!.VerboseLogging == true, $"verbose={seenVerbose.VerboseLogging}");
+
+        var noVerbose = ServerConfigurationExtensions.ParseFromCommandLine("-t 8");
+        h.Check("no -v leaves verbose logging unset", noVerbose!.VerboseLogging == null, $"verbose={noVerbose.VerboseLogging}");
     }
 
     private static void SpecAndDraft(Harness h)

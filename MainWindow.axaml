@@ -540,6 +540,9 @@
                                                    FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/>
                                         <TextBlock Text="{Binding VramPlanDetail}" FontSize="11" Opacity="0.75"
                                                    TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{Binding VramMeasuredText}" IsVisible="{Binding HasVramMeasured}"
+                                                   FontSize="11" Opacity="0.75" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                   Foreground="{DynamicResource AccentForegroundBrush}"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -642,6 +645,7 @@
                                         <ctrl:TriStateSelector Label="{Binding Localized.Mmap}" Value="{Binding Mmap, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipMmap}" IsEnabled="{Binding IsMmapSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.ContextShift}" Value="{Binding ContextShift, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipContextShift}" IsEnabled="{Binding IsContextShiftSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.Reasoning}" Value="{Binding Reasoning, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipReasoning}" IsEnabled="{Binding IsReasoningSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.VerboseLogging}" Value="{Binding VerboseLogging, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipVerboseLogging}" IsEnabled="{Binding IsVerboseLoggingSupported}"/>
                                     </WrapPanel>
                                     <Grid ColumnDefinitions="150,*,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,5,0,0">
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.ApiKey}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipApiKey}"/>

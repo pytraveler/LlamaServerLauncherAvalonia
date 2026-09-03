@@ -290,7 +290,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     public ToastService Toasts { get; } = new();
     
-    // Expose _loadedProfileName for tray menu updates
     public string LoadedProfileName => _loadedProfileName;
 
     private string _selectedLanguage = "en";
@@ -436,8 +435,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             {
                 _themeVariant = value;
                 OnPropertyChanged();
-                // Default custom colors depend on the theme variant; refresh so the
-                // swatches don't show stale defaults.
                 RefreshCustomColorProperties();
                 ApplyTheme();
             }
@@ -646,7 +643,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         RefreshProfileItems();
     }
 
-    /// <summary>Unsubscribes from things the view model hooked into at startup.</summary>
     public void Cleanup()
     {
         LocalizedStrings.CultureChanged -= OnCultureChanged;
@@ -884,7 +880,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private bool? _enableMetrics;
     private string _apiKey = string.Empty;
     private string _logFilePath = string.Empty;
-    private bool _verboseLogging;
+    private bool? _verboseLogging;
     private string _alias = string.Empty;
     private string _customArguments = string.Empty;
     private string _parallelSlots = string.Empty;
@@ -1638,12 +1634,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         ApplyLogStreamFromSettings();
         ApplyOnDemandProxyFromSettings();
 
-        // Sticky warning when the configured data folder is unreachable - settings
-        // would otherwise look "reset" because we silently fall back to defaults.
         if (_dataPathResolver.ConfiguredCustomPathMissing)
             Toasts.ShowError(Localized.ToastCustomDataPathMissing, durationMs: 0);
 
-        // Flush the corrupt-file toasts queued during startup now that the language is set.
         if (_pendingCorruptFileToasts.Count > 0)
         {
             foreach (var fullPath in _pendingCorruptFileToasts)
@@ -1869,7 +1862,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         SelectedScenario = settings.SelectedScenario ?? "";
         UpdateSelectedScenarioAutoStart();
 
-        // Load dialog geometry into in-memory dictionary
         DialogGeometryDict.Clear();
         if (settings.DialogGeometry != null)
         {
@@ -2069,11 +2061,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     private void OnCorruptFileSkipped(string fullPath)
     {
-        // Don't re-toast the same file on every refresh.
         if (!_shownCorruptFileToasts.Add(fullPath)) return;
 
-        // The language isn't applied yet during startup (LoadProfiles runs in the
-        // constructor), so queue toasts and show them once the UI is ready.
         if (_isInitializing)
             _pendingCorruptFileToasts.Add(fullPath);
         else
@@ -2083,7 +2072,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private void ShowCorruptFileToast(string fullPath)
     {
         var fileName = System.IO.Path.GetFileName(fullPath);
-        // Sticky toast: click it to delete the damaged file.
         Toasts.ShowError(
             string.Format(Localized.ToastCorruptFileSkipped, fileName),
             durationMs: 0,
@@ -2120,15 +2108,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
             Directory.CreateDirectory(targetDir);
 
-            // The source folder is wiped once the copy is done, so everything it holds has to be
-            // carried over - profiles, scenarios, settings, rotated logs, the MCP config, the
-            // release cache, the llama.cpp builds and the one kept for a rollback. A fixed list
-            // would silently destroy whatever a later version starts keeping here.
             var pointerFile = Path.GetFileName(_dataPathResolver.PointerFilePath);
 
             foreach (var dir in Directory.GetDirectories(sourceDir))
             {
-                // A target chosen inside the source must not be copied into itself.
                 if (IsSameOrUnder(targetDir, dir)) continue;
                 await CopyDirectoryAsync(dir, Path.Combine(targetDir, Path.GetFileName(dir)));
             }
@@ -2136,7 +2119,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             foreach (var file in Directory.GetFiles(sourceDir))
             {
                 var name = Path.GetFileName(file);
-                // The pointer to the data folder belongs to the default location, not to the data.
                 if (string.Equals(name, pointerFile, StringComparison.OrdinalIgnoreCase)) continue;
                 File.Copy(file, Path.Combine(targetDir, name), overwrite: true);
             }
@@ -2181,13 +2163,11 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
         foreach (var dir in Directory.GetDirectories(path))
         {
-            // The data may have been moved into a folder inside this one.
             if (keep != null && IsSameOrUnder(keep, dir)) continue;
             try { Directory.Delete(dir, true); } catch { }
         }
     }
 
-    /// <summary>True when <paramref name="path"/> is <paramref name="root"/> or sits inside it.</summary>
     private static bool IsSameOrUnder(string path, string root)
     {
         string fullPath, fullRoot;
@@ -2465,8 +2445,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         if (System.Net.IPAddress.TryParse(host, out _)) return true;
         if (Uri.CheckHostName(host) != UriHostNameType.Dns) return false;
-        // A DNS name whose first label is all digits is almost always a mistyped IPv4
-        // address (e.g. "127.0.0.1dfgvbd" or "999.1.1.1"); require a real IP in that case.
         var firstLabel = host.Split('.')[0];
         return firstLabel.Length > 0 && !firstLabel.All(char.IsDigit);
     }
@@ -2641,19 +2619,24 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private int? _vramMaxGpuLayers;
     private int? _vramMaxContext;
     private int? _vramCpuMoeBlocks;
+    private ServerMemoryReport? _vramMeasured;
+    private long? _vramMeasuredDelta;
 
     private static readonly Avalonia.Media.IBrush _dangerBrush =
         new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(224, 85, 97));
 
     private void RefreshVramPlan(ServerConfiguration? config = null)
     {
-        _vramFreeBytes = VramPlan.FreeBytes(Gpu0?.MemTotalMb, Gpu0?.MemUsedMb);
         _vramTotalBytes = VramPlan.TotalBytes(Gpu0?.MemTotalMb);
+        _vramFreeBytes = VramPlan.Settle(_vramFreeBytes,
+            VramPlan.FreeBytes(Gpu0?.MemTotalMb, Gpu0?.MemUsedMb), _vramTotalBytes);
         _vramEstimate = null;
         _vramFit = VramFit.Unknown;
         _vramMaxGpuLayers = null;
         _vramMaxContext = null;
         _vramCpuMoeBlocks = null;
+        _vramMeasured = null;
+        _vramMeasuredDelta = null;
 
         var info = _modelInfo;
         if (info?.Tensors is GgufTensorSummary tensors)
@@ -2663,6 +2646,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
             if (_vramEstimate != null)
                 _vramFit = VramPlan.Verdict(_vramEstimate.TotalBytes, _vramFreeBytes, _vramTotalBytes);
+
+            if (_vramEstimate != null) FindVramMeasurement(info, request);
 
             if (_vramEstimate != null && _vramFreeBytes > 0)
             {
@@ -2676,12 +2661,69 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         RaiseVramProps();
     }
 
+    private void FindVramMeasurement(GgufModelInfo info, VramRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(_modelPath)) return;
+
+        foreach (var instance in RunningInstances)
+        {
+            if (!instance.IsRunning || !instance.IsReady) continue;
+            if (!string.Equals(instance.Configuration.ModelPath, _modelPath, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var report = instance.MemoryReport;
+            if (!report.HasAny) continue;
+
+            _vramMeasured = report;
+            if (VramPlan.RequestFrom(instance.Configuration, info.MaxContext) == request
+                && _vramEstimate is VramEstimate estimate)
+                _vramMeasuredDelta = estimate.TotalBytes - report.TotalBytes;
+            return;
+        }
+    }
+
+    public bool HasVramMeasured => _vramMeasured != null;
+
+    public string VramMeasuredText
+    {
+        get
+        {
+            if (_vramMeasured is not ServerMemoryReport report) return string.Empty;
+
+            var text = string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramMeasured,
+                VramPlan.Gigabytes(report.TotalBytes), VramPlan.Gigabytes(report.WeightBytes),
+                VramPlan.Gigabytes(report.CacheBytes), VramPlan.Gigabytes(report.ComputeBytes));
+
+            if (report.UnaccountedBytes > 0)
+                text += " | " + string.Format(CultureInfo.InvariantCulture,
+                    LocalizedStrings.Instance.VramMeasuredHeadroom, VramPlan.Gigabytes(report.UnaccountedBytes));
+
+            if (report.HasLayers)
+                text += " | " + string.Format(CultureInfo.InvariantCulture,
+                    LocalizedStrings.Instance.VramPartLayers, report.OffloadedLayers, report.TotalLayers);
+
+            if (report.HostBytes > 0)
+                text += " | " + string.Format(CultureInfo.InvariantCulture,
+                    LocalizedStrings.Instance.VramPartHost, VramPlan.Gigabytes(report.HostBytes));
+
+            if (_vramMeasuredDelta is not long delta) return text;
+
+            var format = delta >= 0
+                ? LocalizedStrings.Instance.VramMeasuredOver
+                : LocalizedStrings.Instance.VramMeasuredUnder;
+            return text + " | " + string.Format(CultureInfo.InvariantCulture, format,
+                VramPlan.Gigabytes(Math.Abs(delta)));
+        }
+    }
+
     private void RaiseVramProps()
     {
         OnPropertyChanged(nameof(HasVramPlan));
         OnPropertyChanged(nameof(VramPlanText));
         OnPropertyChanged(nameof(VramPlanBrush));
         OnPropertyChanged(nameof(VramPlanDetail));
+        OnPropertyChanged(nameof(HasVramMeasured));
+        OnPropertyChanged(nameof(VramMeasuredText));
         OnPropertyChanged(nameof(VramPlanToolTip));
         OnPropertyChanged(nameof(HasVramGpuLayersHint));
         OnPropertyChanged(nameof(VramGpuLayersHintText));
@@ -2736,6 +2778,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                     VramPlan.Gigabytes(estimate.KvBytes)),
                 string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartBuffers,
                     VramPlan.Gigabytes(estimate.ComputeBytes)),
+                string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartHeadroom,
+                    VramPlan.Gigabytes(estimate.OverheadBytes)),
                 string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartLayers,
                     estimate.OffloadedBlocks, estimate.TotalBlocks)
             };
@@ -3114,7 +3158,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         set { _logFilePath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
     }
 
-    public bool VerboseLogging
+    public bool? VerboseLogging
     {
         get => _verboseLogging;
         set { _verboseLogging = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
@@ -3444,11 +3488,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public bool DockerTabEnabled => _isDockerAvailable;
     public bool DockerNotInstalledWarning => !_isDockerAvailable;
 
-    // ===== MCP servers =====
-    //
-    // The profile owns the server list. The Cursor-compatible mcp.json is written
-    // right before a launch and handed to llama-server via --mcp-servers-config,
-    // so the file on disk always matches what the profile says.
 
     private bool _mcpEnabled;
     private string _mcpValidationText = string.Empty;
@@ -3912,8 +3951,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             foreach (var b in browsers)
                 DetectedBrowsers.Add(b);
 
-            // Pre-select the entry matching the saved path (set the field directly so we
-            // don't overwrite a custom path the user typed manually).
             _selectedBrowser = DetectedBrowsers.FirstOrDefault(
                 b => string.Equals(b.Path, _customBrowserPath, StringComparison.OrdinalIgnoreCase));
             OnPropertyChanged(nameof(SelectedBrowser));
@@ -3949,7 +3986,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         get => _logVisible;
         set
         {
-            // Hiding the log also drops the maximized layout.
             if (!value && _isLogMaximized)
                 IsLogMaximized = false;
             _logVisible = value;
@@ -3960,10 +3996,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     }
 
     private bool _isLogMaximized;
-    /// <summary>
-    /// Hides the settings/tabs panel so the log can expand to fill the freed space;
-    /// the server control panel moves up directly above the log.
-    /// </summary>
     public bool IsLogMaximized
     {
         get => _isLogMaximized;
@@ -3978,7 +4010,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
     }
 
-    // Splitter is only useful while the log is shown and not maximized.
     public bool IsLogSplitterVisible => LogVisible && !IsLogMaximized;
 
     public bool TabPanelVisible
@@ -4173,6 +4204,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public bool IsContBatchingSupported => IsPropertySupported("--cont-batching", "-cb");
     public bool IsTimeoutSupported => IsPropertySupported("--timeout", "-to");
     public bool IsCachePromptSupported => IsPropertySupported("--cache-prompt");
+    public bool IsVerboseLoggingSupported => IsPropertySupported("--verbose", "-v");
     public bool IsMlockSupported => IsPropertySupported("--mlock");
     public bool IsMmapSupported => IsPropertySupported("--mmap");
     public bool IsReasoningSupported => IsPropertySupported("--reasoning", "-rea");
@@ -4215,12 +4247,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public string UnsupportedArgWarningText => LocalizedStrings.Instance.UnsupportedArgWarning;
     public string ToastClickToApplyText => LocalizedStrings.Instance.ToastClickToApply;
 
-    /// <summary>
-    /// True when the SpecType control has a meaningful value that is not supported
-    /// by the current executable (either --spec-type flag is missing, or the value
-    /// is not in the valid values list parsed from help).
-    /// Used to show a visual warning indicator.
-    /// </summary>
     public bool HasUnsupportedSpecType => !string.IsNullOrEmpty(SpecType)
         && SpecType != "none"
         && (!IsSpecTypeSupported || !_validSpecTypeValues.Contains(SpecType));
@@ -4304,15 +4330,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         ? UnsupportedArgWarningText
         : (LocalizedStrings.Instance.TooltipSpecType ?? "");
 
-    /// <summary>
-    /// True when CacheTypeK has a value not supported by the current executable.
-    /// </summary>
     public bool HasUnsupportedCacheTypeK => !string.IsNullOrEmpty(CacheTypeK)
         && (!IsCacheTypeKSupported || (_validCacheTypeValues.Count > 0 && !_validCacheTypeValues.Contains(CacheTypeK)));
 
-    /// <summary>
-    /// True when CacheTypeV has a value not supported by the current executable.
-    /// </summary>
     public bool HasUnsupportedCacheTypeV => !string.IsNullOrEmpty(CacheTypeV)
         && (!IsCacheTypeVSupported || (_validCacheTypeValues.Count > 0 && !_validCacheTypeValues.Contains(CacheTypeV)));
 
@@ -4370,6 +4390,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(IsContBatchingSupported));
         OnPropertyChanged(nameof(IsTimeoutSupported));
         OnPropertyChanged(nameof(IsCachePromptSupported));
+        OnPropertyChanged(nameof(IsVerboseLoggingSupported));
         OnPropertyChanged(nameof(IsMlockSupported));
         OnPropertyChanged(nameof(IsMmapSupported));
         OnPropertyChanged(nameof(IsReasoningSupported));
@@ -4441,7 +4462,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             var exePath = ExecutablePath;
             if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
             {
-                // Try the default llama-server path when explicit path is not set
                 var defaultPath = _downloadService.GetDefaultLlamaServerPath();
                 if (!string.IsNullOrEmpty(defaultPath))
                     exePath = defaultPath;
@@ -4460,8 +4480,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 return;
             }
 
-            // Avoid re-parsing the same executable, unless forced (e.g. binary was
-            // replaced in-place by an update, so the path string is unchanged).
             if (!force && exePath == _lastCheckedExePath && _supportedFlags != null)
                 return;
 
@@ -4508,13 +4526,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         if (!string.IsNullOrEmpty(savedPath))
         {
-            // Use LlamaServerService resolver which handles both absolute paths
-            // and bare names resolvable via PATH (e.g. "llama-server")
             var resolved = LlamaServerService.ResolveExecutablePath(savedPath);
             if (!string.IsNullOrEmpty(resolved))
                 return resolved;
 
-            // Fall back to the default downloaded llama-server
             var defaultPath = _downloadService.GetDefaultLlamaServerPath();
             if (!string.IsNullOrEmpty(defaultPath) && File.Exists(defaultPath))
             {
@@ -4557,11 +4572,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             parsedValues = LlamaHelpParserService.ParseSpecTypeValues(_lastHelpText);
         }
 
-        // Valid values: only what was explicitly parsed from help (for command line validation).
-        // When no help text available, treat everything as valid (null = no restriction).
         _validSpecTypeValues = string.IsNullOrEmpty(_lastHelpText) ? new List<string>() : parsedValues;
 
-        // Build the desired UI options list
         var desiredOptions = new List<string> { "" };
         if (parsedValues.Count > 0)
         {
@@ -4569,21 +4581,16 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
         else if (string.IsNullOrEmpty(_lastHelpText))
         {
-            // No help text available — use full defaults
             desiredOptions.AddRange(new[] { "none", "draft-simple", "draft-mtp" });
         }
 
-        // Preserve current selection so user can see it's unsupported
         if (!string.IsNullOrEmpty(_specType) && !desiredOptions.Contains(_specType))
         {
             desiredOptions.Add(_specType);
         }
 
-        // Save current value before rebuilding the list
         var savedSpecType = _specType;
 
-        // Suppress SpecType setter to prevent ComboBox TwoWay binding
-        // from nulling out the value during the ItemsSource transition
         _suppressSpecTypeChange = true;
         try
         {
@@ -4602,9 +4609,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             {
                 if (_specType == specTypeToReApply)
                 {
-                    // Flicker: temporarily set to null, notify, then restore.
-                    // This forces Avalonia's TwoWay binding to see a source change
-                    // and push the real value to the ComboBox's SelectedItem.
                     _specType = string.Empty;
                     OnPropertyChanged(nameof(SpecType));
                     _specType = specTypeToReApply;
@@ -4633,10 +4637,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             parsedValues = LlamaHelpParserService.ParseCacheTypeValues(_lastHelpText);
         }
 
-        // Valid values: only what was explicitly parsed from help (for command line validation).
         _validCacheTypeValues = string.IsNullOrEmpty(_lastHelpText) ? new List<string>() : parsedValues;
 
-        // Build the desired UI options list
         var desiredOptions = new List<string> { "" };
         if (parsedValues.Count > 0)
         {
@@ -4644,17 +4646,14 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
         else if (string.IsNullOrEmpty(_lastHelpText))
         {
-            // No help text available — use full defaults
             desiredOptions.AddRange(new[] { "f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1", "turbo2", "turbo3", "turbo4" });
         }
 
-        // Preserve current selections so user can see they're unsupported
         if (!string.IsNullOrEmpty(_cacheTypeK) && !desiredOptions.Contains(_cacheTypeK))
             desiredOptions.Add(_cacheTypeK);
         if (!string.IsNullOrEmpty(_cacheTypeV) && !desiredOptions.Contains(_cacheTypeV))
             desiredOptions.Add(_cacheTypeV);
 
-        // Suppress setters to prevent ComboBox TwoWay binding from nulling values
         var savedCacheTypeK = _cacheTypeK;
         var savedCacheTypeV = _cacheTypeV;
 
@@ -4671,7 +4670,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             _suppressCacheTypeVChange = false;
         }
 
-        // Force Avalonia TwoWay binding to re-read the current values
         if (savedCacheTypeK != null && savedCacheTypeK == _cacheTypeK)
         {
             var ctk = _cacheTypeK;
@@ -4837,9 +4835,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     private bool ConfigsEqual(ServerConfiguration a, ServerConfiguration b)
     {
-        // Explicit default path and empty path both mean "use default" (saving
-        // normalizes one to the other), so compare in normalized form; otherwise
-        // a typed-out default path would never clear the unsaved indicator.
         return NormalizeExecutablePathForSaving(a.ExecutablePath ?? string.Empty)
                     == NormalizeExecutablePathForSaving(b.ExecutablePath ?? string.Empty) &&
                 a.ModelPath == b.ModelPath &&
@@ -4915,7 +4910,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 OnPropertyChanged(nameof(WindowTitleWithProfile));
                 OnPropertyChanged(nameof(CanOpenInBrowser));
                 OnPropertyChanged(nameof(CanStartServer));
-                // Notify commands that depend on IsServerRunning
                 if (StopServerCommand is AsyncRelayCommand stopCmd)
                     stopCmd.RaiseCanExecuteChanged();
                 if (RestartServerCommand is AsyncRelayCommand restartCmd)
@@ -5062,13 +5056,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public ICommand CreateScenarioCommand { get; }
     public ICommand DeleteScenarioCommand { get; }
 
-    /// <summary>
-    /// Set by MainWindow to allow the ViewModel to request opening the download dialog.
-    /// </summary>
     public Func<Task>? OpenDownloadDialogFunc { get; set; }
 
     public bool HasAnyRunningInstances => RunningInstances.Any(i => i.IsRunning);
-    // Includes failed (not running) instances too, so their toggle buttons stay visible.
     public bool HasAnyInstances => RunningInstances.Count > 0;
     public bool HasCustomArgumentItems => CustomArgumentItems.Count > 0;
 
@@ -5086,7 +5076,6 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         });
         await Task.WhenAll(tasks);
 
-        // Drop failed instances that stopping won't clear by itself.
         foreach (var failed in RunningInstances.Where(i => i.StartFailed && !i.IsRunning).ToList())
             RemoveInstance(failed);
     }
@@ -5150,11 +5139,13 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public async Task OpenModelPickerAsync()
     {
         var initialFolder = ResolveInitialScanFolder();
+        var config = GetCurrentConfig();
+        RefreshVramPlan(config);
         var budget = new VramBudget
         {
-            Config = GetCurrentConfig(),
-            AvailableBytes = VramPlan.FreeBytes(Gpu0?.MemTotalMb, Gpu0?.MemUsedMb),
-            TotalBytes = VramPlan.TotalBytes(Gpu0?.MemTotalMb),
+            Config = config,
+            AvailableBytes = _vramFreeBytes,
+            TotalBytes = _vramTotalBytes,
         };
         var vm = new ModelPickerViewModel(initialFolder, _modelScanRecursive, budget);
         var dialog = new ModelPickerWindow();
@@ -5615,7 +5606,6 @@ private void LoadConfigToUI(ServerConfiguration config)
         {
             _shownConflictToasts.Clear();
             Toasts.ClearAll();
-        // Clear all fields except profile-related fields
         ExecutablePath = string.Empty;
         ModelPath = string.Empty;
         ModelsDir = string.Empty;
@@ -5643,7 +5633,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         MmprojPath = string.Empty;
         CacheTypeK = string.Empty;
         CacheTypeV = string.Empty;
-        VerboseLogging = false;
+        VerboseLogging = null;
         Alias = string.Empty;
         ParallelSlots = string.Empty;
         ContBatching = null;
@@ -5674,11 +5664,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         DockerRm = true;
         DockerContainerName = string.Empty;
         CustomArguments = string.Empty;
-        // Note: AutoRestart is runtime state per-instance; do NOT reset it here.
-        // Note: ProfileNameInput and _loadedProfileName are NOT cleared here
-        // They are preserved when loading a profile
         
-        // Then load the new config values
         ExecutablePath = config.ExecutablePath ?? string.Empty;
         ModelPath = config.ModelPath ?? string.Empty;
         ModelsDir = config.ModelsDir ?? string.Empty;
@@ -5804,7 +5790,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         MmprojPath = string.Empty;
         CacheTypeK = string.Empty;
         CacheTypeV = string.Empty;
-        VerboseLogging = false;
+        VerboseLogging = null;
         Alias = string.Empty;
         ParallelSlots = string.Empty;
         ContBatching = null;
@@ -5841,7 +5827,6 @@ private void LoadConfigToUI(ServerConfiguration config)
         CustomArgumentItems.Clear();
         CustomArguments = string.Empty;
         AutoRestart = false;
-        // ProfileNameInput = string.Empty;
         _loadedProfileName = string.Empty;
         _loadedProfileConfig = null;
         _shownConflictToasts.Clear();
@@ -5939,11 +5924,6 @@ private void LoadConfigToUI(ServerConfiguration config)
         _originalCustomArguments = _customArguments;
     }
 
-    /// <summary>
-    /// Real-time toggle update during typing: parses the current text into
-    /// enabled items and preserves disabled items from _originalCustomArguments
-    /// without modifying _originalCustomArguments.
-    /// </summary>
     private void UpdateCustomArgumentTogglesFromText()
     {
         var currTokens = string.IsNullOrWhiteSpace(_customArguments)
@@ -5951,14 +5931,12 @@ private void LoadConfigToUI(ServerConfiguration config)
             : TokenizeArgs(_customArguments.Trim());
         var currPairs = ParseTokensToArgPairs(currTokens);
 
-        // Track which names appear in current text
         var currNames = new HashSet<string>();
         foreach (var pair in currPairs)
             currNames.Add(pair.Name);
 
         CustomArgumentItems.Clear();
 
-        // Add items from current text (all enabled)
         foreach (var pair in currPairs)
         {
             CustomArgumentItems.Add(new CustomArgumentItem
@@ -5970,7 +5948,6 @@ private void LoadConfigToUI(ServerConfiguration config)
             });
         }
 
-        // Preserve disabled items from _originalCustomArguments that aren't in current text
         if (!string.IsNullOrWhiteSpace(_originalCustomArguments))
         {
             var origTokens = TokenizeArgs(_originalCustomArguments.Trim());
@@ -6191,8 +6168,6 @@ public void RebuildCustomArgumentsFromToggles()
 
     public void RemoveCustomArgument(CustomArgumentItem item)
     {
-        // Use arg-pair-level filtering so multi-token args (e.g. --flag "value")
-        // are removed as a unit, not compared token-by-token.
         var tokens = TokenizeArgs(_originalCustomArguments);
         var pairs = ParseTokensToArgPairs(tokens);
         _originalCustomArguments = string.Join(" ", pairs
@@ -6215,7 +6190,6 @@ public void RebuildCustomArgumentsFromToggles()
         var currPairs = ParseTokensToArgPairs(currTokens);
         var origPairs = ParseTokensToArgPairs(origTokens);
 
-        // Merge: match original args with current args by name (first unmatched wins)
         var merged = new List<(string Name, string? Value, string OriginalArg)>();
         var matchedCurrIndices = new HashSet<int>();
 
@@ -6233,18 +6207,15 @@ public void RebuildCustomArgumentsFromToggles()
 
             if (matchIdx >= 0)
             {
-                // Arg exists in current text — use current version (value may have changed)
                 merged.Add(currPairs[matchIdx]);
                 matchedCurrIndices.Add(matchIdx);
             }
             else
             {
-                // Arg was toggled off or removed from text — keep original version
                 merged.Add(origPair);
             }
         }
 
-        // Append genuinely new arguments from current text
         for (int j = 0; j < currPairs.Count; j++)
         {
             if (!matchedCurrIndices.Contains(j))
@@ -6255,7 +6226,6 @@ public void RebuildCustomArgumentsFromToggles()
 
         _originalCustomArguments = string.Join(" ", merged.Select(p => p.OriginalArg));
 
-        // Rebuild CustomArgumentItems and toggle state
         CustomArgumentItems.Clear();
         _disabledArguments.Clear();
 
@@ -6281,10 +6251,6 @@ public void RebuildCustomArgumentsFromToggles()
         RebuildCustomArgumentsFromToggles();
     }
 
-    /// <summary>
-    /// Parses flat tokens into structured (Name, Value, OriginalArg) pairs,
-    /// grouping flags with their values when applicable.
-    /// </summary>
     private List<(string Name, string? Value, string OriginalArg)> ParseTokensToArgPairs(List<string> tokens)
     {
         var pairs = new List<(string Name, string? Value, string OriginalArg)>();
@@ -6482,10 +6448,6 @@ public void RebuildCustomArgumentsFromToggles()
         Dispatcher.UIThread.Post(() => RemoveInstance(instance));
     }
 
-    /// <summary>
-    /// Removes a failed (not running) instance's toggle button from the panel.
-    /// Used when the user dismisses a server that failed to start.
-    /// </summary>
     public void DismissInstance(ServerInstance instance)
     {
         Dispatcher.UIThread.Post(() => RemoveInstance(instance));
@@ -6639,7 +6601,6 @@ public void RebuildCustomArgumentsFromToggles()
     {
         if (_selectedInstance == instance)
         {
-            // Even if already selected, check for unsaved changes before reloading
             if (HasUnsavedChanges)
             {
                 var result = await ShowConfirmAsync(
@@ -6684,7 +6645,6 @@ public void RebuildCustomArgumentsFromToggles()
                 }
             }
 
-            // Reload the cached configuration from the instance
             if (instance != null)
             {
                 LoadConfigToUI(instance.Configuration);
@@ -6692,7 +6652,6 @@ public void RebuildCustomArgumentsFromToggles()
                 _loadedProfileConfig = instance.Configuration;
                 SetSelectedProfileSilently(instance.ProfileName);
 
-                // Sync runtime state (AutoRestart, LogEnabled) to control panel
                 _autoRestart = instance.AutoRestart;
                 _logEnabled = instance.LogEnabled;
                 OnPropertyChanged(nameof(AutoRestart));
@@ -6843,8 +6802,6 @@ public void RebuildCustomArgumentsFromToggles()
                 return false;
             }
 
-            // A previous failed attempt may still be in the panel as an error button.
-            // Drop it so we can launch a fresh instance.
             var existingFailed = RunningInstances.FirstOrDefault(i => i.ProfileName == profileName);
             if (existingFailed != null)
                 RemoveInstance(existingFailed);
@@ -6921,9 +6878,6 @@ public void RebuildCustomArgumentsFromToggles()
                 }
                 else
                 {
-                    // Process didn't start. Keep the instance in the panel (red toggle button)
-                    // so the user can still click it to load the broken profile; handlers stay
-                    // attached so a later restart updates the same button in place.
                     instance.StartFailed = true;
                     RunningInstances.Add(instance);
                     SelectedInstance = instance;
@@ -7277,7 +7231,6 @@ public void RebuildCustomArgumentsFromToggles()
         config.ExecutablePath = NormalizeExecutablePathForSaving(config.ExecutablePath);
         await _configService.SaveProfileAsync(name, config);
 
-        // Sync the running instance's cached config if it matches the saved profile
         var matchingInstance = RunningInstances.FirstOrDefault(i => i.ProfileName == name);
         if (matchingInstance != null)
         {
@@ -7418,7 +7371,6 @@ public void RebuildCustomArgumentsFromToggles()
         var oldName = SelectedProfile;
         if (string.IsNullOrWhiteSpace(oldName)) return;
 
-        // Ask for new name using a simple input dialog
         var newName = await ShowNameInputAsync(
             LocalizedStrings.GetString("Rename"),
             LocalizedStrings.GetString("EnterNewProfileName"),
@@ -7851,7 +7803,7 @@ public void RebuildCustomArgumentsFromToggles()
         EnableMetrics = null;
         ApiKey = string.Empty;
         LogFilePath = string.Empty;
-        VerboseLogging = false;
+        VerboseLogging = null;
         Alias = string.Empty;
         ParallelSlots = string.Empty;
         ContBatching = null;
@@ -8450,12 +8402,8 @@ public void RebuildCustomArgumentsFromToggles()
 
     public async Task SaveSettingsAsync()
     {
-        // Skip during init: setters fired while loading would capture not-yet-loaded
-        // values (e.g. CustomBrowserPath) and overwrite app.json with them.
         if (_isInitializing) return;
 
-        // If the existing file couldn't be read, don't replace it with the in-memory
-        // defaults we're running on - leave the original file for next launch.
         if (_configService.LoadFailedKeepExisting) return;
 
         var settings = GetAppSettings();
@@ -8477,7 +8425,6 @@ public void RebuildCustomArgumentsFromToggles()
         var flags = ServerConfiguration.GetFlagsForProperty(propertyName);
         if (flags.Count == 0) return;
 
-        // Only react to value (string) fields that currently hold a value.
         if (GetType().GetProperty(propertyName)?.GetValue(this) is not string value
             || string.IsNullOrWhiteSpace(value))
             return;

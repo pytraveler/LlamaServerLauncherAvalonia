@@ -332,6 +332,21 @@
   <data name="VramPartApprox" xml:space="preserve">
     <value>rough estimate</value>
   </data>
+  <data name="VramPartHeadroom" xml:space="preserve">
+    <value>headroom {0:F1} GB</value>
+  </data>
+  <data name="VramMeasured" xml:space="preserve">
+    <value>llama-server took {0:F1} GB: weights {1:F1} | cache {2:F1} | compute {3:F1}</value>
+  </data>
+  <data name="VramMeasuredHeadroom" xml:space="preserve">
+    <value>headroom {0:F1}</value>
+  </data>
+  <data name="VramMeasuredOver" xml:space="preserve">
+    <value>estimate high by {0:F1} GB</value>
+  </data>
+  <data name="VramMeasuredUnder" xml:space="preserve">
+    <value>estimate low by {0:F1} GB</value>
+  </data>
   <data name="VramPickNgl" xml:space="preserve">
     <value>Fit in VRAM: {0} layers</value>
   </data>
@@ -427,6 +442,9 @@
   </data>
   <data name="VerboseLogging" xml:space="preserve">
     <value>Verbose Logging</value>
+  </data>
+  <data name="TooltipVerboseLogging" xml:space="preserve">
+    <value>Passes -v to llama-server. It then prints its own memory breakdown, which is what the VRAM panel on the Generation tab compares its estimate against - and a great deal else besides, a line per tensor included. Worth turning on for a launch or two, then off again.</value>
   </data>
   <data name="CustomArguments" xml:space="preserve">
     <value>Custom Arguments</value>
@@ -1144,6 +1162,9 @@
   </data>
   <data name="ArgumentPickerCancel" xml:space="preserve">
     <value>Cancel</value>
+  </data>
+  <data name="NoHelpAvailable" xml:space="preserve">
+    <value>This executable gave no --help output, so there is nothing to pick from. Check the path to llama-server and try again.</value>
   </data>
   <data name="PickModel" xml:space="preserve">
     <value>Pick…</value>

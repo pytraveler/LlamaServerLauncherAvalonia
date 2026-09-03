@@ -379,16 +379,7 @@ public static class CommandLineBuilder
         AddIfNotOverridden(args, "--log-file", string.IsNullOrEmpty(config.LogFilePath) ? null : $"\"{config.LogFilePath}\"");
         AddIfNotOverridden(args, "--alias", string.IsNullOrEmpty(config.Alias) ? null : $"\"{config.Alias}\"");
 
-        string? actualVerboseFlag = GetActualCustomFlag("-v", "--verbose");
-        
-        if (actualVerboseFlag != null)
-        {
-            args.Add(actualVerboseFlag);
-        }
-        else if (config.VerboseLogging)
-        {
-            args.Add("-v");
-        }
+        AddBoolFlag(args, "-v", config.VerboseLogging);
 
         AddRemainingCustomArgs(args, normalizedCustomArgs, customArgValues, disabledCustomArgs);
 

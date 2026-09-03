@@ -88,7 +88,7 @@ public class ServerConfiguration
     public string LogFilePath { get; set; } = string.Empty;
 
     [JsonPropertyName("verboseLogging")]
-    public bool VerboseLogging { get; set; }
+    public bool? VerboseLogging { get; set; }
 
     [JsonPropertyName("alias")]
     public string Alias { get; set; } = string.Empty;

@@ -115,6 +115,28 @@ public static class VramPlanTests
         h.Check("no total means no total",
             VramPlan.TotalBytes(null) == 0, VramPlan.TotalBytes(null).ToString());
 
+        long card = 32L * GB;
+        long jitter = 100 * MB;
+        h.Check("a first reading is taken as it comes",
+            VramPlan.Settle(0, 20 * GB, card) == 20 * GB, "taken");
+        h.Check("a reading that only jitters leaves the figure where it was",
+            VramPlan.Settle(20 * GB, 20 * GB + jitter, card) == 20 * GB, "held");
+        h.Check("and so does one that jitters the other way",
+            VramPlan.Settle(20 * GB, 20 * GB - jitter, card) == 20 * GB, "held");
+        h.Check("a server taking the card moves it at once",
+            VramPlan.Settle(20 * GB, 2 * GB, card) == 2 * GB, "moved");
+        h.Check("a server letting go of the card moves it back",
+            VramPlan.Settle(2 * GB, 20 * GB, card) == 20 * GB, "moved");
+        long deadband = card / 100 * VramPlan.SettlePercent;
+        h.Check("the deadband is two percent of the card",
+            VramPlan.Settle(20 * GB, 20 * GB + deadband, card) == 20 * GB + deadband, "moved");
+        h.Check("and one byte below it is still a hold",
+            VramPlan.Settle(20 * GB, 20 * GB + deadband - 1, card) == 20 * GB, "held");
+        h.Check("a small card still gets a floor under the deadband",
+            VramPlan.Settle(4 * GB, 4 * GB + 200 * MB, 6 * GB) == 4 * GB, "held");
+        h.Check("losing the reading is not something to sit on",
+            VramPlan.Settle(20 * GB, 0, card) == 0, "dropped");
+
         h.Check("gigabytes are counted in binary units",
             Math.Abs(VramPlan.Gigabytes(GB) - 1.0) < 1e-9, VramPlan.Gigabytes(GB).ToString());
         h.Check("and rounded to one decimal",

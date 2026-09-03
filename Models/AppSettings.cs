@@ -56,7 +56,7 @@ public class AppSettings
     public bool? EnableMetrics { get; set; }
     public string ApiKey { get; set; } = "";
     public string LogFilePath { get; set; } = "";
-    public bool VerboseLogging { get; set; }
+    public bool? VerboseLogging { get; set; }
     public string Alias { get; set; } = "";
     public string CustomArguments { get; set; } = "";
     public string ParallelSlots { get; set; } = "";

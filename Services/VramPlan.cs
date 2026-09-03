@@ -76,6 +76,16 @@ public static class VramPlan
     public static long TotalBytes(int? totalMb) =>
         totalMb is int total && total > 0 ? (long)total * 1024 * 1024 : 0;
 
+    public const long MinSettleBytes = 256L * 1024 * 1024;
+    public const int SettlePercent = 2;
+
+    public static long Settle(long settled, long reading, long totalBytes)
+    {
+        if (reading <= 0 || settled <= 0) return reading;
+        long threshold = Math.Max(MinSettleBytes, totalBytes / 100 * SettlePercent);
+        return Math.Abs(reading - settled) >= threshold ? reading : settled;
+    }
+
     public static double Gigabytes(long bytes) =>
         Math.Round(bytes / 1024.0 / 1024.0 / 1024.0, 1, MidpointRounding.AwayFromZero);
 

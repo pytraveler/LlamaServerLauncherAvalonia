@@ -31,6 +31,7 @@ public sealed record VramEstimate
     public long WeightBytes { get; init; }
     public long KvBytes { get; init; }
     public long ComputeBytes { get; init; }
+    public long OverheadBytes { get; init; }
     public long HostWeightBytes { get; init; }
     public long HostKvBytes { get; init; }
     public int OffloadedBlocks { get; init; }
@@ -40,7 +41,7 @@ public sealed record VramEstimate
 
     public bool Approximate { get; init; }
 
-    public long TotalBytes => WeightBytes + KvBytes + ComputeBytes;
+    public long TotalBytes => WeightBytes + KvBytes + ComputeBytes + OverheadBytes;
     public long HostBytes => HostWeightBytes + HostKvBytes;
 }
 
@@ -112,12 +113,14 @@ public static class VramEstimator
         }
 
         long compute = offloaded > 0 ? ComputeBytes(info, request, full) : 0;
+        long overhead = offloaded > 0 ? BackendOverheadBytes : 0;
 
         return new VramEstimate
         {
             WeightBytes = weights,
             KvBytes = kvGpu,
             ComputeBytes = compute,
+            OverheadBytes = overhead,
             HostWeightBytes = hostWeights,
             HostKvBytes = kvHost,
             OffloadedBlocks = offloaded,
@@ -272,7 +275,7 @@ public static class VramEstimator
     {
         long ubatch = Math.Max(1, Math.Min(request.UBatchSize, Math.Max(1, request.ContextSize)));
         long embedding = info.EmbeddingLength ?? 4096;
-        long total = BackendOverheadBytes;
+        long total = 0;
 
         total += ubatch * embedding * 4 * ActivationTensors;
 
