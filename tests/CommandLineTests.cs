@@ -18,6 +18,7 @@ public static class CommandLineTests
         CustomArgAliases(h);
         LoadMode(h);
         ParseBack(h);
+        Jinja(h);
         RoundTrip(h);
     }
 
@@ -127,6 +128,18 @@ public static class CommandLineTests
         var fallback = CommandLineBuilder.BuildFullCommand(new ServerConfiguration());
         h.Check("full command falls back to llama-server", fallback.StartsWith("\"llama-server\""), fallback);
 
+        var projectorOff = CommandLineBuilder.Build(new ServerConfiguration { MmprojOffload = false });
+        h.Check("the projector can be kept off the card",
+            projectorOff.Contains("--no-mmproj-offload"), projectorOff);
+
+        var projectorAuto = CommandLineBuilder.Build(new ServerConfiguration());
+        h.Check("and left alone by default",
+            !projectorAuto.Contains("mmproj-offload"), projectorAuto);
+
+        var projectorParsed = ServerConfigurationExtensions.ParseFromCommandLine("-m a.gguf --no-mmproj-offload");
+        h.Check("a command line that turns it off reads back as off",
+            projectorParsed!.MmprojOffload == false, projectorParsed.MmprojOffload?.ToString() ?? "null");
+
         var moe = CommandLineBuilder.Build(new ServerConfiguration { CpuMoe = 3 });
         h.Check("emits --n-cpu-moe for CpuMoe", moe.Contains("--n-cpu-moe 3"), moe);
 
@@ -150,6 +163,56 @@ public static class CommandLineTests
 
         var verboseTypedAndSet = CommandLineBuilder.Build(new ServerConfiguration { CustomArguments = "--verbose", VerboseLogging = true });
         h.Check("the typed spelling wins over the switch", verboseTypedAndSet.Split(' ').Count(t => t == "--verbose" || t == "-v") == 1, verboseTypedAndSet);
+    }
+
+    private static void Jinja(Harness h)
+    {
+        h.Section("The jinja chat template engine");
+
+        var auto = CommandLineBuilder.Build(new ServerConfiguration());
+        h.Check("auto leaves the build default alone", !auto.Contains("jinja"), auto);
+
+        var on = CommandLineBuilder.Build(new ServerConfiguration { Jinja = true });
+        h.Check("on asks for it explicitly", on.Split(' ').Contains("--jinja"), on);
+
+        var off = CommandLineBuilder.Build(new ServerConfiguration { Jinja = false });
+        h.Check("off turns it away", off.Split(' ').Contains("--no-jinja"), off);
+
+        var unsupported = CommandLineBuilder.Build(new ServerConfiguration { Jinja = true }, Flags("--port"));
+        h.Check("a build without the flag does not get it", !unsupported.Contains("jinja"), unsupported);
+
+        var typed = CommandLineBuilder.Build(new ServerConfiguration { CustomArguments = "--jinja", Jinja = false });
+        h.Check("a hand-typed flag wins and is not doubled",
+            typed.Split(' ').Count(t => t == "--jinja" || t == "--no-jinja") == 1
+            && typed.Split(' ').Contains("--jinja"), typed);
+
+        var readOn = ServerConfigurationExtensions.ParseFromCommandLine("-m a.gguf --jinja");
+        h.Check("a pasted --jinja lands on the switch, not in custom args",
+            readOn!.Jinja == true && !readOn.CustomArguments.Contains("jinja"),
+            $"{readOn.Jinja} / {readOn.CustomArguments}");
+
+        var readOff = ServerConfigurationExtensions.ParseFromCommandLine("-m a.gguf --no-jinja");
+        h.Check("and --no-jinja reads back as off", readOff!.Jinja == false, readOff.Jinja?.ToString() ?? "null");
+
+        h.Check("the switch survives a round trip",
+            ServerConfigurationExtensions.ParseFromCommandLine(
+                CommandLineBuilder.Build(new ServerConfiguration { ModelPath = "a.gguf", Jinja = false }))!.Jinja == false,
+            "off");
+
+        h.Check("nothing set means nothing to warn about",
+            !new ServerConfiguration().DisablesJinja(), "quiet");
+        h.Check("the switch at off is a reason to warn",
+            new ServerConfiguration { Jinja = false }.DisablesJinja(), "warned");
+        h.Check("so is --no-jinja typed by hand",
+            new ServerConfiguration { CustomArguments = "--no-jinja" }.DisablesJinja(), "warned");
+        h.Check("a disabled custom argument is not passed, so it is not a reason",
+            !new ServerConfiguration
+            {
+                CustomArguments = "--no-jinja",
+                CustomArgumentToggleStates = new Dictionary<string, bool> { ["--no-jinja"] = false }
+            }.DisablesJinja(), "quiet");
+        h.Check("a typed --jinja outranks the switch, the way the builder does",
+            !new ServerConfiguration { Jinja = false, CustomArguments = "--jinja" }.DisablesJinja(), "quiet");
     }
 
     private static void ParseBack(Harness h)

@@ -7,14 +7,22 @@ using LlamaServerLauncher.Models;
 
 namespace LlamaServerLauncher.Services;
 
+public enum ModelScanKind
+{
+    Models,
+    Projectors
+}
+
 public static class ModelScanService
 {
     public static Task<List<ModelScanEntry>> ScanAsync(string folder, bool recursive,
-        VramBudget? budget = null, CancellationToken ct = default) =>
-        Task.Run(() => Scan(folder, recursive, budget, ct), ct);
+        VramBudget? budget = null, CancellationToken ct = default,
+        ModelScanKind kind = ModelScanKind.Models) =>
+        Task.Run(() => Scan(folder, recursive, budget, ct, kind), ct);
 
     public static List<ModelScanEntry> Scan(string folder, bool recursive,
-        VramBudget? budget = null, CancellationToken ct = default)
+        VramBudget? budget = null, CancellationToken ct = default,
+        ModelScanKind kind = ModelScanKind.Models)
     {
         var result = new List<ModelScanEntry>();
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return result;
@@ -32,6 +40,7 @@ public static class ModelScanService
             }
 
             var info = GgufMetadataService.TryReadDetailed(path);
+            if (Wanted(info, kind) == false) continue;
             var fit = VramPlan.Fit(info, budget);
 
             string relDir = "";
@@ -86,4 +95,10 @@ public static class ModelScanService
             foreach (var s in subs) stack.Push(s);
         }
     }
+    private static bool Wanted(GgufModelInfo? info, ModelScanKind kind)
+    {
+        bool projector = info?.IsProjector == true;
+        return kind == ModelScanKind.Projectors ? projector : !projector;
+    }
+
 }

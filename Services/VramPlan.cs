@@ -16,7 +16,7 @@ public static class VramPlan
     public const int DefaultBatch = 2048;
     public const int DefaultUBatch = 512;
 
-    public static VramRequest RequestFrom(ServerConfiguration? config, int? modelMaxContext = null)
+    public static VramRequest RequestFrom(ServerConfiguration? config, int? modelMaxContext = null, long mmprojBytes = 0)
     {
         if (config == null) return new VramRequest { ContextSize = ResolveContext(null, modelMaxContext) };
 
@@ -34,6 +34,7 @@ public static class VramPlan
             FlashAttention = config.FlashAttention ?? true,
             Parallel = Positive(config.ParallelSlots) ?? 1,
             CpuMoeBlocks = Math.Max(0, config.CpuMoe ?? 0),
+            MmprojBytes = ProjectorBytes(config, mmprojBytes),
         };
     }
 
@@ -54,6 +55,13 @@ public static class VramPlan
         if (needBytes <= 0) return VramFit.Unknown;
         if (availableBytes > 0) return VramEstimator.Judge(needBytes, availableBytes);
         return totalBytes > 0 ? VramFit.DoesNotFit : VramFit.Unknown;
+    }
+
+    public static long ProjectorBytes(ServerConfiguration? config, long mmprojBytes)
+    {
+        if (mmprojBytes <= 0 || config == null) return 0;
+        if (string.IsNullOrWhiteSpace(config.MmprojPath)) return 0;
+        return config.MmprojOffload == false ? 0 : mmprojBytes;
     }
 
     public static int ResolveGpuLayers(int? gpuLayers) => gpuLayers is int n && n >= 0 ? n : -1;

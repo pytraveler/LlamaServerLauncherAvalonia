@@ -80,12 +80,28 @@ public static class ModelScanTests
             WriteGgufFile(Path.Combine(sub, "model-c.gguf"), 1, w =>
                 WriteKvString(w, "general.architecture", "gemma"));
 
+            WriteGgufFile(Path.Combine(root, "mmproj-a.gguf"), 2, w =>
+            {
+                WriteKvString(w, "general.architecture", "clip");
+                WriteKvUint32(w, "clip.vision.block_count", 24);
+            });
+
             var flat = ModelScanService.Scan(root, false);
             h.Check("flat count = 5", flat.Count == 5, flat.Count.ToString());
             h.Check("flat skips shard 00002", flat.All(m => m.FileName != "big-00002-of-00003.gguf"), "ok");
             h.Check("flat keeps shard 00001", flat.Any(m => m.FileName == "big-00001-of-00003.gguf"), "ok");
             h.Check("flat ignores .txt", flat.All(m => m.FileName.EndsWith(".gguf")), "ok");
             h.Check("flat excludes subfolder", flat.All(m => m.FileName != "model-c.gguf"), "ok");
+
+            h.Check("a projector is not a model to run",
+                flat.All(m => m.FileName != "mmproj-a.gguf"), "hidden");
+
+            var projectors = ModelScanService.Scan(root, false, null, default, ModelScanKind.Projectors);
+            h.Check("and the projector scan finds only it",
+                projectors.Count == 1 && projectors[0].FileName == "mmproj-a.gguf",
+                projectors.Count + " found");
+            h.Check("a projector is marked as one",
+                projectors[0].IsProjector, "marked");
 
             var a = flat.FirstOrDefault(m => m.FileName == "model-a.gguf");
             h.Check("model-a read", a != null, a == null ? "null" : "ok");

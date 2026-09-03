@@ -41,14 +41,19 @@ public sealed record ServerMemoryReport
     public long HostCacheBytes { get; init; }
     public long HostComputeBytes { get; init; }
     public int DeviceCount { get; init; }
+    public long ProjectorBytes { get; init; }
+    public bool ProjectorOnHost { get; init; }
     public int OffloadedLayers { get; init; }
     public int TotalLayers { get; init; }
     public ServerMemorySource Source { get; init; }
 
-    public long TotalBytes => WeightBytes + CacheBytes + ComputeBytes + UnaccountedBytes;
-    public long HostBytes => HostWeightBytes + HostCacheBytes + HostComputeBytes;
+    public long TotalBytes => WeightBytes + CacheBytes + ComputeBytes + UnaccountedBytes
+        + (ProjectorOnHost ? 0 : ProjectorBytes);
+    public long HostBytes => HostWeightBytes + HostCacheBytes + HostComputeBytes
+        + (ProjectorOnHost ? ProjectorBytes : 0);
     public bool HasAny => Source != ServerMemorySource.None && TotalBytes > 0;
     public bool HasLayers => TotalLayers > 0;
+    public bool HasProjector => ProjectorBytes > 0;
 }
 
 public static class ServerMemoryParser
@@ -65,6 +70,14 @@ public static class ServerMemoryParser
     private static readonly Regex DeviceRowRegex = new(
         @"-\s+(?<device>\S+)[^|]*\|\s*(?<total>\d+)\s*=\s*(?<free>\d+)\s*\+\s*\(\s*\d+\s*=\s*(?<model>\d+)\s*\+\s*(?<cache>\d+)\s*\+\s*(?<compute>\d+)\s*\)\s*\+\s*(?<unaccounted>-?\d+)",
         RegexOptions.Compiled);
+
+    private static readonly Regex ProjectorRegex = new(
+        @"memory usage of mmproj is\s+(?<value>[0-9]+(?:\.[0-9]+)?)\s*(?<unit>[KMG]i?B)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex ProjectorBackendRegex = new(
+        @"CLIP using\s+(?<device>\S+)\s+backend",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex LayersRegex = new(
         @"offloaded\s+(?<gpu>\d+)\s*/\s*(?<all>\d+)\s+layers\s+to\s+GPU",
@@ -137,6 +150,30 @@ public static class ServerMemoryParser
         return (gpu, all);
     }
 
+    public static long TryParseProjector(string? line)
+    {
+        if (string.IsNullOrEmpty(line)) return 0;
+        if (line.IndexOf("mmproj", StringComparison.OrdinalIgnoreCase) < 0) return 0;
+
+        var match = ProjectorRegex.Match(line);
+        if (!match.Success) return 0;
+
+        if (!double.TryParse(match.Groups["value"].Value, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out double value) || value <= 0)
+            return 0;
+
+        return (long)Math.Round(value * UnitScale(match.Groups["unit"].Value));
+    }
+
+    public static string? TryParseProjectorDevice(string? line)
+    {
+        if (string.IsNullOrEmpty(line)) return null;
+        if (line.IndexOf("CLIP using", StringComparison.OrdinalIgnoreCase) < 0) return null;
+
+        var match = ProjectorBackendRegex.Match(line);
+        return match.Success ? match.Groups["device"].Value : null;
+    }
+
     public static bool IsBreakdownHeader(string? line) =>
         !string.IsNullOrEmpty(line) && line.IndexOf(BreakdownHeader, StringComparison.Ordinal) >= 0;
 
@@ -179,6 +216,8 @@ public sealed class ServerMemoryAccumulator
     private long _weights, _cache, _compute;
     private long _hostWeights, _hostCache, _hostCompute;
     private int _offloadedLayers, _totalLayers;
+    private long _projector;
+    private bool _projectorOnHost;
 
     public bool Add(string? line)
     {
@@ -191,6 +230,18 @@ public sealed class ServerMemoryAccumulator
         if (ServerMemoryParser.TryParseBreakdownRow(line) is { } row)
         {
             lock (_lock) _rows.Add(row);
+            return true;
+        }
+
+        if (ServerMemoryParser.TryParseProjector(line) is > 0 and var projector)
+        {
+            lock (_lock) _projector = projector;
+            return true;
+        }
+
+        if (ServerMemoryParser.TryParseProjectorDevice(line) is { } device)
+        {
+            lock (_lock) _projectorOnHost = ServerMemoryParser.IsHostDevice(device);
             return true;
         }
 
@@ -242,6 +293,8 @@ public sealed class ServerMemoryAccumulator
         {
             ClearMeasurements();
             _offloadedLayers = _totalLayers = 0;
+            _projector = 0;
+            _projectorOnHost = false;
         }
     }
 
@@ -288,6 +341,8 @@ public sealed class ServerMemoryAccumulator
             DeviceCount = devices,
             OffloadedLayers = _offloadedLayers,
             TotalLayers = _totalLayers,
+            ProjectorBytes = _projector,
+            ProjectorOnHost = _projectorOnHost,
             Source = ServerMemorySource.Breakdown,
         };
     }
@@ -308,6 +363,8 @@ public sealed class ServerMemoryAccumulator
             DeviceCount = _bufferDevices.Count,
             OffloadedLayers = _offloadedLayers,
             TotalLayers = _totalLayers,
+            ProjectorBytes = _projector,
+            ProjectorOnHost = _projectorOnHost,
             Source = any ? ServerMemorySource.Buffers : ServerMemorySource.None,
         };
     }

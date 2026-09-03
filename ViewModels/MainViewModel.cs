@@ -868,6 +868,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private string _uBatchSize = string.Empty;
     private string _minP = string.Empty;
     private string _mmprojPath = string.Empty;
+    private bool? _mmprojOffload;
+    private long _mmprojBytes;
     private string _cacheTypeK = string.Empty;
     private string _cacheTypeV = string.Empty;
     private string _topK = string.Empty;
@@ -891,6 +893,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private bool? _mmap;
     private bool? _reasoning;
     private string _reasoningBudget = string.Empty;
+    private bool? _jinja;
     private string _seed = string.Empty;
     private string _presencePenalty = string.Empty;
     private string _frequencyPenalty = string.Empty;
@@ -1697,6 +1700,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         UBatchSize = settings.UBatchSize;
         MinP = settings.MinP;
         MmprojPath = settings.MmprojPath;
+        MmprojOffload = settings.MmprojOffload;
         CacheTypeK = settings.CacheTypeK;
         CacheTypeV = settings.CacheTypeV;
         TopK = settings.TopK;
@@ -1720,6 +1724,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         Mmap = settings.Mmap;
         Reasoning = settings.Reasoning;
         ReasoningBudget = settings.ReasoningBudget;
+        Jinja = settings.Jinja;
         Seed = settings.Seed;
         PresencePenalty = settings.PresencePenalty;
         FrequencyPenalty = settings.FrequencyPenalty;
@@ -2210,6 +2215,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             UBatchSize = UBatchSize,
             MinP = MinP,
             MmprojPath = MmprojPath,
+            MmprojOffload = MmprojOffload,
             CacheTypeK = CacheTypeK,
             CacheTypeV = CacheTypeV,
             TopK = TopK,
@@ -2233,6 +2239,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             Mmap = Mmap,
             Reasoning = Reasoning,
             ReasoningBudget = ReasoningBudget,
+            Jinja = Jinja,
             Seed = Seed,
             PresencePenalty = PresencePenalty,
             FrequencyPenalty = FrequencyPenalty,
@@ -2522,6 +2529,31 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
     }
 
+    private void RefreshMmprojInfo()
+    {
+        string path = _mmprojPath;
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            SetMmprojBytes(path, 0);
+            return;
+        }
+
+        _ = Task.Run(() =>
+        {
+            long bytes = 0;
+            try { bytes = new FileInfo(path).Length; }
+            catch { bytes = 0; }
+            Dispatcher.UIThread.Post(() => SetMmprojBytes(path, bytes));
+        });
+    }
+
+    private void SetMmprojBytes(string path, long bytes)
+    {
+        if (_mmprojPath != path || _mmprojBytes == bytes) return;
+        _mmprojBytes = bytes;
+        RefreshVramPlan();
+    }
+
     private void RefreshModelInfo()
     {
         string path = _modelPath;
@@ -2643,7 +2675,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         var info = _modelInfo;
         if (info?.Tensors is GgufTensorSummary tensors)
         {
-            var request = VramPlan.RequestFrom(config ?? GetCurrentConfig(), info.MaxContext);
+            var request = VramPlan.RequestFrom(config ?? GetCurrentConfig(), info.MaxContext, _mmprojBytes);
             _vramEstimate = VramEstimator.Estimate(info, request);
 
             if (_vramEstimate != null)
@@ -2675,7 +2707,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             if (!string.Equals(instance.Configuration.ModelPath, _modelPath, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var running = VramPlan.RequestFrom(instance.Configuration, info.MaxContext);
+            long projector = string.Equals(instance.Configuration.MmprojPath, _mmprojPath,
+                StringComparison.OrdinalIgnoreCase) ? _mmprojBytes : 0;
+            var running = VramPlan.RequestFrom(instance.Configuration, info.MaxContext, projector);
             var report = instance.MemoryReport;
 
             if (report.HasAny)
@@ -2707,6 +2741,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             if (report.UnaccountedBytes > 0)
                 text += " | " + string.Format(CultureInfo.InvariantCulture,
                     LocalizedStrings.Instance.VramMeasuredHeadroom, VramPlan.Gigabytes(report.UnaccountedBytes));
+
+            if (report.HasProjector && !report.ProjectorOnHost)
+                text += " | " + string.Format(CultureInfo.InvariantCulture,
+                    LocalizedStrings.Instance.VramPartProjector, VramPlan.Gigabytes(report.ProjectorBytes));
 
             if (report.HasLayers)
                 text += " | " + string.Format(CultureInfo.InvariantCulture,
@@ -2797,6 +2835,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartLayers,
                     estimate.OffloadedBlocks, estimate.TotalBlocks)
             };
+            if (estimate.ProjectorBytes > 0)
+                parts.Insert(4, string.Format(CultureInfo.InvariantCulture,
+                    LocalizedStrings.Instance.VramPartProjector, VramPlan.Gigabytes(estimate.ProjectorBytes)));
             if (estimate.HostBytes > 0)
                 parts.Add(string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartHost,
                     VramPlan.Gigabytes(estimate.HostBytes)));
@@ -2919,6 +2960,12 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         set { _minP = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
     }
 
+    public bool? MmprojOffload
+    {
+        get => _mmprojOffload;
+        set { _mmprojOffload = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
     public string MmprojPath
     {
         get => _mmprojPath;
@@ -2928,6 +2975,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(HasMissingMmprojFile));
+            OnPropertyChanged(nameof(IsMmprojOffloadSupported));
+            RefreshMmprojInfo();
             OnPropertyChanged(nameof(MmprojBorderBrush));
             OnPropertyChanged(nameof(MmprojToolTip));
             UpdateCurrentCommand();
@@ -3232,6 +3281,12 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         set { _reasoningBudget = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
     }
 
+    public bool? Jinja
+    {
+        get => _jinja;
+        set { _jinja = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
     public string Seed
     {
         get => _seed;
@@ -3525,6 +3580,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public bool McpNotSupportedWarning => _supportedFlags != null && !IsMcpSupported;
 
     public bool ShowMcpDockerWarning => RunInDocker;
+
+    public bool ShowMcpJinjaWarning => McpEnabled && GetCurrentConfig().DisablesJinja();
 
     public bool ShowMcpEmptyHint => McpServers.Count == 0;
 
@@ -3836,6 +3893,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private void RefreshMcpState()
     {
         McpValidationText = BuildMcpValidationText();
+        OnPropertyChanged(nameof(ShowMcpJinjaWarning));
         OnPropertyChanged(nameof(ShowMcpEmptyHint));
         OnPropertyChanged(nameof(McpGeneratedFileText));
 
@@ -4219,9 +4277,13 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public bool IsTimeoutSupported => IsPropertySupported("--timeout", "-to");
     public bool IsCachePromptSupported => IsPropertySupported("--cache-prompt");
     public bool IsVerboseLoggingSupported => IsPropertySupported("--verbose", "-v");
+    public bool IsMmprojOffloadSupported =>
+        IsPropertySupported("--mmproj-offload", "--no-mmproj-offload")
+        && !string.IsNullOrWhiteSpace(MmprojPath);
     public bool IsMlockSupported => IsPropertySupported("--mlock");
     public bool IsMmapSupported => IsPropertySupported("--mmap");
     public bool IsReasoningSupported => IsPropertySupported("--reasoning", "-rea");
+    public bool IsJinjaSupported => IsPropertySupported("--jinja");
     public bool IsReasoningBudgetSupported => IsPropertySupported("--reasoning-budget");
     public bool IsSeedSupported => IsPropertySupported("--seed", "-s");
     public bool IsPresencePenaltySupported => IsPropertySupported("--presence-penalty");
@@ -4405,9 +4467,11 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(IsTimeoutSupported));
         OnPropertyChanged(nameof(IsCachePromptSupported));
         OnPropertyChanged(nameof(IsVerboseLoggingSupported));
+        OnPropertyChanged(nameof(IsMmprojOffloadSupported));
         OnPropertyChanged(nameof(IsMlockSupported));
         OnPropertyChanged(nameof(IsMmapSupported));
         OnPropertyChanged(nameof(IsReasoningSupported));
+        OnPropertyChanged(nameof(IsJinjaSupported));
         OnPropertyChanged(nameof(IsReasoningBudgetSupported));
         OnPropertyChanged(nameof(IsSeedSupported));
         OnPropertyChanged(nameof(IsPresencePenaltySupported));
@@ -4865,6 +4929,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 a.UBatchSize == b.UBatchSize &&
                 a.MinP == b.MinP &&
                 a.MmprojPath == b.MmprojPath &&
+            a.MmprojOffload == b.MmprojOffload &&
                 a.CacheTypeK == b.CacheTypeK &&
                 a.CacheTypeV == b.CacheTypeV &&
                 a.TopK == b.TopK &&
@@ -4887,6 +4952,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             a.Mmap == b.Mmap &&
             a.Reasoning == b.Reasoning &&
             a.ReasoningBudget == b.ReasoningBudget &&
+            a.Jinja == b.Jinja &&
             a.Seed == b.Seed &&
             a.PresencePenalty == b.PresencePenalty &&
             a.FrequencyPenalty == b.FrequencyPenalty &&
@@ -5118,6 +5184,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         var config = GetCurrentConfig();
         CurrentCommand = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+        OnPropertyChanged(nameof(ShowMcpJinjaWarning));
         RefreshVramPlan(config);
     }
 
@@ -5148,6 +5215,40 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         {
             ModelsDir = result;
         }
+    }
+
+    public async Task OpenMmprojPickerAsync()
+    {
+        var vm = new ModelPickerViewModel(ResolveProjectorScanFolder(), _modelScanRecursive,
+            null, ModelScanKind.Projectors);
+        var dialog = new ModelPickerWindow();
+        dialog.SetViewModel(vm, DialogGeometryDict);
+        await dialog.ShowDialog(MainWindow.Instance!);
+
+        if (dialog.CapturedGeometry != null)
+        {
+            DialogGeometryDict["ModelPicker"] = dialog.CapturedGeometry;
+            await SaveSettingsAsync();
+        }
+
+        if (dialog.IsConfirmed && !string.IsNullOrEmpty(dialog.SelectedPath))
+            MmprojPath = dialog.SelectedPath!;
+    }
+
+    private string ResolveProjectorScanFolder()
+    {
+        foreach (var candidate in new[] { _mmprojPath, _modelPath })
+        {
+            if (string.IsNullOrWhiteSpace(candidate)) continue;
+            try
+            {
+                var dir = System.IO.Path.GetDirectoryName(candidate);
+                if (!string.IsNullOrEmpty(dir) && System.IO.Directory.Exists(dir)) return dir;
+            }
+            catch { }
+        }
+
+        return ResolveInitialScanFolder();
     }
 
     public async Task OpenModelPickerAsync()
@@ -5560,6 +5661,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             UBatchSize = ParseNullableInt(UBatchSize),
             MinP = ParseNullableDouble(MinP),
             MmprojPath = MmprojPath,
+            MmprojOffload = MmprojOffload,
             CacheTypeK = CacheTypeK,
             CacheTypeV = CacheTypeV,
             TopK = ParseNullableInt(TopK),
@@ -5584,6 +5686,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             Mmap = Mmap,
             Reasoning = Reasoning,
             ReasoningBudget = ParseNullableInt(ReasoningBudget),
+            Jinja = Jinja,
             Seed = ParseNullableInt(Seed),
             PresencePenalty = ParseNullableDouble(PresencePenalty),
             FrequencyPenalty = ParseNullableDouble(FrequencyPenalty),
@@ -5645,6 +5748,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         ApiKey = string.Empty;
         LogFilePath = string.Empty;
         MmprojPath = string.Empty;
+        MmprojOffload = null;
         CacheTypeK = string.Empty;
         CacheTypeV = string.Empty;
         VerboseLogging = null;
@@ -5657,6 +5761,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         Mmap = null;
         Reasoning = null;
         ReasoningBudget = string.Empty;
+        Jinja = null;
         Seed = string.Empty;
         PresencePenalty = string.Empty;
         FrequencyPenalty = string.Empty;
@@ -5704,6 +5809,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         ApiKey = config.ApiKey ?? string.Empty;
         LogFilePath = config.LogFilePath ?? string.Empty;
         MmprojPath = config.MmprojPath ?? string.Empty;
+        MmprojOffload = config.MmprojOffload;
         CacheTypeK = config.CacheTypeK ?? string.Empty;
         CacheTypeV = config.CacheTypeV ?? string.Empty;
         VerboseLogging = config.VerboseLogging;
@@ -5716,6 +5822,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         Mmap = config.Mmap;
         Reasoning = config.Reasoning;
         ReasoningBudget = config.ReasoningBudget?.ToString() ?? string.Empty;
+        Jinja = config.Jinja;
         Seed = config.Seed?.ToString() ?? string.Empty;
         PresencePenalty = config.PresencePenalty?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         FrequencyPenalty = config.FrequencyPenalty?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
@@ -5802,6 +5909,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         ApiKey = string.Empty;
         LogFilePath = string.Empty;
         MmprojPath = string.Empty;
+        MmprojOffload = null;
         CacheTypeK = string.Empty;
         CacheTypeV = string.Empty;
         VerboseLogging = null;
@@ -5814,6 +5922,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         Mmap = null;
         Reasoning = null;
         ReasoningBudget = string.Empty;
+        Jinja = null;
         Seed = string.Empty;
         PresencePenalty = string.Empty;
         FrequencyPenalty = string.Empty;
@@ -7827,6 +7936,7 @@ public void RebuildCustomArgumentsFromToggles()
         Mmap = null;
         Reasoning = null;
         ReasoningBudget = string.Empty;
+        Jinja = null;
         Seed = string.Empty;
         PresencePenalty = string.Empty;
         FrequencyPenalty = string.Empty;

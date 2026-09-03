@@ -24,6 +24,8 @@ public sealed record VramRequest
     public int Parallel { get; init; } = 1;
 
     public int CpuMoeBlocks { get; init; }
+
+    public long MmprojBytes { get; init; }
 }
 
 public sealed record VramEstimate
@@ -32,6 +34,7 @@ public sealed record VramEstimate
     public long KvBytes { get; init; }
     public long ComputeBytes { get; init; }
     public long OverheadBytes { get; init; }
+    public long ProjectorBytes { get; init; }
     public long HostWeightBytes { get; init; }
     public long HostKvBytes { get; init; }
     public int OffloadedBlocks { get; init; }
@@ -41,7 +44,7 @@ public sealed record VramEstimate
 
     public bool Approximate { get; init; }
 
-    public long TotalBytes => WeightBytes + KvBytes + ComputeBytes + OverheadBytes;
+    public long TotalBytes => WeightBytes + KvBytes + ComputeBytes + OverheadBytes + ProjectorBytes;
     public long HostBytes => HostWeightBytes + HostKvBytes;
 }
 
@@ -141,6 +144,7 @@ public static class VramEstimator
             KvBytes = kvGpu,
             ComputeBytes = compute,
             OverheadBytes = overhead,
+            ProjectorBytes = Math.Max(0, request.MmprojBytes),
             HostWeightBytes = hostWeights,
             HostKvBytes = kvHost,
             OffloadedBlocks = offloaded,

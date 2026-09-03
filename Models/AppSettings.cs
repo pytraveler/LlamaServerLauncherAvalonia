@@ -44,6 +44,7 @@ public class AppSettings
     public string UBatchSize { get; set; } = "";
     public string MinP { get; set; } = "";
     public string MmprojPath { get; set; } = "";
+    public bool? MmprojOffload { get; set; }
     public string CacheTypeK { get; set; } = "";
     public string CacheTypeV { get; set; } = "";
     public string TopK { get; set; } = "";
@@ -67,6 +68,7 @@ public class AppSettings
     public bool? Mmap { get; set; }
     public bool? Reasoning { get; set; }
     public string ReasoningBudget { get; set; } = "";
+    public bool? Jinja { get; set; }
     public string Seed { get; set; } = "";
     public string PresencePenalty { get; set; } = "";
     public string FrequencyPenalty { get; set; } = "";

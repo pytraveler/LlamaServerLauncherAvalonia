@@ -27,6 +27,66 @@ public static class ServerMemoryTests
         RunBreakdown(h);
         RunAccumulator(h);
         RunComparison(h);
+        RunProjector(h);
+    }
+
+    private static void RunProjector(Harness h)
+    {
+        h.Section("ServerMemoryParser: the vision projector");
+
+        long worstCase = (long)Math.Round(1130.63 * MiB);
+
+        h.Check("llama.cpp reports what the projector will cost",
+            ServerMemoryParser.TryParseProjector(
+                "srv    load_model: [mtmd] estimated worst-case memory usage of mmproj is 1130.63 MiB (took 32.83 ms)")
+                == worstCase,
+            worstCase.ToString());
+        h.Check("a line about anything else is not that",
+            ServerMemoryParser.TryParseProjector("load_tensors: CUDA0 model buffer size = 1130.63 MiB") == 0, "0");
+
+        h.Check("the backend it runs on is named",
+            ServerMemoryParser.TryParseProjectorDevice("clip_ctx: CLIP using CUDA0 backend") == "CUDA0", "CUDA0");
+        h.Check("and can be the host",
+            ServerMemoryParser.IsHostDevice(
+                ServerMemoryParser.TryParseProjectorDevice("clip_ctx: CLIP using CPU backend")), "CPU");
+
+        var onCard = new ServerMemoryAccumulator();
+        onCard.Add("load_tensors: offloaded 41/41 layers to GPU");
+        foreach (var line in Load("CUDA0", weights: 1024, kv: 512, compute: 256)) onCard.Add(line);
+        onCard.Add("clip_ctx: CLIP using CUDA0 backend");
+        onCard.Add("srv    load_model: [mtmd] estimated worst-case memory usage of mmproj is 1130.63 MiB (took 32.83 ms)");
+        var card = onCard.Snapshot();
+        h.Check("a projector on the card counts against the card",
+            card.HasProjector && card.TotalBytes == (1024 + 512 + 256) * MiB + worstCase,
+            card.TotalBytes.ToString());
+        h.Check("and not against system memory",
+            card.HostBytes == 0, card.HostBytes.ToString());
+
+        var onHost = new ServerMemoryAccumulator();
+        foreach (var line in Load("CUDA0", weights: 1024, kv: 512, compute: 256)) onHost.Add(line);
+        onHost.Add("clip_ctx: CLIP using CPU backend");
+        onHost.Add("srv    load_model: [mtmd] estimated worst-case memory usage of mmproj is 1130.63 MiB (took 32.83 ms)");
+        var host = onHost.Snapshot();
+        h.Check("a projector left in RAM does not",
+            host.TotalBytes == (1024 + 512 + 256) * MiB, host.TotalBytes.ToString());
+        h.Check("it is counted where it actually sits",
+            host.ProjectorOnHost && host.HostBytes == worstCase, host.HostBytes.ToString());
+
+        onCard.Reset();
+        h.Check("a reset forgets the projector too",
+            !onCard.Snapshot().HasProjector, "forgotten");
+
+        var withProjector = new ServerMemoryReport
+        {
+            Source = ServerMemorySource.Breakdown,
+            WeightBytes = 25 * GiB,
+            ProjectorBytes = worstCase,
+        };
+        h.Check("the comparison line names the projector",
+            VramComparison.Describe("p", withProjector, null).Contains("projector 1.10"), "named");
+        h.Check("but not when it stayed on the CPU",
+            !VramComparison.Describe("p", withProjector with { ProjectorOnHost = true }, null).Contains("projector"),
+            "quiet");
     }
 
     private static void RunBuffers(Harness h)

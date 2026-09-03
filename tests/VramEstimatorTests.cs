@@ -178,6 +178,15 @@ public static class VramEstimatorTests
             half?.KvBytes + half?.HostKvBytes == hybrid?.KvBytes,
             ((half?.KvBytes ?? 0) + (half?.HostKvBytes ?? 0)).ToString());
 
+
+        var withProjector = VramEstimator.Estimate(Hybrid(4), request with { MmprojBytes = GB });
+        h.Check("a projector on the card is part of what the card must hold",
+            withProjector?.ProjectorBytes == GB
+                && withProjector?.TotalBytes == hybrid?.TotalBytes + GB,
+            withProjector?.TotalBytes.ToString() ?? "null");
+        h.Check("and it does not touch the cache",
+            withProjector?.KvBytes == hybrid?.KvBytes, "untouched");
+
         var noSsm = Hybrid(4) with { SsmInnerSize = null, SsmStateSize = null };
         h.Check("a model without recurrent parameters is read as it always was",
             VramEstimator.Estimate(noSsm, request)?.KvBytes == measuredKv * 4,

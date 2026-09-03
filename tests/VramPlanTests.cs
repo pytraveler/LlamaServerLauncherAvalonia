@@ -148,6 +148,20 @@ public static class VramPlanTests
         h.Check("nonsense readings do not subtract",
             VramPlan.Available(-5 * GB, -5 * GB, card) == 0, "floored");
 
+        h.Check("a projector nobody chose costs nothing",
+            VramPlan.ProjectorBytes(new ServerConfiguration(), GB) == 0, "none");
+        h.Check("a chosen projector is counted",
+            VramPlan.ProjectorBytes(new ServerConfiguration { MmprojPath = "p.gguf" }, GB) == GB, "counted");
+        h.Check("one kept in system memory is not",
+            VramPlan.ProjectorBytes(
+                new ServerConfiguration { MmprojPath = "p.gguf", MmprojOffload = false }, GB) == 0, "off the card");
+        h.Check("auto means the card, the way llama.cpp defaults",
+            VramPlan.ProjectorBytes(
+                new ServerConfiguration { MmprojPath = "p.gguf", MmprojOffload = null }, GB) == GB, "counted");
+        h.Check("the request carries it",
+            VramPlan.RequestFrom(new ServerConfiguration { MmprojPath = "p.gguf" }, null, GB).MmprojBytes == GB,
+            "carried");
+
         h.Check("gigabytes are counted in binary units",
             Math.Abs(VramPlan.Gigabytes(GB) - 1.0) < 1e-9, VramPlan.Gigabytes(GB).ToString());
         h.Check("and rounded to one decimal",

@@ -347,6 +347,9 @@
   <data name="VramPartHeadroom" xml:space="preserve">
     <value>запас {0:F1} ГБ</value>
   </data>
+  <data name="VramPartProjector" xml:space="preserve">
+    <value>проектор {0:F1} ГБ</value>
+  </data>
   <data name="VramAfterRestart" xml:space="preserve">
     <value>(после перезапуска)</value>
   </data>
@@ -460,6 +463,18 @@
   </data>
   <data name="TooltipVerboseLogging" xml:space="preserve">
     <value>Передаёт llama-server флаг -v. Тогда он печатает собственную разбивку по памяти - с ней панель VRAM на вкладке "Генерация" и сравнивает свою оценку, - а заодно много чего ещё, вплоть до строки на каждый тензор. Стоит включить на один-два запуска и выключить обратно.</value>
+  </data>
+  <data name="MmprojOffload" xml:space="preserve">
+    <value>Проектор на GPU</value>
+  </data>
+  <data name="TooltipMmprojOffload" xml:space="preserve">
+    <value>В положении Выкл передаёт --no-mmproj-offload: визуальный проектор остаётся в оперативной памяти. Карте возвращается гигабайт-другой под контекст или слои, но распознавание картинок замедляется: проектор считается на CPU. Выгодно, когда картинки редки.</value>
+  </data>
+  <data name="Jinja" xml:space="preserve">
+    <value>Шаблоны Jinja</value>
+  </data>
+  <data name="TooltipJinja" xml:space="preserve">
+    <value>Шаблонизатор jinja для чата (--jinja / --no-jinja). Свежие сборки llama.cpp включают его по умолчанию, поэтому обычно достаточно Авто. Вызовы инструментов и MCP-серверы без него не работают, так что Выкл их сломает. Вкл нужен старым сборкам, где по умолчанию было выключено, а также если свой --chat-template задаёт шаблон не из списка встроенных.</value>
   </data>
   <data name="CustomArguments" xml:space="preserve">
     <value>Пользовательские аргументы</value>
@@ -1186,6 +1201,15 @@
   </data>
   <data name="TooltipPickModel" xml:space="preserve">
     <value>Просканировать папку и выбрать модель из списка</value>
+  </data>
+  <data name="ProjectorPickerTitle" xml:space="preserve">
+    <value>Выбор проектора</value>
+  </data>
+  <data name="PickProjector" xml:space="preserve">
+    <value>Выбрать…</value>
+  </data>
+  <data name="TooltipPickProjector" xml:space="preserve">
+    <value>Просканировать папку и выбрать визуальный проектор из списка. Показываются только файлы-проекторы.</value>
   </data>
   <data name="ModelPickerTitle" xml:space="preserve">
     <value>Выбор модели</value>
@@ -2371,7 +2395,7 @@
     <value>В режиме Docker конфигурация монтируется в /mcp, но сами команды должны существовать внутри образа.</value>
   </data>
   <data name="McpJinjaWarning" xml:space="preserve">
-    <value>Вызовы инструментов требуют jinja-шаблонов, поэтому не передавайте --no-jinja в своих аргументах.</value>
+    <value>Шаблоны jinja выключены, а вызовы инструментов без них не работают. Поставьте Шаблоны Jinja в Вкл или Авто на вкладке Параметры либо уберите --no-jinja из своих аргументов.</value>
   </data>
   <data name="McpGeneratedFile" xml:space="preserve">
     <value>Сформированный файл: {0}</value>

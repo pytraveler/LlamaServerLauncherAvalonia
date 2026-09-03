@@ -224,6 +224,8 @@ public static class CommandLineBuilder
         {
             args.Add($"-mm \"{EscapePath(config.MmprojPath)}\"");
         }
+
+        AddBoolFlag(args, "--mmproj-offload", config.MmprojOffload, "--no-mmproj-offload");
         
         bool cacheTypeKValid = string.IsNullOrEmpty(config.CacheTypeK)
             || validCacheTypeValues == null
@@ -249,6 +251,8 @@ public static class CommandLineBuilder
         AddIfNotOverridden(args, "--presence-penalty", config.PresencePenalty?.ToString(CultureInfo.InvariantCulture));
         AddIfNotOverridden(args, "--frequency-penalty", config.FrequencyPenalty?.ToString(CultureInfo.InvariantCulture));
         AddIfNotOverridden(args, "--reasoning-budget", config.ReasoningBudget?.ToString());
+
+        AddBoolFlag(args, "--jinja", config.Jinja, "--no-jinja");
 
         AddBoolOnOff(args, "-rea", config.Reasoning);
 

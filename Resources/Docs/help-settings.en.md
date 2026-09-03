@@ -6,6 +6,8 @@ Settings for the launcher itself. They are shared across profiles and are not st
 
 Theme (dark / light), color scheme, UI font size and family. Below that is a custom color block: you can override the window and panel backgrounds, the accent, separators, the command block color, the three toggle positions and the progress bar color, and restore the scheme defaults with the reset button.
 
+**Interface scale** goes from 80 to 160 percent and scales the whole content of every window in the app - text, controls, paddings, icons and fixed sizes alike - where the font size setting only touches text. The button next to the slider returns it to 100 percent. "Resize windows with the scale" decides whether the windows follow their content: with it on, a window opened at a larger scale opens larger, up to what the scale asks for; with it off, only the content is scaled and every window keeps the size it was given. The tray menu is native and keeps the system size.
+
 The download and update progress bars take their color from the app theme rather than the system accent, so they cannot end up an indistinguishable grey. The hardware meters (CPU, RAM, GPU, VRAM, temperature) keep their own colors.
 
 ## Updates

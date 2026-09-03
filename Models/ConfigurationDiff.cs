@@ -58,6 +58,7 @@ public static class ConfigurationDiff
         new() { PropertyName = "ModelPath", GroupKey = GroupMain, LabelKey = "ModelM" },
         new() { PropertyName = "ModelsDir", GroupKey = GroupMain, LabelKey = "ModelsDir" },
         new() { PropertyName = "MmprojPath", GroupKey = GroupMain, LabelKey = "MMProj" },
+        new() { PropertyName = "MmprojOffload", GroupKey = GroupOptions, LabelKey = "MmprojOffload" },
         new() { PropertyName = "HfRepo", GroupKey = GroupMain, LabelKey = "HfRepo" },
         new() { PropertyName = "HfFile", GroupKey = GroupMain, LabelKey = "HfFile" },
         new() { PropertyName = "HfRepoDraft", GroupKey = GroupMain, LabelKey = "HfRepoDraft" },
@@ -109,6 +110,7 @@ public static class ConfigurationDiff
         new() { PropertyName = "ContBatching", GroupKey = GroupOptions, LabelKey = "ContBatching" },
         new() { PropertyName = "Mlock", GroupKey = GroupOptions, LabelKey = "Mlock" },
         new() { PropertyName = "Mmap", GroupKey = GroupOptions, LabelKey = "Mmap" },
+        new() { PropertyName = "Jinja", GroupKey = GroupOptions, LabelKey = "Jinja" },
 
         new() { PropertyName = "SpecType", GroupKey = GroupSpeculative, LabelKey = "SpecType" },
         new() { PropertyName = "SpecDraftModel", GroupKey = GroupSpeculative, LabelKey = "SpecDraftModel" },

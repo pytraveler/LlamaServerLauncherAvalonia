@@ -51,6 +51,9 @@ public class ServerConfiguration
     [JsonPropertyName("mmprojPath")]
     public string MmprojPath { get; set; } = string.Empty;
 
+    [JsonPropertyName("mmprojOffload")]
+    public bool? MmprojOffload { get; set; }
+
     [JsonPropertyName("cacheTypeK")]
     public string CacheTypeK { get; set; } = string.Empty;
 
@@ -122,6 +125,9 @@ public class ServerConfiguration
 
     [JsonPropertyName("reasoningBudget")]
     public int? ReasoningBudget { get; set; }
+
+    [JsonPropertyName("jinja")]
+    public bool? Jinja { get; set; }
 
     [JsonPropertyName("seed")]
     public int? Seed { get; set; }
@@ -211,6 +217,7 @@ public class ServerConfiguration
             UBatchSize = UBatchSize,
             MinP = MinP,
             MmprojPath = MmprojPath,
+            MmprojOffload = MmprojOffload,
             CacheTypeK = CacheTypeK,
             CacheTypeV = CacheTypeV,
             TopK = TopK,
@@ -235,6 +242,7 @@ public class ServerConfiguration
             Mmap = Mmap,
             Reasoning = Reasoning,
             ReasoningBudget = ReasoningBudget,
+            Jinja = Jinja,
             Seed = Seed,
             PresencePenalty = PresencePenalty,
             FrequencyPenalty = FrequencyPenalty,
@@ -304,6 +312,8 @@ public class ServerConfiguration
         ["--min-p"] = new("MinP", ArgType.Double),
         ["-mm"] = new("MmprojPath", ArgType.String),
         ["--mmproj"] = new("MmprojPath", ArgType.String),
+        ["--mmproj-offload"] = new("MmprojOffload", ArgType.BoolFlag),
+        ["--no-mmproj-offload"] = new("MmprojOffload", ArgType.BoolFlagInverted),
         ["-ctk"] = new("CacheTypeK", ArgType.String),
         ["--cache-type-k"] = new("CacheTypeK", ArgType.String),
         ["-ctv"] = new("CacheTypeV", ArgType.String),
@@ -350,6 +360,8 @@ public class ServerConfiguration
         ["--reasoning"] = new("Reasoning", ArgType.BoolOnOff),
 
         ["--reasoning-budget"] = new("ReasoningBudget", ArgType.Int),
+        ["--jinja"] = new("Jinja", ArgType.BoolFlag),
+        ["--no-jinja"] = new("Jinja", ArgType.BoolFlagInverted),
 
         ["-s"] = new("Seed", ArgType.Int),
         ["--seed"] = new("Seed", ArgType.Int),
@@ -578,6 +590,28 @@ public static class ServerConfigurationExtensions
         }
 
         return config;
+    }
+
+    public static bool DisablesJinja(this ServerConfiguration config)
+    {
+        if (config == null) return false;
+
+        var normalized = CommandLineParser.NormalizeSpecialCharacters(config.CustomArguments);
+        if (!string.IsNullOrWhiteSpace(normalized))
+        {
+            var values = CommandLineParser.GetArgumentValues(CommandLineParser.ParseArguments(normalized));
+
+            bool Enabled(string flag) =>
+                values.ContainsKey(flag)
+                && (config.CustomArgumentToggleStates == null
+                    || !config.CustomArgumentToggleStates.TryGetValue(flag, out var on)
+                    || on);
+
+            if (Enabled("--no-jinja")) return true;
+            if (Enabled("--jinja")) return false;
+        }
+
+        return config.Jinja == false;
     }
 
     private static void SetProperty(ServerConfiguration config, string propertyName, object value)

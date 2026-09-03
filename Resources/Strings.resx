@@ -347,6 +347,9 @@
   <data name="VramPartHeadroom" xml:space="preserve">
     <value>headroom {0:F1} GB</value>
   </data>
+  <data name="VramPartProjector" xml:space="preserve">
+    <value>projector {0:F1} GB</value>
+  </data>
   <data name="VramAfterRestart" xml:space="preserve">
     <value>(after a restart)</value>
   </data>
@@ -460,6 +463,18 @@
   </data>
   <data name="TooltipVerboseLogging" xml:space="preserve">
     <value>Passes -v to llama-server. It then prints its own memory breakdown, which is what the VRAM panel on the Generation tab compares its estimate against - and a great deal else besides, a line per tensor included. Worth turning on for a launch or two, then off again.</value>
+  </data>
+  <data name="MmprojOffload" xml:space="preserve">
+    <value>Projector on GPU</value>
+  </data>
+  <data name="TooltipMmprojOffload" xml:space="preserve">
+    <value>Off passes --no-mmproj-offload, which keeps the vision projector in system memory. That gives the card back a gigabyte or two for context or layers, at the price of slower image processing, since the projector then runs on the CPU. Worth it when pictures are rare.</value>
+  </data>
+  <data name="Jinja" xml:space="preserve">
+    <value>Jinja templates</value>
+  </data>
+  <data name="TooltipJinja" xml:space="preserve">
+    <value>The jinja chat template engine (--jinja / --no-jinja). Recent llama.cpp builds enable it by default, so Auto is normally right. Tool calls and MCP servers need it, so Off breaks them. On is what older builds want, where the default was disabled, and it also has to come before a custom --chat-template that is not one of the built-in names.</value>
   </data>
   <data name="CustomArguments" xml:space="preserve">
     <value>Custom Arguments</value>
@@ -1186,6 +1201,15 @@
   </data>
   <data name="TooltipPickModel" xml:space="preserve">
     <value>Scan a folder and pick a model from the list</value>
+  </data>
+  <data name="ProjectorPickerTitle" xml:space="preserve">
+    <value>Pick a projector</value>
+  </data>
+  <data name="PickProjector" xml:space="preserve">
+    <value>Pick...</value>
+  </data>
+  <data name="TooltipPickProjector" xml:space="preserve">
+    <value>Scan a folder and pick a vision projector from the list. Only projector files are shown.</value>
   </data>
   <data name="ModelPickerTitle" xml:space="preserve">
     <value>Select a model</value>
@@ -2371,7 +2395,7 @@ Stop and continue?</value>
     <value>In Docker mode the config is mounted at /mcp, but the declared commands must exist inside the image.</value>
   </data>
   <data name="McpJinjaWarning" xml:space="preserve">
-    <value>Tool calls need jinja templates, so do not pass --no-jinja in custom arguments.</value>
+    <value>Jinja templates are turned off, and tool calls need them. Set Jinja templates to On or Auto on the Options tab, or drop --no-jinja from custom arguments.</value>
   </data>
   <data name="McpGeneratedFile" xml:space="preserve">
     <value>Generated config: {0}</value>

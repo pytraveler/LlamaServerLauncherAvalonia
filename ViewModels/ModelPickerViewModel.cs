@@ -22,16 +22,23 @@ public class ModelPickerViewModel : INotifyPropertyChanged
     public ObservableCollection<ModelScanEntry> Models { get; } = new();
 
     private readonly VramBudget? _budget;
+    private readonly ModelScanKind _kind;
     private CancellationTokenSource? _scanCts;
 
     public event Action? RequestClose;
 
-    public ModelPickerViewModel(string initialFolder, bool recursive, VramBudget? budget = null)
+    public ModelPickerViewModel(string initialFolder, bool recursive, VramBudget? budget = null,
+        ModelScanKind kind = ModelScanKind.Models)
     {
         _folderPath = initialFolder ?? "";
         _recursive = recursive;
         _budget = budget;
+        _kind = kind;
     }
+
+    public string Title => _kind == ModelScanKind.Projectors
+        ? Localized.ProjectorPickerTitle
+        : Localized.ModelPickerTitle;
 
     private string _folderPath = "";
     public string FolderPath
@@ -104,7 +111,7 @@ public class ModelPickerViewModel : INotifyPropertyChanged
         StatusText = Localized.ModelPickerScanning;
         try
         {
-            var list = await ModelScanService.ScanAsync(FolderPath, Recursive, _budget, cts.Token);
+            var list = await ModelScanService.ScanAsync(FolderPath, Recursive, _budget, cts.Token, _kind);
             if (cts.Token.IsCancellationRequested) return;
             _all.Clear();
             _all.AddRange(list);

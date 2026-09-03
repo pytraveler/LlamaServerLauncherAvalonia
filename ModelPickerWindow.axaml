@@ -6,7 +6,7 @@
         xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
         mc:Ignorable="d"
         x:DataType="vm:ModelPickerViewModel"
-        Title="{Binding Localized.ModelPickerTitle}"
+        Title="{Binding Title}"
         Width="900" Height="600"
         MinWidth="560" MinHeight="380"
         WindowStartupLocation="CenterOwner"

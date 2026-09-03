@@ -647,7 +647,9 @@
                                         <ctrl:TriStateSelector Label="{Binding Localized.Mmap}" Value="{Binding Mmap, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipMmap}" IsEnabled="{Binding IsMmapSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.ContextShift}" Value="{Binding ContextShift, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipContextShift}" IsEnabled="{Binding IsContextShiftSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.Reasoning}" Value="{Binding Reasoning, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipReasoning}" IsEnabled="{Binding IsReasoningSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.Jinja}" Value="{Binding Jinja, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipJinja}" IsEnabled="{Binding IsJinjaSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.VerboseLogging}" Value="{Binding VerboseLogging, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipVerboseLogging}" IsEnabled="{Binding IsVerboseLoggingSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.MmprojOffload}" Value="{Binding MmprojOffload, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipMmprojOffload}" IsEnabled="{Binding IsMmprojOffloadSupported}"/>
                                     </WrapPanel>
                                     <Grid ColumnDefinitions="150,*,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,5,0,0">
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.ApiKey}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipApiKey}"/>
@@ -667,6 +669,7 @@
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding MmprojPathPlaceholder}" PropertyName="MmprojPath"/>
                                         </Border>
                                         <Button Grid.Row="3" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseMmprojClick" VerticalAlignment="Stretch" Margin="3,2,0,2"/>
+                                        <Button Grid.Row="3" Grid.Column="3" Content="{Binding Localized.PickProjector}" Click="PickMmprojClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="{Binding Localized.TooltipPickProjector}"/>
 
                                         <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding Localized.ParallelSlots}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipParallelSlots}"/>
                                         <ctrl:HistoryTextBox Grid.Row="4" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ParallelSlotsPlaceholder}" PropertyName="ParallelSlots" ToolTip.Tip="{Binding Localized.TooltipParallelSlots}" IsEnabled="{Binding IsParallelSlotsSupported}"/>
@@ -949,7 +952,9 @@
                                     <TextBlock Text="{Binding Localized.McpTrustWarning}" TextWrapping="Wrap"
                                                Foreground="{DynamicResource WarningForegroundBrush}"/>
                                     <TextBlock Text="{Binding Localized.McpCorsWarning}" TextWrapping="Wrap" Opacity="0.75" Margin="0,6,0,0"/>
-                                    <TextBlock Text="{Binding Localized.McpJinjaWarning}" TextWrapping="Wrap" Opacity="0.75" Margin="0,6,0,0"/>
+                                    <TextBlock Text="{Binding Localized.McpJinjaWarning}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                               Foreground="{DynamicResource WarningForegroundBrush}"
+                                               IsVisible="{Binding ShowMcpJinjaWarning}"/>
                                     <TextBlock Text="{Binding Localized.McpDockerWarning}" TextWrapping="Wrap" Margin="0,6,0,0"
                                                Foreground="{DynamicResource WarningForegroundBrush}"
                                                IsVisible="{Binding ShowMcpDockerWarning}"/>

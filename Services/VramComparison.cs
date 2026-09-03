@@ -13,6 +13,8 @@ public static class VramComparison
             + $" | compute {Gb(report.ComputeBytes)}";
         if (report.UnaccountedBytes > 0)
             measured += $" | headroom {Gb(report.UnaccountedBytes)}";
+        if (report.HasProjector && !report.ProjectorOnHost)
+            measured += $" | projector {Gb(report.ProjectorBytes)}";
         if (report.HasLayers)
             measured += $" | layers {report.OffloadedLayers}/{report.TotalLayers}";
 

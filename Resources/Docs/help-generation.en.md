@@ -25,9 +25,11 @@ That line only shows up when the server was started with **Verbose Logging** on,
 
 While a server is running with the model named on the form, whatever it holds counts as free again and the line is marked "(after a restart)": applying new settings restarts the server, and that frees the old memory before it takes the new. The three hints do the same, so they stop suggesting that a model already sitting on the card be moved off it. What the running server holds is taken from its own measurement when there is one, and from an estimate of its settings when there is not.
 
+A multimodal setup adds one more part to both lines: the vision projector. The estimate counts the weights of the `-mm` file, since that is what the card has to hold; llama.cpp reserves a graph on top of them and prints its own worst-case figure at load time, which is what the measured line shows. Both parts disappear when **Projector on GPU** is off, because the projector then lives in system memory.
+
 Three hints appear next to the fields themselves, each setting a value when clicked: the largest layer count that fits at the current context, the largest context that fits with the current layer count, and - for MoE models - how many expert blocks to leave on the CPU so that the rest fits. A hint hides itself when what it offers is already what is set.
 
-The estimate knows nothing about mmproj, a second card or a tensor split, and it says nothing about speed. It is a starting point, not a promise; the Optimize window still measures rather than guesses.
+The estimate knows nothing about a second card or a tensor split, and it says nothing about speed. It is a starting point, not a promise; the Optimize window still measures rather than guesses.
 
 
 ## Generation parameters

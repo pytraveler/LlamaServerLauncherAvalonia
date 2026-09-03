@@ -38,7 +38,7 @@ The **Query** button on the tab reads `GET /tools` from the running server of th
 - Child processes run with the same rights as the launcher. Only add commands you trust.
 - An MCP server may start applications of its own, and those outlive the session unless the server stops them itself. So that nothing is left running after llama-server stops, **Settings -> Behavior** has "Stop processes started by the server together with it" (on by default, Windows): the server and everything below it is held in a job object and goes down as a whole.
 - With MCP enabled llama-server limits CORS to localhost unless `--cors-origins` is set explicitly. To reach the server from another machine, add that argument on the **Custom arguments** tab.
-- Tool calls need jinja templates. The server enables them by default, but `--no-jinja` in custom arguments turns them off.
+- Tool calls need jinja templates. Recent builds enable them by default, so the **Jinja templates** switch on the **Options** tab can stay on Auto; older builds want it on **On**. Set to **Off**, or with `--no-jinja` typed into custom arguments, tool calls stop working, and this tab says so.
 - Warmup costs up to 10 seconds per server, which is added to the startup time.
 - In Docker mode the file is mounted at `/mcp` inside the container, but the commands themselves must exist in the image.
 - Import understands the Cursor and Claude Desktop format: an `mcpServers` object with commands, arguments and environment variables. The dropdown next to the button lists the profiles that already have MCP servers, with the server count in brackets - picking one copies its servers into the current profile and leaves the source untouched.

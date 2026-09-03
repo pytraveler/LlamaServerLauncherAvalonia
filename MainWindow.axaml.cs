@@ -1837,6 +1837,11 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         return true;
     }
 
+    private void PickMmprojClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel != null) _ = _viewModel.OpenMmprojPickerAsync();
+    }
+
     private async void PasteCommandClick(object? sender, RoutedEventArgs e)
     {
         if (_viewModel == null || _viewModel.IsImportReviewVisible) return;

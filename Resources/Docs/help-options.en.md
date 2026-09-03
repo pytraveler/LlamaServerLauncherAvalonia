@@ -22,8 +22,10 @@ The switches here are tri-state: **on**, **off**, and **default**. "Default" mea
 ## Multimodality and model role
 
 - **MMProj** (`--mmproj`) — the vision projector file for multimodal models. The main model is set on the **Main** tab; the projector goes here.
+- **Projector on GPU** (`--mmproj-offload` / `--no-mmproj-offload`) — where the projector itself is loaded. It defaults to the card, where it can take a gigabyte or two: llama.cpp prints the figure at load time, and the VRAM panel counts it. Turned off, the projector stays in system memory and that VRAM goes to context or layers instead; the price is that image preprocessing then runs on the CPU and takes several times longer. Worth turning off when pictures are rare and context is short.
 - **Embedding mode** (`--embedding`) — the server returns vectors instead of generating text.
 - **Reasoning** (`--reasoning`) and **reasoning budget** — control reasoning mode on models that support it.
+- **Jinja templates** (`--jinja` / `--no-jinja`) — the chat template engine. Recent llama.cpp builds enable it by default, so Auto is normally the right answer and the switch exists for the two cases where it is not. Older builds shipped it disabled, and there tool calls and MCP servers do not work at all until it is **On**. A custom `--chat-template` is the other case: llama.cpp only accepts one of its built-in template names unless jinja was turned on ahead of that flag, and the switch guarantees the order, because custom arguments are appended last. **Off** passes `--no-jinja` and takes tool calls down with it; the MCP tab says so when servers are enabled at the same time.
 
 ## Access and observability
 
