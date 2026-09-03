@@ -792,6 +792,21 @@ public partial class MainWindow : Window
         _viewModel?.ApplySuggestedGpuLayers();
     }
 
+    private void ApplyVramGpuLayersClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.ApplyVramGpuLayers();
+    }
+
+    private void ApplyVramContextClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.ApplyVramContext();
+    }
+
+    private void ApplyVramCpuMoeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.ApplyVramCpuMoe();
+    }
+
     private void CustomArgumentToggleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
     {
         _viewModel?.RebuildCustomArgumentsFromToggles();

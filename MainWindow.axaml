@@ -494,6 +494,11 @@
                                                     SmallChange="256" LargeChange="1024" ToolTip.Tip="{Binding Localized.TooltipContextSize}"/>
                                             <TextBlock Text="{Binding ModelMaxContextText}" IsVisible="{Binding HasModelMaxContext}"
                                                        FontSize="10" Opacity="0.7" HorizontalAlignment="Right"/>
+                                            <Button Content="{Binding VramContextHintText}" IsVisible="{Binding HasVramContextHint}"
+                                                    Click="ApplyVramContextClick" ToolTip.Tip="{Binding Localized.VramPickCtxTooltip}"
+                                                    Background="Transparent" BorderThickness="0" Padding="0" Margin="0,3,0,0"
+                                                    HorizontalAlignment="Left" Cursor="Hand" FontSize="11"
+                                                    Foreground="{DynamicResource AccentForegroundBrush}"/>
                                         </StackPanel>
                                         <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,5,10,0">
                                             <TextBlock Text="{Binding Localized.Threads}" ToolTip.Tip="{Binding Localized.TooltipThreads}"/>
@@ -511,14 +516,31 @@
                                                     Background="Transparent" BorderThickness="0" Padding="0" Margin="0,3,0,0"
                                                     HorizontalAlignment="Left" Cursor="Hand" FontSize="11"
                                                     Foreground="{DynamicResource AccentForegroundBrush}"/>
+                                            <Button Content="{Binding VramGpuLayersHintText}" IsVisible="{Binding HasVramGpuLayersHint}"
+                                                    Click="ApplyVramGpuLayersClick" ToolTip.Tip="{Binding Localized.VramPickNglTooltip}"
+                                                    Background="Transparent" BorderThickness="0" Padding="0" Margin="0,3,0,0"
+                                                    HorizontalAlignment="Left" Cursor="Hand" FontSize="11"
+                                                    Foreground="{DynamicResource AccentForegroundBrush}"/>
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,5,10,0">
                                             <TextBlock Text="{Binding Localized.CpuMoe}" ToolTip.Tip="{Binding Localized.TooltipCpuMoe}"/>
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                                                 <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding CpuMoePlaceholder}" PropertyName="CpuMoe" ToolTip.Tip="{Binding Localized.TooltipCpuMoe}"/>
                                             </Grid>
+                                            <Button Content="{Binding VramCpuMoeHintText}" IsVisible="{Binding HasVramCpuMoeHint}"
+                                                    Click="ApplyVramCpuMoeClick" ToolTip.Tip="{Binding Localized.VramPickCpuMoeTooltip}"
+                                                    Background="Transparent" BorderThickness="0" Padding="0" Margin="0,3,0,0"
+                                                    HorizontalAlignment="Left" Cursor="Hand" FontSize="11"
+                                                    Foreground="{DynamicResource AccentForegroundBrush}"/>
                                         </StackPanel>
                                     </Grid>
+                                    <StackPanel IsVisible="{Binding HasVramPlan}" Margin="0,10,0,0"
+                                                ToolTip.Tip="{Binding VramPlanToolTip}">
+                                        <TextBlock Text="{Binding VramPlanText}" Foreground="{Binding VramPlanBrush}"
+                                                   FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding VramPlanDetail}" FontSize="11" Opacity="0.75"
+                                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
 

@@ -299,6 +299,60 @@
   <data name="GgufSuggestNglTooltip" xml:space="preserve">
     <value>Выставить число GPU-слоёв так, чтобы выгрузить всю модель в VRAM</value>
   </data>
+  <data name="VramNeed" xml:space="preserve">
+    <value>Нужно {0:F1} ГБ VRAM</value>
+  </data>
+  <data name="VramFitYes" xml:space="preserve">
+    <value>Влезет: нужно {0:F1} ГБ, свободно {1:F1} из {2:F1} ГБ</value>
+  </data>
+  <data name="VramFitTight" xml:space="preserve">
+    <value>Впритык: нужно {0:F1} ГБ, свободно {1:F1} из {2:F1} ГБ</value>
+  </data>
+  <data name="VramFitNo" xml:space="preserve">
+    <value>Не влезет: нужно {0:F1} ГБ, свободно {1:F1} из {2:F1} ГБ</value>
+  </data>
+  <data name="VramFitTooltip" xml:space="preserve">
+    <value>Грубая оценка по метаданным GGUF: веса выгруженных блоков, KV-кэш под текущий контекст и собственные буферы llama.cpp. Про mmproj, вторую видеокарту и tensor split она не знает, так что это отправная точка, а не обещание.</value>
+  </data>
+  <data name="VramPartWeights" xml:space="preserve">
+    <value>веса {0:F1} ГБ</value>
+  </data>
+  <data name="VramPartCache" xml:space="preserve">
+    <value>кэш {0:F1} ГБ</value>
+  </data>
+  <data name="VramPartBuffers" xml:space="preserve">
+    <value>буферы {0:F1} ГБ</value>
+  </data>
+  <data name="VramPartLayers" xml:space="preserve">
+    <value>слои {0}/{1}</value>
+  </data>
+  <data name="VramPartHost" xml:space="preserve">
+    <value>на CPU {0:F1} ГБ</value>
+  </data>
+  <data name="VramPartApprox" xml:space="preserve">
+    <value>оценка грубая</value>
+  </data>
+  <data name="VramPickNgl" xml:space="preserve">
+    <value>Уместить в VRAM: {0} слоёв</value>
+  </data>
+  <data name="VramPickNglTooltip" xml:space="preserve">
+    <value>Выставить столько GPU-слоёв, сколько влезает в свободную VRAM при текущем размере контекста</value>
+  </data>
+  <data name="VramPickCtx" xml:space="preserve">
+    <value>Влезет контекст до {0}</value>
+  </data>
+  <data name="VramPickCtxTooltip" xml:space="preserve">
+    <value>Выставить максимальный контекст, который влезает в свободную VRAM при текущем числе слоёв</value>
+  </data>
+  <data name="VramPickCpuMoe" xml:space="preserve">
+    <value>Уместить в VRAM: {0} блоков MoE на CPU</value>
+  </data>
+  <data name="VramPickCpuMoeNone" xml:space="preserve">
+    <value>Эксперты MoE влезают в VRAM</value>
+  </data>
+  <data name="VramPickCpuMoeTooltip" xml:space="preserve">
+    <value>Оставить столько блоков экспертов MoE на CPU, чтобы всё остальное влезло в свободную VRAM</value>
+  </data>
   <data name="Threads" xml:space="preserve">
     <value>Потоки:</value>
   </data>

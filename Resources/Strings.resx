@@ -299,6 +299,60 @@
   <data name="GgufSuggestNglTooltip" xml:space="preserve">
     <value>Set GPU layers to offload the whole model to VRAM</value>
   </data>
+  <data name="VramNeed" xml:space="preserve">
+    <value>Needs {0:F1} GB of VRAM</value>
+  </data>
+  <data name="VramFitYes" xml:space="preserve">
+    <value>Fits: needs {0:F1} GB, {1:F1} of {2:F1} GB free</value>
+  </data>
+  <data name="VramFitTight" xml:space="preserve">
+    <value>Tight: needs {0:F1} GB, {1:F1} of {2:F1} GB free</value>
+  </data>
+  <data name="VramFitNo" xml:space="preserve">
+    <value>Does not fit: needs {0:F1} GB, {1:F1} of {2:F1} GB free</value>
+  </data>
+  <data name="VramFitTooltip" xml:space="preserve">
+    <value>A rough estimate read out of the GGUF metadata: the weights of the offloaded blocks, the KV cache for the current context and llama.cpp's own buffers. It knows nothing about mmproj, a second card or a tensor split, so treat it as a starting point rather than a promise.</value>
+  </data>
+  <data name="VramPartWeights" xml:space="preserve">
+    <value>weights {0:F1} GB</value>
+  </data>
+  <data name="VramPartCache" xml:space="preserve">
+    <value>cache {0:F1} GB</value>
+  </data>
+  <data name="VramPartBuffers" xml:space="preserve">
+    <value>buffers {0:F1} GB</value>
+  </data>
+  <data name="VramPartLayers" xml:space="preserve">
+    <value>layers {0}/{1}</value>
+  </data>
+  <data name="VramPartHost" xml:space="preserve">
+    <value>on CPU {0:F1} GB</value>
+  </data>
+  <data name="VramPartApprox" xml:space="preserve">
+    <value>rough estimate</value>
+  </data>
+  <data name="VramPickNgl" xml:space="preserve">
+    <value>Fit in VRAM: {0} layers</value>
+  </data>
+  <data name="VramPickNglTooltip" xml:space="preserve">
+    <value>Set GPU layers to the largest number that fits into the free VRAM at the current context size</value>
+  </data>
+  <data name="VramPickCtx" xml:space="preserve">
+    <value>Fits in VRAM: context up to {0}</value>
+  </data>
+  <data name="VramPickCtxTooltip" xml:space="preserve">
+    <value>Set the context to the largest size that fits into the free VRAM with the current layer count</value>
+  </data>
+  <data name="VramPickCpuMoe" xml:space="preserve">
+    <value>Fit in VRAM: {0} MoE blocks on CPU</value>
+  </data>
+  <data name="VramPickCpuMoeNone" xml:space="preserve">
+    <value>MoE experts fit in VRAM</value>
+  </data>
+  <data name="VramPickCpuMoeTooltip" xml:space="preserve">
+    <value>Keep this many MoE expert blocks on the CPU so that everything else fits into the free VRAM</value>
+  </data>
   <data name="Threads" xml:space="preserve">
     <value>Threads:</value>
   </data>

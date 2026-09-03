@@ -13,6 +13,17 @@ The tab has two blocks: **Model parameters** — how the model is loaded into me
 
 An empty field means "don't pass the flag" — llama-server falls back to its own default.
 
+### Will it fit in VRAM
+
+Under the fields sits a line answering the question the settings above are really about: whether this model, with these values, fits into the memory the card has free right now. It is read out of the GGUF - the weights of the blocks that would be offloaded, the KV cache for the current context, and the buffers llama.cpp allocates for itself - and it is recomputed as you type, so it always describes what is on the form rather than what was there a minute ago.
+
+The verdict comes in three colours: it fits with room to spare, it fits but only just (the estimate is within a few percent of what is free, and anything unaccounted for will push it over), or it does not fit. The second line breaks the number down into weights, cache and buffers, says how many blocks would go to the card and how much would be left in system memory. "Rough estimate" appears when the file did not say enough about its own attention layout and a rule of thumb was used for part of the answer.
+
+Three hints appear next to the fields themselves, each setting a value when clicked: the largest layer count that fits at the current context, the largest context that fits with the current layer count, and - for MoE models - how many expert blocks to leave on the CPU so that the rest fits. A hint hides itself when what it offers is already what is set.
+
+The estimate knows nothing about mmproj, a second card or a tensor split, and it says nothing about speed. It is a starting point, not a promise; the Optimize window still measures rather than guesses.
+
+
 ## Generation parameters
 
 These are server-side defaults; a client (the WebUI or an API request) can send its own and override them.

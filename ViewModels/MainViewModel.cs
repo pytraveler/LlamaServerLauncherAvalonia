@@ -215,6 +215,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(HasTemp));
         OnPropertyChanged(nameof(TempPercent));
         OnPropertyChanged(nameof(TempText));
+        RefreshVramPlan();
     }
 
     private GpuInfo? Gpu0 => _hw.Gpus.Count > 0 ? _hw.Gpus[0] : null;
@@ -848,6 +849,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(UnsupportedArgWarningText));
         // DataPathTooltip uses Localized strings
         OnPropertyChanged(nameof(DataPathTooltip));
+        OnPropertyChanged(nameof(SuggestedGpuLayersText));
+        OnPropertyChanged(nameof(ModelMaxContextText));
+        RaiseVramProps();
     }
 
     private string _executablePath = string.Empty;
@@ -2552,7 +2556,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
         _ = Task.Run(() =>
         {
-            var info = GgufMetadataService.TryRead(path);
+            var info = GgufMetadataService.TryReadDetailed(path);
             Dispatcher.UIThread.Post(() =>
             {
                 if (_modelPath == path) SetModelInfo(info);
@@ -2580,6 +2584,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(ModelWarning));
         OnPropertyChanged(nameof(HasSuggestedGpuLayers));
         OnPropertyChanged(nameof(SuggestedGpuLayersText));
+        RefreshVramPlan();
     }
 
     public bool HasModelInfo => ModelInfoBadge.Length > 0;
@@ -2627,6 +2632,180 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         if (_modelInfo?.BlockCount is int n && n > 0)
             GpuLayers = n.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private VramEstimate? _vramEstimate;
+    private VramFit _vramFit = VramFit.Unknown;
+    private long _vramFreeBytes;
+    private long _vramTotalBytes;
+    private int? _vramMaxGpuLayers;
+    private int? _vramMaxContext;
+    private int? _vramCpuMoeBlocks;
+
+    private static readonly Avalonia.Media.IBrush _dangerBrush =
+        new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(224, 85, 97));
+
+    private void RefreshVramPlan(ServerConfiguration? config = null)
+    {
+        _vramFreeBytes = VramPlan.FreeBytes(Gpu0?.MemTotalMb, Gpu0?.MemUsedMb);
+        _vramTotalBytes = VramPlan.TotalBytes(Gpu0?.MemTotalMb);
+        _vramEstimate = null;
+        _vramFit = VramFit.Unknown;
+        _vramMaxGpuLayers = null;
+        _vramMaxContext = null;
+        _vramCpuMoeBlocks = null;
+
+        var info = _modelInfo;
+        if (info?.Tensors is GgufTensorSummary tensors)
+        {
+            var request = VramPlan.RequestFrom(config ?? GetCurrentConfig(), info.MaxContext);
+            _vramEstimate = VramEstimator.Estimate(info, request);
+
+            if (_vramEstimate != null && _vramTotalBytes > 0)
+            {
+                _vramFit = _vramFreeBytes > 0
+                    ? VramEstimator.Judge(_vramEstimate.TotalBytes, _vramFreeBytes)
+                    : VramFit.DoesNotFit;
+            }
+
+            if (_vramEstimate != null && _vramFreeBytes > 0)
+            {
+                int layers = VramEstimator.MaxGpuLayers(info, request, _vramFreeBytes);
+                _vramMaxGpuLayers = layers < 0 ? tensors.BlockCount : layers;
+                _vramMaxContext = VramEstimator.MaxContext(info, request, _vramFreeBytes);
+                _vramCpuMoeBlocks = VramEstimator.SuggestedCpuMoeBlocks(info, request, _vramFreeBytes);
+            }
+        }
+
+        RaiseVramProps();
+    }
+
+    private void RaiseVramProps()
+    {
+        OnPropertyChanged(nameof(HasVramPlan));
+        OnPropertyChanged(nameof(VramPlanText));
+        OnPropertyChanged(nameof(VramPlanBrush));
+        OnPropertyChanged(nameof(VramPlanDetail));
+        OnPropertyChanged(nameof(VramPlanToolTip));
+        OnPropertyChanged(nameof(HasVramGpuLayersHint));
+        OnPropertyChanged(nameof(VramGpuLayersHintText));
+        OnPropertyChanged(nameof(HasVramContextHint));
+        OnPropertyChanged(nameof(VramContextHintText));
+        OnPropertyChanged(nameof(HasVramCpuMoeHint));
+        OnPropertyChanged(nameof(VramCpuMoeHintText));
+    }
+
+    public bool HasVramPlan => _vramEstimate != null;
+
+    public string VramPlanText
+    {
+        get
+        {
+            if (_vramEstimate is not VramEstimate estimate) return string.Empty;
+            double need = VramPlan.Gigabytes(estimate.TotalBytes);
+
+            if (_vramTotalBytes <= 0)
+                return string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramNeed, need);
+
+            string format = _vramFit switch
+            {
+                VramFit.Fits => LocalizedStrings.Instance.VramFitYes,
+                VramFit.Tight => LocalizedStrings.Instance.VramFitTight,
+                _ => LocalizedStrings.Instance.VramFitNo
+            };
+            return string.Format(CultureInfo.InvariantCulture, format,
+                need, VramPlan.Gigabytes(_vramFreeBytes), VramPlan.Gigabytes(_vramTotalBytes));
+        }
+    }
+
+    public Avalonia.Media.IBrush VramPlanBrush => _vramFit switch
+    {
+        VramFit.Tight => _warningBrush,
+        VramFit.DoesNotFit => _dangerBrush,
+        _ => _accentBrush
+    };
+
+    public string VramPlanDetail
+    {
+        get
+        {
+            if (_vramEstimate is not VramEstimate estimate) return string.Empty;
+            var parts = new List<string>
+            {
+                string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartWeights,
+                    VramPlan.Gigabytes(estimate.WeightBytes)),
+                string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartCache,
+                    VramPlan.Gigabytes(estimate.KvBytes)),
+                string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartBuffers,
+                    VramPlan.Gigabytes(estimate.ComputeBytes)),
+                string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartLayers,
+                    estimate.OffloadedBlocks, estimate.TotalBlocks)
+            };
+            if (estimate.HostBytes > 0)
+                parts.Add(string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartHost,
+                    VramPlan.Gigabytes(estimate.HostBytes)));
+            if (estimate.Approximate)
+                parts.Add(LocalizedStrings.Instance.VramPartApprox);
+            return string.Join(" | ", parts);
+        }
+    }
+
+    public string VramPlanToolTip => LocalizedStrings.Instance.VramFitTooltip;
+
+    private int CurrentGpuLayerCount
+    {
+        get
+        {
+            int blocks = _modelInfo?.Tensors?.BlockCount ?? 0;
+            int requested = VramPlan.ResolveGpuLayers(ParseNullableInt(GpuLayers));
+            return requested < 0 || requested > blocks ? blocks : requested;
+        }
+    }
+
+    public bool HasVramGpuLayersHint =>
+        _vramMaxGpuLayers is int n
+        && n != CurrentGpuLayerCount
+        && n != (_modelInfo?.Tensors?.BlockCount ?? 0);
+
+    public string VramGpuLayersHintText =>
+        _vramMaxGpuLayers is int n
+            ? string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPickNgl, n)
+            : string.Empty;
+
+    public void ApplyVramGpuLayers()
+    {
+        if (_vramMaxGpuLayers is int n) GpuLayers = n.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private int CurrentContextSize =>
+        VramPlan.ResolveContext(ParseNullableInt(ContextSize), _modelTrainMaxContext);
+
+    public bool HasVramContextHint => _vramMaxContext is int c && c != CurrentContextSize;
+
+    public string VramContextHintText =>
+        _vramMaxContext is int c
+            ? string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPickCtx, c)
+            : string.Empty;
+
+    public void ApplyVramContext()
+    {
+        if (_vramMaxContext is int c) ContextSize = c.ToString(CultureInfo.InvariantCulture);
+    }
+
+    public bool HasVramCpuMoeHint =>
+        _vramCpuMoeBlocks is int m && m != (ParseNullableInt(CpuMoe) ?? 0);
+
+    public string VramCpuMoeHintText => _vramCpuMoeBlocks switch
+    {
+        null => string.Empty,
+        0 => LocalizedStrings.Instance.VramPickCpuMoeNone,
+        int m => string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPickCpuMoe, m)
+    };
+
+    public void ApplyVramCpuMoe()
+    {
+        if (_vramCpuMoeBlocks is int m)
+            CpuMoe = m > 0 ? m.ToString(CultureInfo.InvariantCulture) : string.Empty;
     }
 
     public string Threads
@@ -4938,6 +5117,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         var config = GetCurrentConfig();
         CurrentCommand = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+        RefreshVramPlan(config);
     }
 
     private async Task BrowseModelAsync()
