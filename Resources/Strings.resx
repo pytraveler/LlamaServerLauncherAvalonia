@@ -1181,6 +1181,9 @@
   <data name="ModelPickerModels" xml:space="preserve">
     <value>models</value>
   </data>
+  <data name="ModelPickerVram" xml:space="preserve">
+    <value>free {0:F1} of {1:F1} GB VRAM</value>
+  </data>
   <data name="CopyEndpoint" xml:space="preserve">
     <value>Copy</value>
   </data>

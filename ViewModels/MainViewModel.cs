@@ -2661,12 +2661,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             var request = VramPlan.RequestFrom(config ?? GetCurrentConfig(), info.MaxContext);
             _vramEstimate = VramEstimator.Estimate(info, request);
 
-            if (_vramEstimate != null && _vramTotalBytes > 0)
-            {
-                _vramFit = _vramFreeBytes > 0
-                    ? VramEstimator.Judge(_vramEstimate.TotalBytes, _vramFreeBytes)
-                    : VramFit.DoesNotFit;
-            }
+            if (_vramEstimate != null)
+                _vramFit = VramPlan.Verdict(_vramEstimate.TotalBytes, _vramFreeBytes, _vramTotalBytes);
 
             if (_vramEstimate != null && _vramFreeBytes > 0)
             {
@@ -2704,15 +2700,17 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             if (_vramEstimate is not VramEstimate estimate) return string.Empty;
             double need = VramPlan.Gigabytes(estimate.TotalBytes);
 
-            if (_vramTotalBytes <= 0)
-                return string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramNeed, need);
-
-            string format = _vramFit switch
+            string? format = _vramFit switch
             {
                 VramFit.Fits => LocalizedStrings.Instance.VramFitYes,
                 VramFit.Tight => LocalizedStrings.Instance.VramFitTight,
-                _ => LocalizedStrings.Instance.VramFitNo
+                VramFit.DoesNotFit => LocalizedStrings.Instance.VramFitNo,
+                _ => null
             };
+
+            if (format == null)
+                return string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramNeed, need);
+
             return string.Format(CultureInfo.InvariantCulture, format,
                 need, VramPlan.Gigabytes(_vramFreeBytes), VramPlan.Gigabytes(_vramTotalBytes));
         }
@@ -5152,7 +5150,13 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public async Task OpenModelPickerAsync()
     {
         var initialFolder = ResolveInitialScanFolder();
-        var vm = new ModelPickerViewModel(initialFolder, _modelScanRecursive);
+        var budget = new VramBudget
+        {
+            Config = GetCurrentConfig(),
+            AvailableBytes = VramPlan.FreeBytes(Gpu0?.MemTotalMb, Gpu0?.MemUsedMb),
+            TotalBytes = VramPlan.TotalBytes(Gpu0?.MemTotalMb),
+        };
+        var vm = new ModelPickerViewModel(initialFolder, _modelScanRecursive, budget);
         var dialog = new ModelPickerWindow();
         dialog.SetViewModel(vm, DialogGeometryDict);
         await dialog.ShowDialog(MainWindow.Instance!);

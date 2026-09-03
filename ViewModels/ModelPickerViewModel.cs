@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -20,14 +21,16 @@ public class ModelPickerViewModel : INotifyPropertyChanged
     private readonly List<ModelScanEntry> _all = new();
     public ObservableCollection<ModelScanEntry> Models { get; } = new();
 
+    private readonly VramBudget? _budget;
     private CancellationTokenSource? _scanCts;
 
     public event Action? RequestClose;
 
-    public ModelPickerViewModel(string initialFolder, bool recursive)
+    public ModelPickerViewModel(string initialFolder, bool recursive, VramBudget? budget = null)
     {
         _folderPath = initialFolder ?? "";
         _recursive = recursive;
+        _budget = budget;
     }
 
     private string _folderPath = "";
@@ -93,7 +96,7 @@ public class ModelPickerViewModel : INotifyPropertyChanged
         {
             _all.Clear();
             ApplyFilter();
-            StatusText = Localized.ModelPickerEmpty;
+            StatusText = BuildStatus();
             return;
         }
 
@@ -101,26 +104,37 @@ public class ModelPickerViewModel : INotifyPropertyChanged
         StatusText = Localized.ModelPickerScanning;
         try
         {
-            var list = await ModelScanService.ScanAsync(FolderPath, Recursive, cts.Token);
+            var list = await ModelScanService.ScanAsync(FolderPath, Recursive, _budget, cts.Token);
             if (cts.Token.IsCancellationRequested) return;
             _all.Clear();
             _all.AddRange(list);
             ApplyFilter();
-            StatusText = _all.Count == 0
-                ? Localized.ModelPickerEmpty
-                : _all.Count + " " + Localized.ModelPickerModels;
+            StatusText = BuildStatus();
         }
         catch (OperationCanceledException) { }
         catch (Exception)
         {
             _all.Clear();
             ApplyFilter();
-            StatusText = Localized.ModelPickerEmpty;
+            StatusText = BuildStatus();
         }
         finally
         {
             if (ReferenceEquals(_scanCts, cts)) IsScanning = false;
         }
+    }
+
+    private string BuildStatus()
+    {
+        var text = _all.Count == 0
+            ? Localized.ModelPickerEmpty
+            : _all.Count + " " + Localized.ModelPickerModels;
+
+        if (_budget is { AvailableBytes: > 0, TotalBytes: > 0 } budget)
+            text += "    " + string.Format(CultureInfo.InvariantCulture, Localized.ModelPickerVram,
+                VramPlan.Gigabytes(budget.AvailableBytes), VramPlan.Gigabytes(budget.TotalBytes));
+
+        return text;
     }
 
     public async Task BrowseFolderAsync()

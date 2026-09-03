@@ -256,7 +256,7 @@ public static class GgufMetadataService
                 }
             }
 
-            GgufTensorSummary? tensors = includeTensors ? ReadTensors(r, tensorCount) : null;
+            GgufTensorSummary? tensors = includeTensors ? TryReadTensors(r, tensorCount) : null;
 
             bool isProjector = string.Equals(arch, "clip", StringComparison.Ordinal) || sawClipKey;
             long? fileType = Exact(ints, "general.file_type");
@@ -292,6 +292,18 @@ public static class GgufMetadataService
                 HasVision = hasVision,
                 Tensors = tensors,
             };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static GgufTensorSummary? TryReadTensors(BinaryReader r, ulong tensorCount)
+    {
+        try
+        {
+            return ReadTensors(r, tensorCount);
         }
         catch
         {

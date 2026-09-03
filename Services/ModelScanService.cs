@@ -9,10 +9,12 @@ namespace LlamaServerLauncher.Services;
 
 public static class ModelScanService
 {
-    public static Task<List<ModelScanEntry>> ScanAsync(string folder, bool recursive, CancellationToken ct = default) =>
-        Task.Run(() => Scan(folder, recursive, ct), ct);
+    public static Task<List<ModelScanEntry>> ScanAsync(string folder, bool recursive,
+        VramBudget? budget = null, CancellationToken ct = default) =>
+        Task.Run(() => Scan(folder, recursive, budget, ct), ct);
 
-    public static List<ModelScanEntry> Scan(string folder, bool recursive, CancellationToken ct = default)
+    public static List<ModelScanEntry> Scan(string folder, bool recursive,
+        VramBudget? budget = null, CancellationToken ct = default)
     {
         var result = new List<ModelScanEntry>();
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return result;
@@ -24,9 +26,13 @@ public static class ModelScanService
             if (ModelScanFormatting.IsNonFirstShard(name)) continue;
 
             long size = 0;
-            try { size = new FileInfo(path).Length; } catch { }
+            foreach (var shard in GgufMetadataService.EnumerateShards(path))
+            {
+                try { size += new FileInfo(shard).Length; } catch { }
+            }
 
-            var info = GgufMetadataService.TryRead(path);
+            var info = GgufMetadataService.TryReadDetailed(path);
+            var fit = VramPlan.Fit(info, budget);
 
             string relDir = "";
             try
@@ -44,7 +50,9 @@ public static class ModelScanService
                 FileName = name,
                 RelativeDir = relDir,
                 SizeBytes = size,
-                Info = info
+                Info = info,
+                Fit = fit.Verdict,
+                FitBytes = fit.Bytes
             });
         }
 

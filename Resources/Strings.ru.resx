@@ -1181,6 +1181,9 @@
   <data name="ModelPickerModels" xml:space="preserve">
     <value>моделей</value>
   </data>
+  <data name="ModelPickerVram" xml:space="preserve">
+    <value>свободно {0:F1} из {1:F1} ГБ VRAM</value>
+  </data>
   <data name="CopyEndpoint" xml:space="preserve">
     <value>Копировать</value>
   </data>

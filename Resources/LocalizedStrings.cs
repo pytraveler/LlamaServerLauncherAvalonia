@@ -499,6 +499,7 @@ public string English => GetString("English");
     public string ModelPickerScanning => GetString("ModelPickerScanning");
     public string ModelPickerEmpty => GetString("ModelPickerEmpty");
     public string ModelPickerModels => GetString("ModelPickerModels");
+    public string ModelPickerVram => GetString("ModelPickerVram");
 
     public string CopyEndpoint => GetString("CopyEndpoint");
     public string CopyServerUrl => GetString("CopyServerUrl");

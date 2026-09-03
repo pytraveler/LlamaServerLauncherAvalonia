@@ -13,6 +13,8 @@ public sealed class ModelScanEntry
     public string RelativeDir { get; init; } = "";
     public long SizeBytes { get; init; }
     public GgufModelInfo? Info { get; init; }
+    public VramFit Fit { get; init; }
+    public long FitBytes { get; init; }
 
     public string SizeText => ModelScanFormatting.FormatSize(SizeBytes);
     public string MetaText => ModelScanFormatting.BuildMeta(Info);
@@ -20,6 +22,10 @@ public sealed class ModelScanEntry
     public bool IsProjector => Info?.IsProjector == true;
     public bool HasRelativeDir => !string.IsNullOrEmpty(RelativeDir);
     public string DisplayName => HasRelativeDir ? RelativeDir + "/" + FileName : FileName;
+    public bool FitsEasily => Fit == VramFit.Fits;
+    public bool FitsTight => Fit == VramFit.Tight;
+    public bool FitsNot => Fit == VramFit.DoesNotFit;
+    public string FitText => Fit == VramFit.Unknown ? "" : "VRAM " + ModelScanFormatting.FormatSize(FitBytes);
 }
 
 public static class ModelScanFormatting

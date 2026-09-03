@@ -3,6 +3,13 @@ using LlamaServerLauncher.Models;
 
 namespace LlamaServerLauncher.Services;
 
+public sealed record VramBudget
+{
+    public ServerConfiguration? Config { get; init; }
+    public long AvailableBytes { get; init; }
+    public long TotalBytes { get; init; }
+}
+
 public static class VramPlan
 {
     public const int DefaultContext = 4096;
@@ -28,6 +35,25 @@ public static class VramPlan
             Parallel = Positive(config.ParallelSlots) ?? 1,
             CpuMoeBlocks = Math.Max(0, config.CpuMoe ?? 0),
         };
+    }
+
+    public static (VramFit Verdict, long Bytes) Fit(GgufModelInfo? info, VramBudget? budget)
+    {
+        if (budget == null || (budget.AvailableBytes <= 0 && budget.TotalBytes <= 0))
+            return (VramFit.Unknown, 0);
+
+        var estimate = VramEstimator.Estimate(info, RequestFrom(budget.Config, info?.MaxContext));
+        if (estimate == null) return (VramFit.Unknown, 0);
+
+        var verdict = Verdict(estimate.TotalBytes, budget.AvailableBytes, budget.TotalBytes);
+        return verdict == VramFit.Unknown ? (VramFit.Unknown, 0) : (verdict, estimate.TotalBytes);
+    }
+
+    public static VramFit Verdict(long needBytes, long availableBytes, long totalBytes)
+    {
+        if (needBytes <= 0) return VramFit.Unknown;
+        if (availableBytes > 0) return VramEstimator.Judge(needBytes, availableBytes);
+        return totalBytes > 0 ? VramFit.DoesNotFit : VramFit.Unknown;
     }
 
     public static int ResolveGpuLayers(int? gpuLayers) => gpuLayers is int n && n >= 0 ? n : -1;

@@ -12,6 +12,8 @@ public static class VramPlanTests
         RunRequest(h);
         RunBudget(h);
         RunWiring(h);
+        RunFit(h);
+        RunVerdict(h);
     }
 
     private static void RunRequest(Harness h)
@@ -148,6 +150,92 @@ public static class VramPlanTests
             trained != null && explicitCtx != null && trained.KvBytes == explicitCtx.KvBytes,
             $"{trained?.KvBytes}/{explicitCtx?.KvBytes}");
     }
+
+    private static void RunFit(Harness h)
+    {
+        h.Section("VramPlan: judging a model against the card");
+
+        var model = Model(blocks: 4, blockBytes: GB);
+        long need = VramEstimator.Estimate(model, VramPlan.RequestFrom(new ServerConfiguration()))!.TotalBytes;
+
+        var roomy = VramPlan.Fit(model, Budget(need * 4));
+        h.Check("a card with room to spare says so",
+            roomy.Verdict == VramFit.Fits, roomy.Verdict.ToString());
+        h.Check("and reports what the model would take",
+            roomy.Bytes == need, roomy.Bytes.ToString());
+
+        var exact = VramPlan.Fit(model, Budget(need + 1));
+        h.Check("a card with a single byte to spare is tight, not comfortable",
+            exact.Verdict == VramFit.Tight, exact.Verdict.ToString());
+
+        var short_ = VramPlan.Fit(model, Budget(need - 1));
+        h.Check("a byte short is a byte short",
+            short_.Verdict == VramFit.DoesNotFit, short_.Verdict.ToString());
+        h.Check("and the size is still worth reporting",
+            short_.Bytes == need, short_.Bytes.ToString());
+
+        h.Check("without a budget there is nothing to judge against",
+            VramPlan.Fit(model, null).Verdict == VramFit.Unknown, "unknown");
+        h.Check("a card that reported nothing at all is not a verdict either",
+            VramPlan.Fit(model, Budget(0)).Verdict == VramFit.Unknown, "unknown");
+
+        var full = VramPlan.Fit(model, new VramBudget
+        {
+            Config = new ServerConfiguration(),
+            AvailableBytes = 0,
+            TotalBytes = need * 4,
+        });
+        h.Check("a card known to be full fits nothing, which is a verdict of its own",
+            full.Verdict == VramFit.DoesNotFit, full.Verdict.ToString());
+        h.Check("and it still says what the model would have needed",
+            full.Bytes == need, full.Bytes.ToString());
+        h.Check("a file without a tensor table cannot be judged",
+            VramPlan.Fit(new GgufModelInfo { BlockCount = 4 }, Budget(need * 4)).Verdict == VramFit.Unknown,
+            "unknown");
+        h.Check("and neither can no file at all",
+            VramPlan.Fit(null, Budget(need * 4)).Verdict == VramFit.Unknown, "unknown");
+        h.Check("an unknown verdict carries no size",
+            VramPlan.Fit(model, null).Bytes == 0, "0");
+
+        var partial = VramPlan.Fit(model, new VramBudget
+        {
+            Config = new ServerConfiguration { GpuLayers = 2 },
+            AvailableBytes = need,
+        });
+        h.Check("the settings on the form are what gets judged",
+            partial.Verdict == VramFit.Fits && partial.Bytes > 0 && partial.Bytes < need,
+            $"{partial.Verdict}/{partial.Bytes}");
+
+        var nothingOnTheCard = VramPlan.Fit(model, new VramBudget
+        {
+            Config = new ServerConfiguration { GpuLayers = 0 },
+            AvailableBytes = need,
+        });
+        h.Check("a run that puts nothing on the card has no verdict to give",
+            nothingOnTheCard.Verdict == VramFit.Unknown, nothingOnTheCard.Verdict.ToString());
+    }
+
+    private static void RunVerdict(Harness h)
+    {
+        h.Section("VramPlan: one rule for the panel and the list");
+
+        long need = 4L * GB;
+        h.Check("room to spare",
+            VramPlan.Verdict(need, 16 * GB, 16 * GB) == VramFit.Fits, "fits");
+        h.Check("barely enough",
+            VramPlan.Verdict(need, need + 1, 16 * GB) == VramFit.Tight, "tight");
+        h.Check("not enough",
+            VramPlan.Verdict(need, need - 1, 16 * GB) == VramFit.DoesNotFit, "no");
+        h.Check("a card with a known size and nothing free fits nothing",
+            VramPlan.Verdict(need, 0, 16 * GB) == VramFit.DoesNotFit, "no");
+        h.Check("a card that said nothing about itself yields no verdict",
+            VramPlan.Verdict(need, 0, 0) == VramFit.Unknown, "unknown");
+        h.Check("asking for nothing is not a verdict either",
+            VramPlan.Verdict(0, 16 * GB, 16 * GB) == VramFit.Unknown, "unknown");
+    }
+
+    private static VramBudget Budget(long available) =>
+        new() { Config = new ServerConfiguration(), AvailableBytes = available, TotalBytes = available };
 
     private static GgufModelInfo Model(int blocks, long blockBytes)
     {

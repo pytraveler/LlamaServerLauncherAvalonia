@@ -51,8 +51,18 @@
                             <TextBlock Text="{Binding RelativeDir}" IsVisible="{Binding HasRelativeDir}"
                                        FontSize="10" Opacity="0.5" Margin="0,1,0,0"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" Text="{Binding SizeText}"
-                                   VerticalAlignment="Center" Opacity="0.7" Margin="10,0,4,0"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,4,0">
+                            <TextBlock Text="{Binding SizeText}" Opacity="0.7" HorizontalAlignment="Right"/>
+                            <TextBlock Text="{Binding FitText}" IsVisible="{Binding FitsEasily}"
+                                       Foreground="{DynamicResource OptionOnBrush}"
+                                       FontSize="10" FontWeight="Bold" HorizontalAlignment="Right" Margin="0,1,0,0"/>
+                            <TextBlock Text="{Binding FitText}" IsVisible="{Binding FitsTight}"
+                                       Foreground="{DynamicResource WarningForegroundBrush}"
+                                       FontSize="10" FontWeight="Bold" HorizontalAlignment="Right" Margin="0,1,0,0"/>
+                            <TextBlock Text="{Binding FitText}" IsVisible="{Binding FitsNot}"
+                                       Foreground="{DynamicResource OptionOffBrush}"
+                                       FontSize="10" FontWeight="Bold" HorizontalAlignment="Right" Margin="0,1,0,0"/>
+                        </StackPanel>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>

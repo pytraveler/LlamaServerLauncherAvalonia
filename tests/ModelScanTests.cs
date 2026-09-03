@@ -56,6 +56,23 @@ public static class ModelScanTests
                 WriteKvString(w, "general.architecture", "llama"));
             WriteGgufFile(Path.Combine(root, "big-00002-of-00003.gguf"), 1, w =>
                 WriteKvString(w, "general.architecture", "llama"));
+            WriteGgufFile(Path.Combine(root, "truncated.gguf"), 1,
+                w => WriteKvString(w, "general.architecture", "llama"), tensorCount: 5);
+            WriteGgufFile(Path.Combine(root, "weighed.gguf"), 8, w =>
+            {
+                WriteKvString(w, "general.architecture", "llama");
+                WriteKvUint32(w, "llama.block_count", 1);
+                WriteKvUint32(w, "llama.context_length", 4096);
+                WriteKvUint32(w, "llama.embedding_length", 1024);
+                WriteKvUint32(w, "llama.attention.head_count", 8);
+                WriteKvUint32(w, "llama.attention.head_count_kv", 8);
+                WriteKvUint32(w, "llama.attention.key_length", 128);
+                WriteKvUint32(w, "llama.attention.value_length", 128);
+            }, tensorCount: 2, tensors: w =>
+            {
+                WriteTensor(w, "blk.0.attn_k.weight", 1024, 1024);
+                WriteTensor(w, "blk.0.ffn_gate.weight", 1024, 1024);
+            });
             File.WriteAllText(Path.Combine(root, "notes.txt"), "ignore me");
 
             var sub = Path.Combine(root, "sub");
@@ -64,7 +81,7 @@ public static class ModelScanTests
                 WriteKvString(w, "general.architecture", "gemma"));
 
             var flat = ModelScanService.Scan(root, false);
-            h.Check("flat count = 3", flat.Count == 3, flat.Count.ToString());
+            h.Check("flat count = 5", flat.Count == 5, flat.Count.ToString());
             h.Check("flat skips shard 00002", flat.All(m => m.FileName != "big-00002-of-00003.gguf"), "ok");
             h.Check("flat keeps shard 00001", flat.Any(m => m.FileName == "big-00001-of-00003.gguf"), "ok");
             h.Check("flat ignores .txt", flat.All(m => m.FileName.EndsWith(".gguf")), "ok");
@@ -76,14 +93,44 @@ public static class ModelScanTests
             h.Check("model-a quant", a?.Info?.Quant == "Q4_K_M", a?.Info?.Quant ?? "null");
             h.Check("model-a size > 0", (a?.SizeBytes ?? 0) > 0, (a?.SizeBytes ?? 0).ToString());
 
+            var split = flat.FirstOrDefault(m => m.FileName == "big-00001-of-00003.gguf");
+            long shards = new FileInfo(Path.Combine(root, "big-00001-of-00003.gguf")).Length
+                + new FileInfo(Path.Combine(root, "big-00002-of-00003.gguf")).Length;
+            h.Check("a split model is as big as all of its shards, not just the first",
+                split?.SizeBytes == shards, $"{split?.SizeBytes}/{shards}");
+
             var b = flat.FirstOrDefault(m => m.FileName == "model-b.gguf");
             h.Check("model-b is MoE", b?.Info?.IsMoe == true, (b?.Info?.IsMoe)?.ToString() ?? "null");
 
             var rec = ModelScanService.Scan(root, true);
-            h.Check("recursive count = 4", rec.Count == 4, rec.Count.ToString());
+            h.Check("recursive count = 6", rec.Count == 6, rec.Count.ToString());
             var c = rec.FirstOrDefault(m => m.FileName == "model-c.gguf");
             h.Check("recursive finds subfolder", c != null, c == null ? "null" : "ok");
             h.Check("recursive relDir = sub", c?.RelativeDir == "sub", c?.RelativeDir ?? "null");
+
+            var truncated = flat.FirstOrDefault(m => m.FileName == "truncated.gguf");
+            h.Check("a tensor table that ends early does not take the metadata with it",
+                truncated?.Info?.Architecture == "llama", truncated?.Info?.Architecture ?? "null");
+            h.Check("and leaves no tensor summary behind",
+                truncated?.Info?.Tensors == null, truncated?.Info?.Tensors == null ? "null" : "present");
+
+            var weighed = flat.FirstOrDefault(m => m.FileName == "weighed.gguf");
+            h.Check("the scan reads the tensor table, not just the keys",
+                weighed?.Info?.Tensors?.BlockCount == 1,
+                weighed?.Info?.Tensors?.BlockCount.ToString() ?? "null");
+            h.Check("without a budget nothing is judged",
+                weighed?.Fit == VramFit.Unknown, (weighed?.Fit)?.ToString() ?? "null");
+
+            var judged = ModelScanService.Scan(root, false,
+                new VramBudget { Config = new ServerConfiguration(), AvailableBytes = 8L * 1024 * 1024 * 1024 });
+            var fitted = judged.FirstOrDefault(m => m.FileName == "weighed.gguf");
+            h.Check("a budget turns the scan into a verdict",
+                fitted?.Fit == VramFit.Fits, (fitted?.Fit)?.ToString() ?? "null");
+            h.Check("and the row can say what it would take",
+                fitted != null && fitted.FitBytes > 0 && fitted.FitText.StartsWith("VRAM "),
+                fitted?.FitText ?? "null");
+            h.Check("a file with no tensors gets no verdict even with a budget",
+                judged.First(m => m.FileName == "model-a.gguf").Fit == VramFit.Unknown, "unknown");
 
             h.Check("missing folder -> empty", ModelScanService.Scan(Path.Combine(root, "nope"), false).Count == 0, "ok");
         }
@@ -93,15 +140,26 @@ public static class ModelScanTests
         }
     }
 
-    private static void WriteGgufFile(string path, ulong kvCount, Action<BinaryWriter> kvs)
+    private static void WriteGgufFile(string path, ulong kvCount, Action<BinaryWriter> kvs,
+        ulong tensorCount = 0, Action<BinaryWriter>? tensors = null)
     {
         using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
         using var w = new BinaryWriter(fs);
         w.Write((uint)0x46554747);
         w.Write((uint)3);
-        w.Write((ulong)0);
+        w.Write(tensorCount);
         w.Write(kvCount);
         kvs(w);
+        tensors?.Invoke(w);
+    }
+
+    private static void WriteTensor(BinaryWriter w, string name, params ulong[] dims)
+    {
+        WriteStr(w, name);
+        w.Write((uint)dims.Length);
+        foreach (var d in dims) w.Write(d);
+        w.Write((uint)1);
+        w.Write((ulong)0);
     }
 
     private static void WriteStr(BinaryWriter w, string s)
