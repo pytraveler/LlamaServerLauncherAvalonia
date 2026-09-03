@@ -29,6 +29,7 @@ LlamaBuildBackupTests.Run(harness);
 VramEstimatorTests.Run(harness);
 VramPlanTests.Run(harness);
 ServerMemoryTests.Run(harness);
+CommandImportTests.Run(harness);
 return harness.Report();
 
 public sealed class Harness

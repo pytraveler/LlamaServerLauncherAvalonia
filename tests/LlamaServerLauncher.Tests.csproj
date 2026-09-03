@@ -25,6 +25,7 @@
     <Compile Include="..\Models\ServerToolsResponse.cs" />
     <Compile Include="..\Models\ServerCrashAdvisor.cs" />
     <Compile Include="..\Models\ServerMemoryParser.cs" />
+    <Compile Include="..\Models\CommandImport.cs" />
     <Compile Include="..\Optimization\**\*.cs" />
     <Compile Include="..\Models\Optimization\BenchmarkResult.cs" />
     <Compile Include="..\Models\Optimization\BenchMetric.cs" />
@@ -85,6 +86,7 @@
     <Compile Include="VramEstimatorTests.cs" />
     <Compile Include="VramPlanTests.cs" />
     <Compile Include="ServerMemoryTests.cs" />
+    <Compile Include="CommandImportTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>

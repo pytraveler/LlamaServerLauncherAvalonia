@@ -35,8 +35,6 @@ public partial class MainWindow : Window
     private double _customLogDragStartY;
     private double _customLogDragStartHeight;
 
-    // Width below which the nav pane auto-collapses. Hysteresis: a manual hamburger
-    // toggle sticks until the width crosses this threshold again.
     private const double NavAutoCollapseWidth = 880;
     private bool? _navWideState;
     private System.Threading.CancellationTokenSource? _autoStartCts;
@@ -54,15 +52,12 @@ public partial class MainWindow : Window
         HookUiScaleSlider();
         DataContextChanged += OnDataContextChanged;
         
-        // Subscribe to window state changes for minimize-to-tray
         Opened += (s, e) =>
         {
             this.GetValue(Window.WindowStateProperty);
             InitializeProfileComboBox();
         };
         
-        // Use the fact that Window implements IPriorityValue
-        // by subscribing to the WindowState property changes via Avalonia's property system
         if (this is AvaloniaObject ao)
         {
             ao.PropertyChanged += (s, e) =>
@@ -76,7 +71,6 @@ public partial class MainWindow : Window
         
         _windowHandle = this.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
         
-        // Intercept GridSplitter pointer events for custom drag in auto-fit mode
         var splitter = this.FindControl<GridSplitter>("LogGridSplitter");
         if (splitter != null)
         {
@@ -85,7 +79,6 @@ public partial class MainWindow : Window
             splitter.AddHandler(PointerReleasedEvent, OnLogSplitterPointerReleased, RoutingStrategies.Tunnel);
         }
         
-        // Collapse/expand the nav pane as the window gets narrower/wider.
         SizeChanged += (s, e) =>
         {
             UpdateNavPaneForWidth();
@@ -96,7 +89,6 @@ public partial class MainWindow : Window
             }
         };
 
-        // AllowDrop is set in XAML via dd:DragDrop.AllowDrop="True"
         System.Diagnostics.Debug.WriteLine("MainWindow initialized");
     }
 
@@ -130,16 +122,13 @@ public partial class MainWindow : Window
             await vm.InitializeAsync();
             await LoadWindowPositionAsync();
 
-            // Re-evaluate the nav-pane for the restored window width.
             UpdateNavPaneForWidth();
 
-            // Apply auto-fit after initial height is set
             if (_viewModel.AutoFitHeight)
                 EnableAutoFitHeight();
 
             RebuildMcpImportMenu();
 
-            // Auto-start scenario after the window is fully loaded
             _autoStartCts = new System.Threading.CancellationTokenSource();
             var token = _autoStartCts.Token;
             _ = Task.Run(async () =>
@@ -233,7 +222,6 @@ public partial class MainWindow : Window
                 var mainGrid = this.FindControl<Grid>("MainGrid");
                 if (mainGrid == null || _viewModel == null || mainGrid.RowDefinitions.Count <= 4) return;
 
-                // When maximized, ApplyLogMaximizedState owns the log row.
                 if (_viewModel.IsLogMaximized) return;
 
                 if (_viewModel.LogVisible)
@@ -256,8 +244,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // Toggles a "maximized log" layout: settings panel hidden, control panel moves up,
-    // log takes the freed space.
     private void ApplyLogMaximizedState()
     {
         var mainGrid = this.FindControl<Grid>("MainGrid");
@@ -267,11 +253,9 @@ public partial class MainWindow : Window
 
         if (_viewModel.IsLogMaximized)
         {
-            // Star-sized row needs a fixed window height, so drop auto-fit first.
             if (_viewModel.AutoFitHeight)
                 _viewModel.AutoFitHeight = false;
 
-            // Save the current log height so we can restore it when un-maximizing.
             var logRow = mainGrid.RowDefinitions[4].Height;
             if (logRow.IsAbsolute && logRow.Value > 0)
                 _viewModel.LogHeight = logRow.Value;
@@ -283,7 +267,6 @@ public partial class MainWindow : Window
         else
         {
             upperGrid.RowDefinitions[0].Height = new GridLength(1, GridUnitType.Star);    // restore settings panel
-            // Auto-fit keeps the settings row sized to content; otherwise it fills the window.
             mainGrid.RowDefinitions[2].Height = _viewModel.AutoFitHeight
                 ? GridLength.Auto
                 : new GridLength(1, GridUnitType.Star);
@@ -298,9 +281,6 @@ public partial class MainWindow : Window
             _viewModel.IsLogMaximized = !_viewModel.IsLogMaximized;
     }
 
-    // Collapse the nav pane when narrow, expand it when wide. Only reacts when the
-    // width actually crosses the threshold, so a manual hamburger toggle within the
-    // same band is preserved.
     private void UpdateNavPaneForWidth()
     {
         if (_viewModel == null || _isClosing) return;
@@ -321,14 +301,11 @@ public partial class MainWindow : Window
         var mainGrid = this.FindControl<Grid>("MainGrid");
         if (mainGrid == null || _viewModel == null) return;
 
-        // Auto-fit and the maximized log both want to drive the settings row; drop one.
         if (_viewModel.IsLogMaximized)
             _viewModel.IsLogMaximized = false;
 
-        // Save current height as LH before enabling auto-fit
         _viewModel.AutoFitHeightSavedHeight = Height;
 
-        // Change TabControl row (row 3) from * to Auto so content drives height
             if (mainGrid.RowDefinitions.Count > 2)
                 mainGrid.RowDefinitions[2].Height = GridLength.Auto;
 
@@ -375,20 +352,16 @@ public partial class MainWindow : Window
     {
         var mainGrid = this.FindControl<Grid>("MainGrid");
 
-        // Restore manual sizing first, then row definition
         SizeToContent = SizeToContent.Manual;
         MinHeight = _originalMinHeight;
         MaxHeight = double.PositiveInfinity;
         CanResize = true;
 
-            // Keep the settings row collapsed while the log is maximized, otherwise
-            // it becomes a second star row and leaves a gap above the log.
             if (mainGrid != null && mainGrid.RowDefinitions.Count > 2)
                 mainGrid.RowDefinitions[2].Height = _viewModel?.IsLogMaximized == true
                     ? GridLength.Auto
                     : new GridLength(1, GridUnitType.Star);
 
-        // Restore height from LH
         if (_viewModel != null)
             Height = _viewModel.AutoFitHeightSavedHeight;
 
@@ -572,7 +545,6 @@ public partial class MainWindow : Window
         if (selected != null)
             currentIndex = profiles.IndexOf(selected);
 
-        // Scroll up (delta.Y > 0) = previous, scroll down = next
         int direction = e.Delta.Y > 0 ? -1 : 1;
         var newIndex = currentIndex + direction;
 
@@ -1058,12 +1030,10 @@ public partial class MainWindow : Window
         if (sender is SplitButton btn && btn.DataContext is ServerInstance instance)
         {
             var now = DateTime.UtcNow;
-            // Double-click detected
             if ((now - _lastInstanceClickTime).TotalMilliseconds < 400
                 && instance.IsRunning)
             {
                 _lastInstanceClickTime = DateTime.MinValue;
-                // Only open browser if web UI is enabled
                 if (instance.Configuration.EnableWebUI != false)
                 {
                     await instance.OpenInBrowserAsync();
@@ -1081,8 +1051,6 @@ public partial class MainWindow : Window
             && sender is Avalonia.Input.InputElement control
             && control.DataContext is ServerInstance instance)
         {
-            // A failed instance is kept just so the user can still load its profile;
-            // right-click should dismiss the error button, not try to stop a process.
             if (!instance.IsRunning && instance.StartFailed)
                 _viewModel?.DismissInstance(instance);
             else
@@ -1691,7 +1659,7 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
             }
             else if (ext == ".bat" || ext == ".cmd" || ext == ".command" || ext == ".sh")
             {
-                await LoadShellFileAsync(filePath);
+                await ImportCommandFileAsync(filePath);
             }
             else if (ext == ".exe")
             {
@@ -1739,7 +1707,6 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
                                     
                                     if (invokeResult != null)
                                     {
-                                        // BclStorageFile has Path property with LocalPath
                                         var pathProp = invokeResult.GetType().GetProperty("Path");
                                         if (pathProp != null)
                                         {
@@ -1832,472 +1799,64 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         }
     }
 
-    private async Task LoadBatFileAsync(string filePath)
+    private async Task ImportCommandFileAsync(string filePath)
     {
-        if (_viewModel == null)
-            return;
-
         var content = await File.ReadAllTextAsync(filePath);
-        var (exePath, tokens) = ExtractLlamaCommand(content);
+        ImportCommandText(content, Path.GetFileName(filePath));
+    }
 
-        if (tokens.Count == 0)
+    private bool ImportCommandText(string? text, string sourceName)
+    {
+        if (_viewModel == null) return false;
+
+        var command = CommandImport.FromText(text);
+        if (!command.HasCommand)
         {
-            _viewModel.LogService.Error($"[Import] No valid llama-server command with model argument (-m, --model, or --models-dir) found in batch file.");
-            return;
+            _viewModel.LogService.Error(
+                $"[Import] No llama-server command with a model argument found in {sourceName}.");
+            return false;
         }
 
+        var tokens = command.Tokens.ToList();
         var config = ServerConfigurationExtensions.ParseFromTokens(tokens);
         if (config == null)
         {
-            _viewModel.LogService.Error($"[Import] Failed to parse command line arguments from batch file.");
-            return;
+            _viewModel.LogService.Error($"[Import] Could not parse the command line from {sourceName}.");
+            return false;
         }
 
-        // Only set exePath if it's a meaningful absolute path (not just ".\" or similar relative)
         var mentioned = ConfigurationDiff.PropertiesMentionedIn(tokens);
-        if (!string.IsNullOrEmpty(exePath) &&
-            exePath != ".\\" && exePath != "./" &&
-            exePath != "." &&
-            !string.Equals(exePath, ".", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(command.ExecutablePath))
         {
-            config.ExecutablePath = exePath;
+            config.ExecutablePath = command.ExecutablePath;
             mentioned.Add(nameof(ServerConfiguration.ExecutablePath));
         }
 
-        _viewModel.LogService.AppLog($"Profile imported from batch file: {filePath}");
-        _viewModel.ImportConfiguration(config, Path.GetFileName(filePath), mentioned);
+        _viewModel.LogService.AppLog($"Command imported from {sourceName}");
+        _viewModel.ImportConfiguration(config, sourceName, mentioned);
+        return true;
     }
 
-    private async Task LoadShellFileAsync(string filePath)
+    private async void PasteCommandClick(object? sender, RoutedEventArgs e)
     {
-        if (_viewModel == null)
-            return;
+        if (_viewModel == null || _viewModel.IsImportReviewVisible) return;
 
-        var content = await File.ReadAllTextAsync(filePath);
-        var (exePath, tokens) = ExtractLlamaCommandFromShell(content);
-
-        if (tokens.Count == 0)
+        try
         {
-            _viewModel.LogService.Error($"[Import] No valid llama-server command with model argument (-m, --model, or --models-dir) found in shell script.");
-            return;
-        }
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            var text = clipboard == null ? null : await clipboard.TryGetTextAsync();
+            var loc = LocalizedStrings.Instance;
 
-        var config = ServerConfigurationExtensions.ParseFromTokens(tokens);
-        if (config == null)
+            if (!ImportCommandText(text, loc.PasteCommandSource))
+                await MessageBox.ShowAsync(this, loc.PasteCommandNothing, loc.PasteCommand,
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
         {
-            _viewModel.LogService.Error($"[Import] Failed to parse command line arguments from shell script.");
-            return;
+            _viewModel.LogService.Error($"[Import] Could not read the clipboard: {ex.Message}");
         }
-
-        // Only set exePath if it's a meaningful absolute path (not just "./" or similar relative)
-        var mentioned = ConfigurationDiff.PropertiesMentionedIn(tokens);
-        if (!string.IsNullOrEmpty(exePath) &&
-            exePath != "./" && exePath != ".\\" &&
-            exePath != "." &&
-            !string.Equals(exePath, ".", StringComparison.OrdinalIgnoreCase))
-        {
-            config.ExecutablePath = exePath;
-            mentioned.Add(nameof(ServerConfiguration.ExecutablePath));
-        }
-
-        _viewModel.LogService.AppLog($"Profile imported from shell script: {filePath}");
-        _viewModel.ImportConfiguration(config, Path.GetFileName(filePath), mentioned);
     }
 
-    private (string? exePath, List<string> tokens) ExtractLlamaCommand(string batContent)
-    {
-        var lines = batContent.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
-        
-        // Use the same parsing that the server uses
-        var knownModelArgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "-m", "--model", "-mu", "--model-url",
-            "--models-dir", "--hf-repo", "-hf", "-hfr", "--hf-repo-draft",
-            "-hfd", "-hfrd", "--hf-file", "-hff", "--hf-repo-v", "-hfv",
-            "--hf-file-v", "--docker-repo", "-dr"
-        };
-
-        for (int lineIdx = 0; lineIdx < lines.Length; lineIdx++)
-        {
-            var line = lines[lineIdx];
-            
-            // Skip empty lines and comments
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-            
-            var trimmedLine = line.Trim();
-            if (string.IsNullOrWhiteSpace(trimmedLine))
-                continue;
-            
-            // Skip REM and :: comments
-            if (trimmedLine.StartsWith("rem ", StringComparison.OrdinalIgnoreCase) ||
-                trimmedLine.StartsWith("rem:", StringComparison.OrdinalIgnoreCase) ||
-                trimmedLine.StartsWith("::"))
-                continue;
-
-            // Line must contain "llama-server"
-            var exeIndex = trimmedLine.IndexOf("llama-server", StringComparison.OrdinalIgnoreCase);
-            if (exeIndex < 0)
-                continue;
-
-            // Determine exe name end position (check for .exe)
-            int exeNameEnd = exeIndex + "llama-server".Length;
-            if (exeNameEnd + 4 <= trimmedLine.Length &&
-                trimmedLine.Substring(exeNameEnd, 4).Equals(".exe", StringComparison.OrdinalIgnoreCase))
-            {
-                exeNameEnd += 4;
-            }
-
-            // Check if exe is inside quotes (e.g. "C:\llama-server.exe")
-            // Scan backwards from exeIndex past path chars to find an opening quote
-            string? exePath = null;
-            int argsStart;
-            int openingQuote = -1;
-
-            for (int qi = exeIndex - 1; qi >= 0; qi--)
-            {
-                char qc = trimmedLine[qi];
-                if (qc == '"' || qc == '\'')
-                {
-                    openingQuote = qi;
-                    break;
-                }
-                else if (qc == ' ' || qc == '\t')
-                {
-                    break; // whitespace boundary — no opening quote
-                }
-                // else: path char (e.g. C, :, \), keep scanning
-            }
-
-            if (openingQuote >= 0)
-            {
-                char quoteChar = trimmedLine[openingQuote];
-                // Find closing quote after exe name
-                int closeQuote = trimmedLine.IndexOf(quoteChar, exeNameEnd);
-                if (closeQuote >= 0)
-                {
-                    exePath = trimmedLine.Substring(openingQuote + 1, closeQuote - openingQuote - 1);
-                    argsStart = closeQuote + 1;
-                }
-                else
-                {
-                    argsStart = exeNameEnd;
-                }
-            }
-            else
-            {
-                // Not quoted — extract path prefix from before exe name
-                if (exeIndex > 0)
-                {
-                    var beforeExe = trimmedLine.Substring(0, exeIndex);
-                    var pathStart = 0;
-                    while (pathStart < beforeExe.Length && (beforeExe[pathStart] == ' ' || beforeExe[pathStart] == '\t'))
-                        pathStart++;
-
-                    if (pathStart < beforeExe.Length)
-                    {
-                        var potentialPath = beforeExe.Substring(pathStart);
-                        potentialPath = potentialPath.TrimEnd(' ', '\t');
-                        if (potentialPath.EndsWith("\""))
-                            potentialPath = potentialPath.TrimEnd('"');
-
-                        if (!string.IsNullOrWhiteSpace(potentialPath))
-                        {
-                            exePath = potentialPath;
-                        }
-                    }
-                }
-                argsStart = exeNameEnd;
-            }
-
-            string afterExe = argsStart < trimmedLine.Length ? trimmedLine.Substring(argsStart) : "";
-
-            // Strip leading quote if the executable name was quoted (e.g. "llama-server")
-            if (afterExe.Length > 0 && (afterExe[0] == '"' || afterExe[0] == '\''))
-                afterExe = afterExe.Substring(1);
-
-            // Use CommandLineParser.ParseArguments to properly split arguments
-            var parsedArgs = CommandLineParser.ParseArguments(afterExe);
-            
-            // Check if any model-related argument exists with non-empty value
-            bool hasModelArg = false;
-            for (int i = 0; i < parsedArgs.Count; i++)
-            {
-                var arg = parsedArgs[i];
-                if (knownModelArgs.Contains(arg))
-                {
-                    // Check if next arg is a value (not another flag)
-                    if (i + 1 < parsedArgs.Count && !parsedArgs[i + 1].StartsWith("-"))
-                    {
-                        hasModelArg = true;
-                        break;
-                    }
-                    // Also check for --models-dir which is a flag itself (no value needed)
-                    if (arg == "--models-dir")
-                    {
-                        hasModelArg = true;
-                        break;
-                    }
-                }
-            }
-            
-            if (!hasModelArg)
-                continue;
-
-            // Remove trailing pause/exit commands
-            while (parsedArgs.Count > 0 && 
-                   (parsedArgs[^1].Equals("pause", StringComparison.OrdinalIgnoreCase) ||
-                    parsedArgs[^1].Equals("&", StringComparison.OrdinalIgnoreCase)))
-            {
-                parsedArgs.RemoveAt(parsedArgs.Count - 1);
-            }
-            
-            if (parsedArgs.Count > 0)
-            {
-                return (exePath, parsedArgs);
-            }
-        }
-
-        return (null, new List<string>());
-    }
-
-    private (string? exePath, List<string> tokens) ExtractLlamaCommandFromShell(string shellContent)
-    {
-        var lines = shellContent.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
-        
-        var knownModelArgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "-m", "--model", "-mu", "--model-url",
-            "--models-dir", "--hf-repo", "-hf", "-hfr", "--hf-repo-draft",
-            "-hfd", "-hfrd", "--hf-file", "-hff", "--hf-repo-v", "-hfv",
-            "--hf-file-v", "--docker-repo", "-dr"
-        };
-
-        for (int lineIdx = 0; lineIdx < lines.Length; lineIdx++)
-        {
-            var line = lines[lineIdx];
-            
-            // Skip empty lines and comments
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-            
-            var trimmedLine = line.Trim();
-            if (string.IsNullOrWhiteSpace(trimmedLine))
-                continue;
-            
-            // Skip shell comments (#) and shebang lines (#!)
-            if (trimmedLine.StartsWith("#"))
-                continue;
-
-            // Line must contain "llama-server" (exe name or path)
-            var exeIndex = trimmedLine.IndexOf("llama-server", StringComparison.OrdinalIgnoreCase);
-            if (exeIndex < 0)
-                continue;
-
-            // Determine exe name end position (check for .exe)
-            int exeNameEnd = exeIndex + "llama-server".Length;
-            if (exeNameEnd + 4 <= trimmedLine.Length &&
-                trimmedLine.Substring(exeNameEnd, 4).Equals(".exe", StringComparison.OrdinalIgnoreCase))
-            {
-                exeNameEnd += 4;
-            }
-
-            // Check if exe is inside quotes (e.g. "C:\llama-server.exe")
-            // Scan backwards from exeIndex past path chars to find an opening quote
-            string? exePath = null;
-            int argsStart;
-            int openingQuote = -1;
-
-            for (int qi = exeIndex - 1; qi >= 0; qi--)
-            {
-                char qc = trimmedLine[qi];
-                if (qc == '"' || qc == '\'')
-                {
-                    openingQuote = qi;
-                    break;
-                }
-                else if (qc == ' ' || qc == '\t')
-                {
-                    break; // whitespace boundary — no opening quote
-                }
-                // else: path char (e.g. C, :, \), keep scanning
-            }
-
-            if (openingQuote >= 0)
-            {
-                char quoteChar = trimmedLine[openingQuote];
-                // Find closing quote after exe name
-                int closeQuote = trimmedLine.IndexOf(quoteChar, exeNameEnd);
-                if (closeQuote >= 0)
-                {
-                    exePath = trimmedLine.Substring(openingQuote + 1, closeQuote - openingQuote - 1);
-                    argsStart = closeQuote + 1;
-                }
-                else
-                {
-                    argsStart = exeNameEnd;
-                }
-            }
-            else
-            {
-                // Not quoted — extract path prefix from before exe name
-                if (exeIndex > 0)
-                {
-                    var beforeExe = trimmedLine.Substring(0, exeIndex);
-                    var pathStart = 0;
-                    while (pathStart < beforeExe.Length && (beforeExe[pathStart] == ' ' || beforeExe[pathStart] == '\t'))
-                        pathStart++;
-
-                    if (pathStart < beforeExe.Length)
-                    {
-                        var potentialPath = beforeExe.Substring(pathStart);
-                        potentialPath = potentialPath.TrimEnd(' ', '\t');
-                        if (potentialPath.EndsWith("\""))
-                            potentialPath = potentialPath.TrimEnd('"');
-
-                        if (!string.IsNullOrWhiteSpace(potentialPath))
-                        {
-                            exePath = potentialPath;
-                        }
-                    }
-                }
-                argsStart = exeNameEnd;
-            }
-
-            string afterExe = argsStart < trimmedLine.Length ? trimmedLine.Substring(argsStart) : "";
-
-            // Strip leading quote if the executable name was quoted (e.g. "llama-server")
-            if (afterExe.Length > 0 && (afterExe[0] == '"' || afterExe[0] == '\''))
-                afterExe = afterExe.Substring(1);
-
-            // Use CommandLineParser.ParseArguments to properly split arguments
-            var parsedArgs = CommandLineParser.ParseArguments(afterExe);
-            
-            // Check if any model-related argument exists with non-empty value
-            bool hasModelArg = false;
-            for (int i = 0; i < parsedArgs.Count; i++)
-            {
-                var arg = parsedArgs[i];
-                if (knownModelArgs.Contains(arg))
-                {
-                    // Check if next arg is a value (not another flag)
-                    if (i + 1 < parsedArgs.Count && !parsedArgs[i + 1].StartsWith("-"))
-                    {
-                        hasModelArg = true;
-                        break;
-                    }
-                    // Also check for --models-dir which is a flag itself (no value needed)
-                    if (arg == "--models-dir")
-                    {
-                        hasModelArg = true;
-                        break;
-                    }
-                }
-            }
-            
-            if (!hasModelArg)
-                continue;
-
-            // Remove trailing semicolons and comments (shell style)
-            while (parsedArgs.Count > 0)
-            {
-                var last = parsedArgs[^1];
-                if (last.TrimEnd().EndsWith(";") || last.TrimEnd().EndsWith("\\"))
-                {
-                    parsedArgs.RemoveAt(parsedArgs.Count - 1);
-                }
-                else
-                {
-                    break;
-                }
-            }
-            
-            if (parsedArgs.Count > 0)
-            {
-                return (exePath, parsedArgs);
-            }
-        }
-
-        return (null, new List<string>());
-    }
-
-    private static bool ContainsModelArgument(string line)
-    {
-        // Pattern: argument followed by non-empty value that doesn't start with -
-        // Valid: -m model.gguf, --model model.gguf, --models-dir ./models
-        // Invalid: -m, --model, -m -other, --models-dir --something
-
-        // Check for -m or --model followed by a value
-        if (TryGetArgumentValue(line, "-m", out var val) && !string.IsNullOrWhiteSpace(val) && !val.StartsWith("-"))
-            return true;
-        if (TryGetArgumentValue(line, "--model", out val) && !string.IsNullOrWhiteSpace(val) && !val.StartsWith("-"))
-            return true;
-        
-        // Check for --models-dir (requires value)
-        if (TryGetArgumentValue(line, "--models-dir", out val) && !string.IsNullOrWhiteSpace(val) && !val.StartsWith("-"))
-            return true;
-
-        return false;
-    }
-
-    private static bool TryGetArgumentValue(string line, string arg, out string value)
-    {
-        value = string.Empty;
-        var argIndex = line.IndexOf(arg, StringComparison.OrdinalIgnoreCase);
-        if (argIndex < 0)
-            return false;
-
-        // Find the position after the argument
-        var valueStart = argIndex + arg.Length;
-        if (valueStart > line.Length)
-            return false;
-
-        // Skip whitespace
-        var wsStart = valueStart;
-        while (wsStart < line.Length && (line[wsStart] == ' ' || line[wsStart] == '\t'))
-            wsStart++;
-
-        if (wsStart >= line.Length)
-            return false;
-
-        // Find the end of the value (next space or end of line, but respect quotes)
-        var valueEnd = line.Length; // Default to end of line
-        var inQuotes = false;
-        char? quoteChar = null;
-
-        for (int i = wsStart; i < line.Length; i++)
-        {
-            char c = line[i];
-            
-            if (inQuotes)
-            {
-                if (c == quoteChar)
-                {
-                    valueEnd = i; // capture position before closing quote
-                    inQuotes = false;
-                    quoteChar = null;
-                }
-                else if (c == '\\' && i + 1 < line.Length && (line[i + 1] == '"' || line[i + 1] == '\\'))
-                {
-                    i++; // skip escaped quote/backslash
-                }
-            }
-            else if (c == '"' || c == '\'')
-            {
-                inQuotes = true;
-                quoteChar = c;
-                valueStart = wsStart + 1; // exclude opening quote
-            }
-            else if (c == ' ' || c == '\t')
-            {
-                valueEnd = i; // capture position before the space
-                break;
-            }
-        }
-
-        value = line.Substring(valueStart, valueEnd - valueStart).Trim().Trim('"', '\'');
-        return value.Length > 0;
-    }
 
     #endregion
 
@@ -2311,12 +1870,10 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         if (_isClosing)
         {
             System.Diagnostics.Debug.WriteLine("OnClosing: Already closing, calling base.OnClosing");
-            // Already closing - allow it
             base.OnClosing(e);
             return;
         }
 
-        // If closing from tray, skip confirmation dialog and force close
         if (IsClosingFromTray)
         {
             System.Diagnostics.Debug.WriteLine("OnClosing: Closing from tray, stopping server");
@@ -2341,7 +1898,6 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
 
         if (_viewModel != null && (_viewModel.IsServerRunning || _viewModel.HasAnyRunningInstances))
         {
-            // Cancel closing first - we will close manually after dialog
             e.Cancel = true;
             _isClosing = true;
             
@@ -2354,11 +1910,9 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
 
             if (result == MessageBoxResult.Yes)
             {
-                // User confirmed - stop server first
                 await _viewModel.StopServerIfRunningAsync();
                 await SaveWindowPositionAsync();
 
-                // Now close for real
                 Close();
             }
             else
@@ -2368,8 +1922,6 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         }
         else
         {
-            // Server isn't running: save settings, then close. Defer the actual close
-            // (e.Cancel) so the process can't exit mid-write and corrupt app.json.
             if (_viewModel != null)
             {
                 e.Cancel = true;

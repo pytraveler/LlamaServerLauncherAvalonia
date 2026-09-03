@@ -242,6 +242,18 @@
   <data name="ClearFields" xml:space="preserve">
     <value>Очистить поля</value>
   </data>
+  <data name="PasteCommand" xml:space="preserve">
+    <value>Вставить команду</value>
+  </data>
+  <data name="PasteCommandSource" xml:space="preserve">
+    <value>буфер обмена</value>
+  </data>
+  <data name="PasteCommandNothing" xml:space="preserve">
+    <value>В буфере обмена нет командной строки llama-server с указанием модели. Скопируйте команду целиком, вместе с переносами строк, и повторите.</value>
+  </data>
+  <data name="TooltipPasteCommand" xml:space="preserve">
+    <value>Прочитать командную строку llama-server из буфера обмена и показать, что она изменит. Многострочная команда годится, голый список аргументов тоже.</value>
+  </data>
   <data name="Import" xml:space="preserve">
     <value>Импорт</value>
   </data>

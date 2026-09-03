@@ -126,6 +126,10 @@ public class LocalizedStrings : INotifyPropertyChanged
     public string ExportFormatBat => GetString("ExportFormatBat");
     public string ExportToBat => GetString("ExportToBat");
     public string Import => GetString("Import");
+    public string PasteCommand => GetString("PasteCommand");
+    public string PasteCommandSource => GetString("PasteCommandSource");
+    public string PasteCommandNothing => GetString("PasteCommandNothing");
+    public string TooltipPasteCommand => GetString("TooltipPasteCommand");
     public string Paths => GetString("Paths");
     public string LlamaServerExe => GetString("LlamaServerExe");
     public string ModelM => GetString("ModelM");

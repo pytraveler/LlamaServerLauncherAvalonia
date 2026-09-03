@@ -242,6 +242,18 @@
   <data name="ClearFields" xml:space="preserve">
     <value>Clear fields</value>
   </data>
+  <data name="PasteCommand" xml:space="preserve">
+    <value>Paste command</value>
+  </data>
+  <data name="PasteCommandSource" xml:space="preserve">
+    <value>clipboard</value>
+  </data>
+  <data name="PasteCommandNothing" xml:space="preserve">
+    <value>The clipboard holds no llama-server command line with a model argument. Copy the whole command, line breaks and all, and try again.</value>
+  </data>
+  <data name="TooltipPasteCommand" xml:space="preserve">
+    <value>Read a llama-server command line from the clipboard and show what it would change. Multi-line commands are fine, so is a bare list of arguments.</value>
+  </data>
   <data name="Import" xml:space="preserve">
     <value>Import</value>
   </data>
