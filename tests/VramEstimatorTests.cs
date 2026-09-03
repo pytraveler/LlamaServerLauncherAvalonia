@@ -16,7 +16,9 @@ public static class VramEstimatorTests
         IReadOnlyList<int>? headsPerLayer = null,
         IReadOnlyList<bool>? slidingPattern = null,
         int? slidingWindow = null,
-        int? keyLengthSwa = null)
+        int? keyLengthSwa = null,
+        int? maxContext = null,
+        bool scalarHeads = true)
     {
         var blockList = new long[blocks];
         var expertList = new long[blocks];
@@ -32,8 +34,9 @@ public static class VramEstimatorTests
         {
             Architecture = "test",
             BlockCount = blocks,
-            HeadCount = 8,
-            HeadCountKv = 8,
+            MaxContext = maxContext,
+            HeadCount = scalarHeads ? 8 : null,
+            HeadCountKv = scalarHeads ? 8 : null,
             KeyLength = 128,
             ValueLength = 128,
             KeyLengthSwa = keyLengthSwa,
@@ -148,6 +151,19 @@ public static class VramEstimatorTests
         h.Check("their weights are still measured",
             noKv?.WeightBytes == 4 * GB + 512 * MB, noKv?.WeightBytes.ToString() ?? "null");
 
+        var noHeadsAnywhere = Model(headsPerLayer: new[] { 0, 0, 0, 0 }, scalarHeads: false);
+        h.Check("a file that lists nothing but zero kv heads cannot be measured",
+            VramEstimator.Estimate(noHeadsAnywhere, new VramRequest { ContextSize = 32768 }) == null, "null");
+
+        var partialHeads = Model(headsPerLayer: new[] { 0, 8, 8, 8 }, scalarHeads: false);
+        var partial2 = VramEstimator.Estimate(partialHeads, new VramRequest { ContextSize = 1024 });
+        h.Check("a layer nobody can size is left out of the cache total",
+            partial2?.KvBytes == 3 * 1024 * KvPerTokenPerLayer, partial2?.KvBytes.ToString() ?? "null");
+        h.Check("and out of the count of cached layers",
+            partial2?.KvBlocksOnGpu == 3, partial2?.KvBlocksOnGpu.ToString() ?? "null");
+        h.Check("and the estimate says so",
+            partial2?.Approximate == true, (partial2?.Approximate)?.ToString() ?? "null");
+
         var perLayer = Model(headsPerLayer: new[] { 4, 8, 8, 8 });
         var mixed = VramEstimator.Estimate(perLayer, new VramRequest { ContextSize = 1024 });
         h.Check("a layer with fewer kv heads caches less",
@@ -225,12 +241,34 @@ public static class VramEstimatorTests
         h.Check("a card that cannot hold a single layer is offered nothing",
             VramEstimator.MaxGpuLayers(model, request, 512 * MB) == 0, "none");
 
-        var context = VramEstimator.MaxContext(model, request, 32 * GB);
-        h.Check("the context offer is a whole number of cache pages",
-            context is int c && c % 256 == 0, context?.ToString() ?? "null");
+        var capped = Model(maxContext: 262144);
+        h.Check("a model whose own limit fits is offered exactly that limit",
+            VramEstimator.MaxContext(capped, request, 200 * GB) == 262144,
+            VramEstimator.MaxContext(capped, request, 200 * GB)?.ToString() ?? "null");
+
+        int? searched = VramEstimator.MaxContext(capped, request, 8 * GB);
+        h.Check("a tighter card cuts the context below the model's limit",
+            searched is > 256 and < 262144, searched?.ToString() ?? "null");
+        h.Check("a searched offer is a whole number of cache pages",
+            searched % 256 == 0, searched?.ToString() ?? "null");
+        var atContext = VramEstimator.Estimate(capped, request with { ContextSize = searched ?? 0 });
+        h.Check("the context offer fits",
+            VramEstimator.Judge(atContext!.TotalBytes, 8 * GB) == VramFit.Fits, "fits");
+        var onePageMore = VramEstimator.Estimate(capped, request with { ContextSize = (searched ?? 0) + 256 });
+        h.Check("one cache page more would not",
+            VramEstimator.Judge(onePageMore!.TotalBytes, 8 * GB) != VramFit.Fits, "does not");
         h.Check("a bigger card allows a longer context",
-            VramEstimator.MaxContext(model, request, 64 * GB) >= context,
-            VramEstimator.MaxContext(model, request, 64 * GB)?.ToString() ?? "null");
+            VramEstimator.MaxContext(capped, request, 16 * GB) > searched,
+            VramEstimator.MaxContext(capped, request, 16 * GB)?.ToString() ?? "null");
+
+        h.Check("a model that declares an odd limit is not rounded down to please the search",
+            VramEstimator.MaxContext(Model(maxContext: 200000), request, 200 * GB) == 200000,
+            VramEstimator.MaxContext(Model(maxContext: 200000), request, 200 * GB)?.ToString() ?? "null");
+
+        h.Check("a context beyond every reasonable file cannot break the search",
+            VramEstimator.MaxContext(Model(maxContext: int.MaxValue), request, 40 * GB) > 256,
+            VramEstimator.MaxContext(Model(maxContext: int.MaxValue), request, 40 * GB)?.ToString() ?? "null");
+
         h.Check("a card too small for the weights gets no context offer",
             VramEstimator.MaxContext(model, request, 2 * GB) == null, "null");
 
@@ -240,6 +278,9 @@ public static class VramEstimatorTests
         var withExperts = VramEstimator.Estimate(model, request with { CpuMoeBlocks = experts ?? 0 });
         h.Check("the offered number is the one that fits",
             VramEstimator.Judge(withExperts!.TotalBytes, 3 * GB) == VramFit.Fits, "fits");
+        var oneBlockFewer = VramEstimator.Estimate(model, request with { CpuMoeBlocks = (experts ?? 1) - 1 });
+        h.Check("keeping one more block of experts on the card would not fit",
+            VramEstimator.Judge(oneBlockFewer!.TotalBytes, 3 * GB) != VramFit.Fits, "does not");
         h.Check("a card that fits the model needs no experts on the host",
             VramEstimator.SuggestedCpuMoeBlocks(model, request, 32 * GB) == 0, "none");
         h.Check("a model without experts has nothing to offer",

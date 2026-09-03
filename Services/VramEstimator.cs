@@ -61,7 +61,7 @@ public static class VramEstimator
         if (blocks <= 0) return null;
 
         int headsFallback = info.HeadCountKv ?? info.HeadCount ?? 0;
-        if (tensors.KvBlockCount > 0 && headsFallback <= 0 && info.HeadCountKvPerLayer == null) return null;
+        if (tensors.KvBlockCount > 0 && headsFallback <= 0 && !HasUsablePerLayerHeads(info)) return null;
 
         int requested = request.GpuLayers < 0 ? blocks + 1 : request.GpuLayers;
         int offloaded = Math.Clamp(requested, 0, blocks);
@@ -95,6 +95,11 @@ public static class VramEstimator
         {
             if (!tensors.BlockHasKv(i)) continue;
             long bytes = KvBytesForLayer(info, request, i, ref approximate);
+            if (bytes <= 0)
+            {
+                approximate = true;
+                continue;
+            }
             if (i >= firstGpuBlock)
             {
                 kvGpu += bytes;
@@ -154,9 +159,9 @@ public static class VramEstimator
         if (!Fits(info, request with { ContextSize = low }, availableBytes)) return null;
         if (Fits(info, request with { ContextSize = high }, availableBytes)) return high;
 
-        while (low + KvPadding <= high)
+        while ((long)low + KvPadding <= high)
         {
-            int mid = (low + high) / 2 / KvPadding * KvPadding;
+            int mid = (int)(((long)low + high) / 2 / KvPadding * KvPadding);
             if (mid <= low) break;
             if (Fits(info, request with { ContextSize = mid }, availableBytes)) low = mid;
             else high = mid - KvPadding;
@@ -195,6 +200,14 @@ public static class VramEstimator
         long keys = context * heads * keyLength * keySize / keyBlock;
         long values = context * heads * valueLength * valueSize / valueBlock;
         return keys + values;
+    }
+
+    private static bool HasUsablePerLayerHeads(GgufModelInfo info)
+    {
+        if (info.HeadCountKvPerLayer is not { } perLayer) return false;
+        foreach (var heads in perLayer)
+            if (heads > 0) return true;
+        return false;
     }
 
     private static int HeadsKv(GgufModelInfo info, int layer)
