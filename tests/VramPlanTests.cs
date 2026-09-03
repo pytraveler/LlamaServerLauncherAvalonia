@@ -137,6 +137,17 @@ public static class VramPlanTests
         h.Check("losing the reading is not something to sit on",
             VramPlan.Settle(20 * GB, 0, card) == 0, "dropped");
 
+        h.Check("with nothing running the free reading is what there is",
+            VramPlan.Available(9 * GB, 0, card) == 9 * GB, "as read");
+        h.Check("a restart hands back what the running server holds",
+            VramPlan.Available(9 * GB, 20 * GB, card) == 29 * GB, "reclaimed");
+        h.Check("but never more than the card has",
+            VramPlan.Available(9 * GB, 30 * GB, card) == card, "capped");
+        h.Check("without a card size there is nothing to cap against",
+            VramPlan.Available(9 * GB, 30 * GB, 0) == 39 * GB, "uncapped");
+        h.Check("nonsense readings do not subtract",
+            VramPlan.Available(-5 * GB, -5 * GB, card) == 0, "floored");
+
         h.Check("gigabytes are counted in binary units",
             Math.Abs(VramPlan.Gigabytes(GB) - 1.0) < 1e-9, VramPlan.Gigabytes(GB).ToString());
         h.Check("and rounded to one decimal",

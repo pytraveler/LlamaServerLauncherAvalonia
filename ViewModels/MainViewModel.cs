@@ -2615,6 +2615,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private VramEstimate? _vramEstimate;
     private VramFit _vramFit = VramFit.Unknown;
     private long _vramFreeBytes;
+    private long _vramAvailableBytes;
     private long _vramTotalBytes;
     private int? _vramMaxGpuLayers;
     private int? _vramMaxContext;
@@ -2630,6 +2631,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _vramTotalBytes = VramPlan.TotalBytes(Gpu0?.MemTotalMb);
         _vramFreeBytes = VramPlan.Settle(_vramFreeBytes,
             VramPlan.FreeBytes(Gpu0?.MemTotalMb, Gpu0?.MemUsedMb), _vramTotalBytes);
+        _vramAvailableBytes = _vramFreeBytes;
         _vramEstimate = null;
         _vramFit = VramFit.Unknown;
         _vramMaxGpuLayers = null;
@@ -2645,25 +2647,27 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             _vramEstimate = VramEstimator.Estimate(info, request);
 
             if (_vramEstimate != null)
-                _vramFit = VramPlan.Verdict(_vramEstimate.TotalBytes, _vramFreeBytes, _vramTotalBytes);
-
-            if (_vramEstimate != null) FindVramMeasurement(info, request);
-
-            if (_vramEstimate != null && _vramFreeBytes > 0)
             {
-                int layers = VramEstimator.MaxGpuLayers(info, request, _vramFreeBytes);
+                _vramAvailableBytes = VramPlan.Available(_vramFreeBytes,
+                    FindVramReclaim(info, request), _vramTotalBytes);
+                _vramFit = VramPlan.Verdict(_vramEstimate.TotalBytes, _vramAvailableBytes, _vramTotalBytes);
+            }
+
+            if (_vramEstimate != null && _vramAvailableBytes > 0)
+            {
+                int layers = VramEstimator.MaxGpuLayers(info, request, _vramAvailableBytes);
                 _vramMaxGpuLayers = layers < 0 ? tensors.BlockCount : layers;
-                _vramMaxContext = VramEstimator.MaxContext(info, request, _vramFreeBytes);
-                _vramCpuMoeBlocks = VramEstimator.SuggestedCpuMoeBlocks(info, request, _vramFreeBytes);
+                _vramMaxContext = VramEstimator.MaxContext(info, request, _vramAvailableBytes);
+                _vramCpuMoeBlocks = VramEstimator.SuggestedCpuMoeBlocks(info, request, _vramAvailableBytes);
             }
         }
 
         RaiseVramProps();
     }
 
-    private void FindVramMeasurement(GgufModelInfo info, VramRequest request)
+    private long FindVramReclaim(GgufModelInfo info, VramRequest request)
     {
-        if (string.IsNullOrWhiteSpace(_modelPath)) return;
+        if (string.IsNullOrWhiteSpace(_modelPath)) return 0;
 
         foreach (var instance in RunningInstances)
         {
@@ -2671,15 +2675,21 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             if (!string.Equals(instance.Configuration.ModelPath, _modelPath, StringComparison.OrdinalIgnoreCase))
                 continue;
 
+            var running = VramPlan.RequestFrom(instance.Configuration, info.MaxContext);
             var report = instance.MemoryReport;
-            if (!report.HasAny) continue;
 
-            _vramMeasured = report;
-            if (VramPlan.RequestFrom(instance.Configuration, info.MaxContext) == request
-                && _vramEstimate is VramEstimate estimate)
-                _vramMeasuredDelta = estimate.TotalBytes - report.TotalBytes;
-            return;
+            if (report.HasAny)
+            {
+                _vramMeasured = report;
+                if (running == request && _vramEstimate is VramEstimate estimate)
+                    _vramMeasuredDelta = estimate.TotalBytes - report.TotalBytes;
+                return report.TotalBytes;
+            }
+
+            return VramEstimator.Estimate(info, running)?.TotalBytes ?? 0;
         }
+
+        return 0;
     }
 
     public bool HasVramMeasured => _vramMeasured != null;
@@ -2753,8 +2763,12 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             if (format == null)
                 return string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramNeed, need);
 
-            return string.Format(CultureInfo.InvariantCulture, format,
-                need, VramPlan.Gigabytes(_vramFreeBytes), VramPlan.Gigabytes(_vramTotalBytes));
+            var text = string.Format(CultureInfo.InvariantCulture, format,
+                need, VramPlan.Gigabytes(_vramAvailableBytes), VramPlan.Gigabytes(_vramTotalBytes));
+
+            return _vramAvailableBytes > _vramFreeBytes
+                ? text + " " + LocalizedStrings.Instance.VramAfterRestart
+                : text;
         }
     }
 

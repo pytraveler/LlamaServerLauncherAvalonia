@@ -23,6 +23,8 @@ Once a server is running with the model named on the form, a third line can appe
 
 That line only shows up when the server was started with **Verbose Logging** on, on the Options tab, because llama.cpp prints its memory breakdown at no lower verbosity. It is worth turning on for a launch or two to see how close the estimate runs on your own hardware, and worth turning back off afterwards: the same switch also prints a line per tensor and a great deal more besides.
 
+While a server is running with the model named on the form, whatever it holds counts as free again and the line is marked "(after a restart)": applying new settings restarts the server, and that frees the old memory before it takes the new. The three hints do the same, so they stop suggesting that a model already sitting on the card be moved off it. What the running server holds is taken from its own measurement when there is one, and from an estimate of its settings when there is not.
+
 Three hints appear next to the fields themselves, each setting a value when clicked: the largest layer count that fits at the current context, the largest context that fits with the current layer count, and - for MoE models - how many expert blocks to leave on the CPU so that the rest fits. A hint hides itself when what it offers is already what is set.
 
 The estimate knows nothing about mmproj, a second card or a tensor split, and it says nothing about speed. It is a starting point, not a promise; the Optimize window still measures rather than guesses.

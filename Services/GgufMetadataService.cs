@@ -28,6 +28,11 @@ public sealed record GgufModelInfo
     public IReadOnlyList<bool>? SlidingWindowPattern { get; init; }
     public int? RopeDimensionCount { get; init; }
     public int? KvLoraRank { get; init; }
+    public int? FullAttentionInterval { get; init; }
+    public int? SsmConvKernel { get; init; }
+    public int? SsmStateSize { get; init; }
+    public int? SsmGroupCount { get; init; }
+    public int? SsmInnerSize { get; init; }
     public int? SlidingWindow { get; init; }
     public int? VocabSize { get; init; }
     public int? SplitCount { get; init; }
@@ -281,6 +286,11 @@ public static class GgufMetadataService
                 SlidingWindowPattern = ToBoolList(PickArray(arrays, arch, "sliding_window_pattern")),
                 RopeDimensionCount = ToPositiveInt(Pick(ints, arch, "rope.dimension_count")),
                 KvLoraRank = ToPositiveInt(Pick(ints, arch, "kv_lora_rank")),
+                FullAttentionInterval = ToPositiveInt(Pick(ints, arch, "full_attention_interval")),
+                SsmConvKernel = ToPositiveInt(Pick(ints, arch, "ssm.conv_kernel")),
+                SsmStateSize = ToPositiveInt(Pick(ints, arch, "ssm.state_size")),
+                SsmGroupCount = ToPositiveInt(Pick(ints, arch, "ssm.group_count")),
+                SsmInnerSize = ToPositiveInt(Pick(ints, arch, "ssm.inner_size")),
                 SlidingWindow = ToPositiveInt(Pick(ints, arch, "sliding_window")),
                 VocabSize = ToPositiveInt(Pick(ints, arch, "vocab_size") ?? tokenCount),
                 SplitCount = ToPositiveInt(Exact(ints, "split.count")),

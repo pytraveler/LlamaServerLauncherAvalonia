@@ -155,6 +155,7 @@ public class LocalizedStrings : INotifyPropertyChanged
     public string VramPartHost => GetString("VramPartHost");
     public string VramPartApprox => GetString("VramPartApprox");
     public string VramPartHeadroom => GetString("VramPartHeadroom");
+    public string VramAfterRestart => GetString("VramAfterRestart");
     public string VramMeasured => GetString("VramMeasured");
     public string VramMeasuredHeadroom => GetString("VramMeasuredHeadroom");
     public string VramMeasuredOver => GetString("VramMeasuredOver");

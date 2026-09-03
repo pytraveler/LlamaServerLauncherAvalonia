@@ -87,13 +87,29 @@ public static class VramEstimator
         }
 
         long nonRepeating = Math.Max(0, tensors.TotalBytes - tensors.RepeatingBytes);
-        if (full) weights += nonRepeating; else hostWeights += nonRepeating;
+        long lookupOnHost = tensors.OutputBytes > 0 ? Math.Min(nonRepeating, tensors.EmbeddingBytes) : 0;
+        if (full)
+        {
+            weights += nonRepeating - lookupOnHost;
+            hostWeights += lookupOnHost;
+        }
+        else
+        {
+            hostWeights += nonRepeating;
+        }
 
         bool approximate = false;
         long kvGpu = 0, kvHost = 0;
         int kvOnGpu = 0;
+        int recurrentGpu = 0, recurrentHost = 0;
         for (int i = 0; i < blocks; i++)
         {
+            if (IsRecurrentBlock(info, tensors, i))
+            {
+                if (i >= firstGpuBlock) recurrentGpu++; else recurrentHost++;
+                continue;
+            }
+
             if (!tensors.BlockHasKv(i)) continue;
             long bytes = KvBytesForLayer(info, request, i, ref approximate);
             if (bytes <= 0)
@@ -111,6 +127,10 @@ public static class VramEstimator
                 kvHost += bytes;
             }
         }
+
+        long recurrent = RecurrentBytesPerBlock(info, request);
+        kvGpu += recurrentGpu * recurrent;
+        kvHost += recurrentHost * recurrent;
 
         long compute = offloaded > 0 ? ComputeBytes(info, request, full) : 0;
         long overhead = offloaded > 0 ? BackendOverheadBytes : 0;
@@ -196,13 +216,39 @@ public static class VramEstimator
         int valueLength = swa ? info.ValueLengthSwa ?? ValueLength(info) : ValueLength(info);
         if (keyLength <= 0 || valueLength <= 0) return 0;
 
-        long context = swa ? SlidingContext(info, request) : PaddedContext(request.ContextSize);
+        long context = swa ? SlidingContext(info, request) : PaddedContext(request);
         var (keyBlock, keySize) = CacheTypeSize(request.CacheTypeK);
         var (valueBlock, valueSize) = CacheTypeSize(request.CacheTypeV);
 
         long keys = context * heads * keyLength * keySize / keyBlock;
         long values = context * heads * valueLength * valueSize / valueBlock;
         return keys + values;
+    }
+
+    public static bool IsRecurrentBlock(GgufModelInfo info, GgufTensorSummary tensors, int index)
+    {
+        if (RecurrentStateElements(info) <= 0) return false;
+        if (info.FullAttentionInterval is int interval && interval > 1)
+            return (index + 1) % interval != 0;
+        return !tensors.BlockHasKv(index);
+    }
+
+    public static long RecurrentBytesPerBlock(GgufModelInfo info, VramRequest request)
+    {
+        long elements = RecurrentStateElements(info);
+        if (elements <= 0) return 0;
+        return elements * Math.Max(1, request.Parallel) * 4;
+    }
+
+    private static long RecurrentStateElements(GgufModelInfo info)
+    {
+        if (info.SsmInnerSize is not int inner || inner <= 0) return 0;
+        if (info.SsmStateSize is not int state || state <= 0) return 0;
+
+        long groups = info.SsmGroupCount is int g && g > 0 ? g : 0;
+        long kernel = info.SsmConvKernel is int k && k > 1 ? k : 1;
+        long conv = (kernel - 1) * (inner + 2 * groups * state);
+        return conv + (long)state * inner;
     }
 
     private static bool HasUsablePerLayerHeads(GgufModelInfo info)
@@ -264,10 +310,15 @@ public static class VramEstimator
         long window = info.SlidingWindow is int value && value > 0 ? value : request.ContextSize;
         long parallel = Math.Max(1, request.Parallel);
         long span = window * parallel + Math.Max(1, request.UBatchSize);
-        return Math.Min(PaddedContext(request.ContextSize), Pad(span));
+        return Math.Min(PaddedContext(request), Pad(span));
     }
 
-    private static long PaddedContext(int contextSize) => Pad(Math.Max(1, contextSize));
+    private static long PaddedContext(VramRequest request)
+    {
+        long parallel = Math.Max(1, request.Parallel);
+        long perSlot = (Math.Max(1, (long)request.ContextSize) + parallel - 1) / parallel;
+        return Pad(perSlot) * parallel;
+    }
 
     private static long Pad(long value) => (value + KvPadding - 1) / KvPadding * KvPadding;
 
@@ -284,7 +335,7 @@ public static class VramEstimator
         total += ubatch * feedForward * 4 * experts;
 
         if (!request.FlashAttention && info.HeadCount is int heads && heads > 0)
-            total += heads * ubatch * PaddedContext(request.ContextSize) * 4;
+            total += heads * ubatch * PaddedContext(request) * 4;
 
         if (fullyOffloaded && info.VocabSize is int vocab && vocab > 0)
             total += (long)vocab * ubatch * 4;

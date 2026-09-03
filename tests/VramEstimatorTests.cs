@@ -61,6 +61,27 @@ public static class VramEstimatorTests
         };
     }
 
+    private static GgufModelInfo Tied()
+    {
+        var model = Model();
+        var t = model.Tensors!;
+        return model with
+        {
+            Tensors = new GgufTensorSummary
+            {
+                TensorCount = t.TensorCount,
+                TotalBytes = t.TotalBytes,
+                RepeatingBytes = t.RepeatingBytes,
+                ExpertBytes = t.ExpertBytes,
+                EmbeddingBytes = 512 * MB,
+                OutputBytes = 0,
+                BlockBytes = t.BlockBytes,
+                BlockExpertBytes = t.BlockExpertBytes,
+                BlockKvBytes = t.BlockKvBytes,
+            }
+        };
+    }
+
     private const long KvPerTokenPerLayer = 8L * 128 * 2 * 2;
 
     public static void Run(Harness h)
@@ -69,6 +90,98 @@ public static class VramEstimatorTests
         RunKvCache(h);
         RunVerdict(h);
         RunSuggestions(h);
+        RunHybrid(h);
+    }
+
+    private static GgufModelInfo Hybrid(int? interval)
+    {
+        const int blocks = 40;
+        var blockList = new long[blocks];
+        var expertList = new long[blocks];
+        var kvList = new long[blocks];
+        for (int i = 0; i < blocks; i++)
+        {
+            blockList[i] = 447 * MB;
+            expertList[i] = 408 * MB;
+            kvList[i] = 1;
+        }
+
+        return new GgufModelInfo
+        {
+            Architecture = "qwen35moe",
+            BlockCount = blocks,
+            MaxContext = 262144,
+            HeadCount = 16,
+            HeadCountKv = 2,
+            KeyLength = 256,
+            ValueLength = 256,
+            EmbeddingLength = 2048,
+            VocabSize = 248320,
+            FullAttentionInterval = interval,
+            SsmConvKernel = 4,
+            SsmStateSize = 128,
+            SsmGroupCount = 16,
+            SsmInnerSize = 4096,
+            Tensors = new GgufTensorSummary
+            {
+                TensorCount = blocks * 3,
+                TotalBytes = blocks * 447 * MB + GB,
+                RepeatingBytes = blocks * 447 * MB,
+                ExpertBytes = blocks * 408 * MB,
+                EmbeddingBytes = GB / 2,
+                OutputBytes = GB / 2,
+                BlockBytes = blockList,
+                BlockExpertBytes = expertList,
+                BlockKvBytes = kvList,
+            }
+        };
+    }
+
+    private static void RunHybrid(Harness h)
+    {
+        h.Section("VramEstimator: a hybrid model caches only where it attends");
+
+        var request = new VramRequest
+        {
+            ContextSize = 110080,
+            GpuLayers = -1,
+            CacheTypeK = "q8_0",
+            CacheTypeV = "q8_0",
+            Parallel = 3,
+            FlashAttention = true,
+        };
+
+        const long measuredKv = 1203240960;
+        const long measuredRecurrent = 197591040;
+
+        var hybrid = VramEstimator.Estimate(Hybrid(4), request);
+        h.Check("the cache is the one llama.cpp really took",
+            hybrid?.KvBytes == measuredKv + measuredRecurrent,
+            hybrid?.KvBytes.ToString() ?? "null");
+
+        var flat = VramEstimator.Estimate(Hybrid(null), request);
+        h.Check("without the interval every block looks like an attention block",
+            flat?.KvBytes == measuredKv * 4, flat?.KvBytes.ToString() ?? "null");
+
+        long perBlock = VramEstimator.RecurrentBytesPerBlock(Hybrid(4), request);
+        h.Check("the recurrent state is counted per slot",
+            perBlock * 30 == measuredRecurrent, (perBlock * 30).ToString());
+        h.Check("and three slots cost three times one",
+            VramEstimator.RecurrentBytesPerBlock(Hybrid(4), request with { Parallel = 1 }) * 3 == perBlock,
+            "scaled");
+
+        var half = VramEstimator.Estimate(Hybrid(4), request with { GpuLayers = 20 });
+        h.Check("what stays on the CPU keeps its state there",
+            half?.HostKvBytes > 0 && half?.KvBytes < hybrid?.KvBytes,
+            (half?.KvBytes).ToString() + "/" + (half?.HostKvBytes).ToString());
+        h.Check("and the two halves still add up to the whole",
+            half?.KvBytes + half?.HostKvBytes == hybrid?.KvBytes,
+            ((half?.KvBytes ?? 0) + (half?.HostKvBytes ?? 0)).ToString());
+
+        var noSsm = Hybrid(4) with { SsmInnerSize = null, SsmStateSize = null };
+        h.Check("a model without recurrent parameters is read as it always was",
+            VramEstimator.Estimate(noSsm, request)?.KvBytes == measuredKv * 4,
+            VramEstimator.Estimate(noSsm, request)?.KvBytes.ToString() ?? "null");
     }
 
     private static void RunWeights(Harness h)
@@ -77,10 +190,13 @@ public static class VramEstimatorTests
 
         var model = Model();
         var full = VramEstimator.Estimate(model, new VramRequest { ContextSize = 1024 });
-        h.Check("offloading everything puts the whole file on the card",
-            full?.WeightBytes == 4 * GB + 512 * MB, full?.WeightBytes.ToString() ?? "null");
-        h.Check("nothing is left for system memory",
-            full?.HostBytes == 0, full?.HostBytes.ToString() ?? "null");
+        h.Check("offloading everything puts all of the file on the card but the token lookup",
+            full?.WeightBytes == 4 * GB + 256 * MB, full?.WeightBytes.ToString() ?? "null");
+        h.Check("which llama.cpp reads on the host and leaves there",
+            full?.HostBytes == 256 * MB, full?.HostBytes.ToString() ?? "null");
+        h.Check("a model whose output is its own embedding table keeps it on the card",
+            VramEstimator.Estimate(Tied(), new VramRequest { ContextSize = 1024 })?.WeightBytes
+                == 4 * GB + 512 * MB, "tied");
         h.Check("the output head counts as offloaded too",
             full?.FullyOffloaded == true, (full?.FullyOffloaded)?.ToString() ?? "null");
 
@@ -100,12 +216,12 @@ public static class VramEstimatorTests
 
         var moe = VramEstimator.Estimate(model, new VramRequest { ContextSize = 1024, CpuMoeBlocks = 2 });
         h.Check("experts sent to the host leave the card",
-            moe?.WeightBytes == 4 * GB + 512 * MB - 2 * 768 * MB, moe?.WeightBytes.ToString() ?? "null");
-        h.Check("and land in system memory",
-            moe?.HostWeightBytes == 2 * 768 * MB, moe?.HostWeightBytes.ToString() ?? "null");
+            moe?.WeightBytes == 4 * GB + 256 * MB - 2 * 768 * MB, moe?.WeightBytes.ToString() ?? "null");
+        h.Check("and land in system memory, next to the token lookup",
+            moe?.HostWeightBytes == 2 * 768 * MB + 256 * MB, moe?.HostWeightBytes.ToString() ?? "null");
         h.Check("asking for more expert blocks than the model has is not an error",
             VramEstimator.Estimate(model, new VramRequest { CpuMoeBlocks = 99 })?.WeightBytes
-                == 4 * GB + 512 * MB - 4 * 768 * MB, "clamped");
+                == 4 * GB + 256 * MB - 4 * 768 * MB, "clamped");
 
         h.Check("a model without a tensor table cannot be measured",
             VramEstimator.Estimate(new GgufModelInfo { BlockCount = 4 }, new VramRequest()) == null, "null");
@@ -149,7 +265,7 @@ public static class VramEstimatorTests
         h.Check("blocks that keep state instead of a cache cost nothing per token",
             noKv?.KvBytes == 0, noKv?.KvBytes.ToString() ?? "null");
         h.Check("their weights are still measured",
-            noKv?.WeightBytes == 4 * GB + 512 * MB, noKv?.WeightBytes.ToString() ?? "null");
+            noKv?.WeightBytes == 4 * GB + 256 * MB, noKv?.WeightBytes.ToString() ?? "null");
 
         var noHeadsAnywhere = Model(headsPerLayer: new[] { 0, 0, 0, 0 }, scalarHeads: false);
         h.Check("a file that lists nothing but zero kv heads cannot be measured",

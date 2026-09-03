@@ -335,6 +335,9 @@
   <data name="VramPartHeadroom" xml:space="preserve">
     <value>запас {0:F1} ГБ</value>
   </data>
+  <data name="VramAfterRestart" xml:space="preserve">
+    <value>(после перезапуска)</value>
+  </data>
   <data name="VramMeasured" xml:space="preserve">
     <value>llama-server взял {0:F1} ГБ: веса {1:F1} | кэш {2:F1} | буферы {3:F1}</value>
   </data>

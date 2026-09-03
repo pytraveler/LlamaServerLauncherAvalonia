@@ -86,6 +86,12 @@ public static class VramPlan
         return Math.Abs(reading - settled) >= threshold ? reading : settled;
     }
 
+    public static long Available(long freeBytes, long reclaimBytes, long totalBytes)
+    {
+        long available = Math.Max(0, freeBytes) + Math.Max(0, reclaimBytes);
+        return totalBytes > 0 ? Math.Min(available, totalBytes) : available;
+    }
+
     public static double Gigabytes(long bytes) =>
         Math.Round(bytes / 1024.0 / 1024.0 / 1024.0, 1, MidpointRounding.AwayFromZero);
 
