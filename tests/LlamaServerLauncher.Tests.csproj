@@ -34,6 +34,7 @@
     <Compile Include="..\Services\Optimization\BenchCommandBuilder.cs" />
     <Compile Include="..\Services\Optimization\ServerArgvBuilder.cs" />
     <Compile Include="..\Services\GgufMetadataService.cs" />
+    <Compile Include="..\Services\VramEstimator.cs" />
     <Compile Include="..\Models\Benchmarking\BenchmarkMetrics.cs" />
     <Compile Include="..\Models\Benchmarking\BenchmarkRun.cs" />
     <Compile Include="..\Models\Benchmarking\PromptRunReport.cs" />
@@ -78,6 +79,7 @@
     <Compile Include="LocalAddressTests.cs" />
     <Compile Include="AppUpdateDecisionTests.cs" />
     <Compile Include="LlamaBuildBackupTests.cs" />
+    <Compile Include="VramEstimatorTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>

@@ -19,6 +19,13 @@ public sealed record GgufModelInfo
     public int? HeadCountKv { get; init; }
     public int? KeyLength { get; init; }
     public int? ValueLength { get; init; }
+    public int? KeyLengthSwa { get; init; }
+    public int? ValueLengthSwa { get; init; }
+    public int? FeedForwardLength { get; init; }
+    public int? ExpertFeedForwardLength { get; init; }
+
+    public IReadOnlyList<int>? HeadCountKvPerLayer { get; init; }
+    public IReadOnlyList<bool>? SlidingWindowPattern { get; init; }
     public int? RopeDimensionCount { get; init; }
     public int? KvLoraRank { get; init; }
     public int? SlidingWindow { get; init; }
@@ -109,6 +116,7 @@ public static class GgufMetadataService
     private const uint Magic = 0x46554747;
     private const int MaxBlockIndex = 4096;
     private const ulong MaxTensorCount = 500_000;
+    private const ulong MaxPerLayerValues = 8192;
     private const ulong MaxElements = 1UL << 50;
 
     private static readonly Regex ShardPattern =
@@ -208,6 +216,7 @@ public static class GgufMetadataService
             bool hasVision = false;
             long? tokenCount = null;
             var ints = new List<KeyValuePair<string, long>>();
+            var arrays = new List<KeyValuePair<string, List<long>>>();
 
             for (ulong i = 0; i < kvCount; i++)
             {
@@ -230,9 +239,12 @@ public static class GgufMetadataService
                 }
                 else if (type == TypeArray)
                 {
-                    ulong count = SkipArray(r);
+                    var sink = WantsPerLayerValues(key) ? new List<long>() : null;
+                    ulong count = ReadArray(r, sink);
                     if (key == "tokenizer.ggml.tokens" && count <= int.MaxValue)
                         tokenCount = (long)count;
+                    if (sink is { Count: > 0 })
+                        arrays.Add(new KeyValuePair<string, List<long>>(key, sink));
                 }
                 else if (IsInteger(type))
                 {
@@ -261,6 +273,12 @@ public static class GgufMetadataService
                 HeadCountKv = ToPositiveInt(Pick(ints, arch, "head_count_kv")),
                 KeyLength = ToPositiveInt(Pick(ints, arch, "key_length")),
                 ValueLength = ToPositiveInt(Pick(ints, arch, "value_length")),
+                KeyLengthSwa = ToPositiveInt(Pick(ints, arch, "key_length_swa")),
+                ValueLengthSwa = ToPositiveInt(Pick(ints, arch, "value_length_swa")),
+                FeedForwardLength = ToPositiveInt(Pick(ints, arch, "feed_forward_length")),
+                ExpertFeedForwardLength = ToPositiveInt(Pick(ints, arch, "expert_feed_forward_length")),
+                HeadCountKvPerLayer = ToIntList(PickArray(arrays, arch, "head_count_kv")),
+                SlidingWindowPattern = ToBoolList(PickArray(arrays, arch, "sliding_window_pattern")),
                 RopeDimensionCount = ToPositiveInt(Pick(ints, arch, "rope.dimension_count")),
                 KvLoraRank = ToPositiveInt(Pick(ints, arch, "kv_lora_rank")),
                 SlidingWindow = ToPositiveInt(Pick(ints, arch, "sliding_window")),
@@ -497,11 +515,24 @@ public static class GgufMetadataService
     private static void SkipScalar(BinaryReader r, uint type) =>
         r.BaseStream.Seek(FixedSize(type), SeekOrigin.Current);
 
-    private static ulong SkipArray(BinaryReader r)
+    private static bool WantsPerLayerValues(string key) =>
+        key.EndsWith(".attention.head_count_kv", StringComparison.Ordinal)
+        || key.EndsWith(".attention.sliding_window_pattern", StringComparison.Ordinal);
+
+    private static ulong ReadArray(BinaryReader r, List<long>? sink)
     {
         uint elemType = r.ReadUInt32();
         ulong count = r.ReadUInt64();
-        if (elemType == TypeString)
+
+        bool collect = sink != null && count <= MaxPerLayerValues
+            && (IsInteger(elemType) || elemType == TypeBool);
+
+        if (collect)
+        {
+            for (ulong i = 0; i < count; i++)
+                sink!.Add(elemType == TypeBool ? r.ReadByte() : ReadInteger(r, elemType));
+        }
+        else if (elemType == TypeString)
         {
             for (ulong i = 0; i < count; i++)
             {
@@ -511,13 +542,48 @@ public static class GgufMetadataService
         }
         else if (elemType == TypeArray)
         {
-            for (ulong i = 0; i < count; i++) SkipArray(r);
+            for (ulong i = 0; i < count; i++) ReadArray(r, null);
         }
         else
         {
             r.BaseStream.Seek((long)count * FixedSize(elemType), SeekOrigin.Current);
         }
         return count;
+    }
+
+    private static List<long>? PickArray(List<KeyValuePair<string, List<long>>> arrays, string? arch, string suffix)
+    {
+        string tail = "." + suffix;
+        if (arch != null)
+        {
+            string head = arch + ".";
+            foreach (var kv in arrays)
+                if (kv.Key.StartsWith(head, StringComparison.Ordinal)
+                    && kv.Key.EndsWith(tail, StringComparison.Ordinal))
+                    return kv.Value;
+        }
+        foreach (var kv in arrays)
+            if (kv.Key.EndsWith(tail, StringComparison.Ordinal))
+                return kv.Value;
+        return null;
+    }
+
+    private static IReadOnlyList<int>? ToIntList(List<long>? values)
+    {
+        if (values == null || values.Count == 0) return null;
+        var result = new int[values.Count];
+        for (int i = 0; i < values.Count; i++)
+            result[i] = values[i] > 0 && values[i] <= int.MaxValue ? (int)values[i] : 0;
+        return result;
+    }
+
+    private static IReadOnlyList<bool>? ToBoolList(List<long>? values)
+    {
+        if (values == null || values.Count == 0) return null;
+        var result = new bool[values.Count];
+        for (int i = 0; i < values.Count; i++)
+            result[i] = values[i] != 0;
+        return result;
     }
 
     private static int FixedSize(uint type) => type switch

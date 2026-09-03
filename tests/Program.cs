@@ -26,6 +26,7 @@ GitHubReleaseSourceTests.Run(harness);
 LocalAddressTests.Run(harness);
 AppUpdateDecisionTests.Run(harness);
 LlamaBuildBackupTests.Run(harness);
+VramEstimatorTests.Run(harness);
 return harness.Report();
 
 public sealed class Harness
