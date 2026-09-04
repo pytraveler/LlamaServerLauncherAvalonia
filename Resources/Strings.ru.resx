@@ -1469,6 +1469,12 @@
   <data name="TooltipConfirmStopServer" xml:space="preserve">
     <value>Запрашивать подтверждение перед остановкой запущенного экземпляра сервера.</value>
   </data>
+  <data name="SkipExitConfirmationWhenServerRunning" xml:space="preserve">
+    <value>Не подтверждать выход при запущенном сервере</value>
+  </data>
+  <data name="TooltipSkipExitConfirmationWhenServerRunning" xml:space="preserve">
+    <value>Автоматически останавливать запущенные экземпляры сервера перед выходом.</value>
+  </data>
   <data name="Behavior" xml:space="preserve">
     <value>Поведение</value>
   </data>
