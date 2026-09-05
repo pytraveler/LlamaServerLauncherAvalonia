@@ -1315,6 +1315,12 @@ public partial class MainWindow : Window
             await _viewModel.OpenModelPickerAsync();
     }
 
+    private async void PickHfModelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            await _viewModel.OpenHfBrowserAsync();
+    }
+
     private void BrowseLogFileClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.BrowseLogFileCommand.Execute(null);

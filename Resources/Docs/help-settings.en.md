@@ -14,6 +14,8 @@ The download and update progress bars take their color from the app theme rather
 
 How often to check for new releases — separately for the app and for llama.cpp. Checking too often runs into GitHub API rate limits, which the hint under the fields warns about. A found update shows up as a button in the main window header.
 
+Both checks can be switched off outright: uncheck "Check for launcher updates" or "Check for llama.cpp updates" and the launcher stops contacting GitHub about them, the update button stays hidden, and the interval field for that side is greyed out. Switching a check back on runs it right away rather than waiting out the interval. Nothing else is affected: the header button still opens the download window, where a build can be picked, installed or rolled back by hand.
+
 "Keep the replaced llama.cpp build for rollback" decides what happens to the build an update replaces: by default it is moved next to the install directory, into `llama.cpp.prev`, instead of being deleted, and the download window offers to roll back to it — instantly and without a network. The rollback swaps the two, so the build it replaces takes the kept slot and the rollback can be undone the same way. Exactly one build is kept, taking as much disk space as the one in use; the download window can delete it. Turn the setting off and an update deletes the old build as it used to.
 
 ## Data storage

@@ -2649,4 +2649,151 @@
   <data name="TooltipUiScaleAutoSizeWindows" xml:space="preserve">
     <value>Окна растут и уменьшаются вместе с масштабом, а открытое при увеличенном масштабе открывается крупнее - но не больше, чем во столько раз, во сколько увеличен масштаб. Если выключить, масштабируется только содержимое, а размер каждого окна остается тем, который задали вы.</value>
   </data>
+  <data name="HfBrowserTitle" xml:space="preserve">
+    <value>Скачать модель с HuggingFace</value>
+  </data>
+  <data name="HfSearchPlaceholder" xml:space="preserve">
+    <value>owner/name, ссылка или слова для поиска</value>
+  </data>
+  <data name="HfGo" xml:space="preserve">
+    <value>Найти</value>
+  </data>
+  <data name="HfHint" xml:space="preserve">
+    <value>Вставьте репозиторий или введите слова для поиска.</value>
+  </data>
+  <data name="HfRepositories" xml:space="preserve">
+    <value>Репозитории</value>
+  </data>
+  <data name="HfFiles" xml:space="preserve">
+    <value>Файлы</value>
+  </data>
+  <data name="HfFolder" xml:space="preserve">
+    <value>Сохранить в:</value>
+  </data>
+  <data name="HfSubfolder" xml:space="preserve">
+    <value>Отдельная папка под каждый репозиторий</value>
+  </data>
+  <data name="HfDownload" xml:space="preserve">
+    <value>Скачать</value>
+  </data>
+  <data name="HfCancelDownload" xml:space="preserve">
+    <value>Остановить</value>
+  </data>
+  <data name="HfUseAndClose" xml:space="preserve">
+    <value>Использовать и закрыть</value>
+  </data>
+  <data name="HfClose" xml:space="preserve">
+    <value>Закрыть</value>
+  </data>
+  <data name="HfOpenPage" xml:space="preserve">
+    <value>Открыть страницу</value>
+  </data>
+  <data name="HfToken" xml:space="preserve">
+    <value>Токен:</value>
+  </data>
+  <data name="HfTokenHint" xml:space="preserve">
+    <value>Токен на чтение открывает gated- и приватные репозитории. Хранится в файле настроек в открытом виде.</value>
+  </data>
+  <data name="HfSearching" xml:space="preserve">
+    <value>Поиск...</value>
+  </data>
+  <data name="HfLoadingFiles" xml:space="preserve">
+    <value>Читаем список файлов...</value>
+  </data>
+  <data name="HfNoResults" xml:space="preserve">
+    <value>Ничего не нашлось.</value>
+  </data>
+  <data name="HfNoGguf" xml:space="preserve">
+    <value>В этом репозитории нет файлов .gguf.</value>
+  </data>
+  <data name="HfFoundRepos" xml:space="preserve">
+    <value>репозиториев: {0}</value>
+  </data>
+  <data name="HfFoundFiles" xml:space="preserve">
+    <value>файлов: {0}</value>
+  </data>
+  <data name="HfPickAQuant" xml:space="preserve">
+    <value>Сначала выберите файл.</value>
+  </data>
+  <data name="HfNeedFolder" xml:space="preserve">
+    <value>Укажите папку для сохранения.</value>
+  </data>
+  <data name="HfConnecting" xml:space="preserve">
+    <value>Соединение...</value>
+  </data>
+  <data name="HfRestarting" xml:space="preserve">
+    <value>Сервер не принял докачку, начинаем заново</value>
+  </data>
+  <data name="HfVerifying" xml:space="preserve">
+    <value>Проверка размера...</value>
+  </data>
+  <data name="HfFinalizing" xml:space="preserve">
+    <value>Завершение...</value>
+  </data>
+  <data name="HfDownloadingFrom" xml:space="preserve">
+    <value>Скачивается {0}</value>
+  </data>
+  <data name="HfCancelled" xml:space="preserve">
+    <value>Остановлено. Недокачанный файл сохранён, скачивание можно продолжить.</value>
+  </data>
+  <data name="HfDone" xml:space="preserve">
+    <value>Скачано: {0}</value>
+  </data>
+  <data name="HfPartOf" xml:space="preserve">
+    <value>файл {0} из {1}</value>
+  </data>
+  <data name="HfErrorNotFound" xml:space="preserve">
+    <value>Не найдено: {0}</value>
+  </data>
+  <data name="HfErrorGated" xml:space="preserve">
+    <value>Репозиторий закрыт условиями. Откройте его страницу, примите условия и вставьте токен ниже.</value>
+  </data>
+  <data name="HfErrorAuth" xml:space="preserve">
+    <value>Токен отклонён. Проверьте его ниже.</value>
+  </data>
+  <data name="HfErrorRateLimited" xml:space="preserve">
+    <value>HuggingFace ограничивает частоту запросов. Попробуйте через минуту.</value>
+  </data>
+  <data name="HfErrorNoSpace" xml:space="preserve">
+    <value>На диске недостаточно места.</value>
+  </data>
+  <data name="HfErrorVerify" xml:space="preserve">
+    <value>У скачанного файла неверный размер. Файл сохранён, скачивание можно продолжить.</value>
+  </data>
+  <data name="HfErrorNetwork" xml:space="preserve">
+    <value>Ошибка сети: {0}</value>
+  </data>
+  <data name="HfErrorServer" xml:space="preserve">
+    <value>HuggingFace ответил HTTP {0}.</value>
+  </data>
+  <data name="HfErrorUnknown" xml:space="preserve">
+    <value>Скачивание не завершилось.</value>
+  </data>
+  <data name="HfErrorOtherHost" xml:space="preserve">
+    <value>Ссылка ведёт на {0}, а не на HuggingFace.</value>
+  </data>
+  <data name="HfErrorNotAModel" xml:space="preserve">
+    <value>Поддерживаются только репозитории моделей, а не {0}.</value>
+  </data>
+  <data name="HfErrorBadRef" xml:space="preserve">
+    <value>Это не похоже на ссылку на репозиторий.</value>
+  </data>
+  <data name="PickHfModel" xml:space="preserve">
+    <value>С HF</value>
+  </data>
+  <data name="TooltipPickHfModel" xml:space="preserve">
+    <value>Найти модель на HuggingFace, выбрать квант и скачать прямо в папку моделей.</value>
+  </data>
+  <data name="AppUpdateCheckEnabled" xml:space="preserve">
+    <value>Проверять обновления лаунчера</value>
+  </data>
+  <data name="LlamaUpdateCheckEnabled" xml:space="preserve">
+    <value>Проверять обновления llama.cpp</value>
+  </data>
+  <data name="TooltipAppUpdateCheckEnabled" xml:space="preserve">
+    <value>Когда выключено, лаунчер не обращается к GitHub за своими новыми версиями, а кнопка обновления не появляется.</value>
+  </data>
+  <data name="TooltipLlamaUpdateCheckEnabled" xml:space="preserve">
+    <value>Когда выключено, лаунчер не обращается к GitHub за новыми сборками llama.cpp. Скачать сборку или сменить версию вручную по-прежнему можно.</value>
+  </data>
 </root>

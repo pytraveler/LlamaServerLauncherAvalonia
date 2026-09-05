@@ -48,6 +48,11 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private int _serverStartsInProgress;
     private string _modelScanFolder = "";
     private bool _modelScanRecursive;
+    private string _hfToken = "";
+    private string _hfEndpoint = "";
+    private string _hfDownloadFolder = "";
+    private bool _hfSubfolderPerRepo;
+    private string _hfLastQuery = "";
     private readonly Services.Optimization.HttpBenchmarkService _proxyHealth = new();
     private readonly System.Net.Http.HttpClient _comfyUiHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
     private string _lastProxiedProfile = string.Empty;
@@ -62,6 +67,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     private DateTime _lastAppUpdateCheck;
     private DateTime _lastLlamaUpdateCheck;
+    private bool _appUpdateCheckEnabled = true;
+    private bool _llamaUpdateCheckEnabled = true;
     private int _appUpdateCheckInterval = 15;
     private int _llamaUpdateCheckInterval = 30;
     private List<ReleaseInfo> _cachedLlamaReleases = new();
@@ -688,6 +695,53 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public FontFamily EffectiveFontFamily =>
         string.IsNullOrEmpty(_selectedFontFamily) ? FontFamily.Default : new FontFamily(_selectedFontFamily);
 
+    public bool AppUpdateCheckEnabled
+    {
+        get => _appUpdateCheckEnabled;
+        set
+        {
+            if (_appUpdateCheckEnabled == value) return;
+            _appUpdateCheckEnabled = value;
+            if (!value)
+            {
+                _pendingAppUpdate = null;
+                _isAppUpdateAvailable = false;
+                AppUpdateTooltip = null;
+                OnPropertyChanged(nameof(ShowAppUpdateButton));
+                OnPropertyChanged(nameof(AvailableAppUpdateTag));
+            }
+            else
+            {
+                _lastAppUpdateCheck = DateTime.MinValue;
+            }
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowUpdateIntervalWarning));
+            _ = SaveSettingsAsync();
+        }
+    }
+
+    public bool LlamaUpdateCheckEnabled
+    {
+        get => _llamaUpdateCheckEnabled;
+        set
+        {
+            if (_llamaUpdateCheckEnabled == value) return;
+            _llamaUpdateCheckEnabled = value;
+            if (!value)
+            {
+                IsLlamaUpdateAvailable = false;
+                LlamaUpdateTooltip = null;
+            }
+            else
+            {
+                _lastLlamaUpdateCheck = DateTime.MinValue;
+            }
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowUpdateIntervalWarning));
+            _ = SaveSettingsAsync();
+        }
+    }
+
     public int AppUpdateCheckInterval
     {
         get => _appUpdateCheckInterval;
@@ -722,7 +776,9 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
     }
 
-    public bool ShowUpdateIntervalWarning => _appUpdateCheckInterval < 10 || _llamaUpdateCheckInterval < 10;
+    public bool ShowUpdateIntervalWarning =>
+        (_appUpdateCheckEnabled && _appUpdateCheckInterval < 10)
+        || (_llamaUpdateCheckEnabled && _llamaUpdateCheckInterval < 10);
 
     public bool ExperimentalReposEnabled
     {
@@ -1803,6 +1859,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
         _lastAppUpdateCheck = settings.LastAppUpdateCheck;
         _lastLlamaUpdateCheck = settings.LastLlamaUpdateCheck;
+        _appUpdateCheckEnabled = settings.AppUpdateCheckEnabled;
+        _llamaUpdateCheckEnabled = settings.LlamaUpdateCheckEnabled;
         _appUpdateCheckInterval = Math.Clamp(settings.AppUpdateCheckIntervalMinutes, 1, 180);
         _llamaUpdateCheckInterval = Math.Clamp(settings.LlamaUpdateCheckIntervalMinutes, 1, 180);
         OnPropertyChanged(nameof(AppUpdateCheckInterval));
@@ -1822,7 +1880,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         }
         _cachedLlamaReleasesTimestamp = settings.CachedLlamaReleasesTimestamp;
 
-        if (_cachedLlamaReleases.Count > 0 && !string.IsNullOrEmpty(_llamaCppInstalledTag))
+        if (_llamaUpdateCheckEnabled && _cachedLlamaReleases.Count > 0 && !string.IsNullOrEmpty(_llamaCppInstalledTag))
         {
             var latestCached = _cachedLlamaReleases[0];
             if (latestCached.Tag != _llamaCppInstalledTag)
@@ -1863,6 +1921,11 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         ReconcileHardwareMonitor();
         _modelScanFolder = settings.ModelScanFolder ?? "";
         _modelScanRecursive = settings.ModelScanRecursive;
+        _hfToken = settings.HfToken ?? "";
+        _hfEndpoint = settings.HfEndpoint ?? "";
+        _hfDownloadFolder = settings.HfDownloadFolder ?? "";
+        _hfSubfolderPerRepo = settings.HfSubfolderPerRepo;
+        _hfLastQuery = settings.HfLastQuery ?? "";
         await LoadScenariosAsync();
         SelectedScenario = settings.SelectedScenario ?? "";
         UpdateSelectedScenarioAutoStart();
@@ -2290,6 +2353,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             McpServers = CloneMcpEntries(),
             LastAppUpdateCheck = _lastAppUpdateCheck,
             LastLlamaUpdateCheck = _lastLlamaUpdateCheck,
+            AppUpdateCheckEnabled = _appUpdateCheckEnabled,
+            LlamaUpdateCheckEnabled = _llamaUpdateCheckEnabled,
             AppUpdateCheckIntervalMinutes = _appUpdateCheckInterval,
             LlamaUpdateCheckIntervalMinutes = _llamaUpdateCheckInterval,
             CachedLlamaReleasesJson = System.Text.Json.JsonSerializer.Serialize(_cachedLlamaReleases),
@@ -2314,6 +2379,11 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             HardwareMonitorEnabled = _hardwareMonitorEnabled,
             ModelScanFolder = _modelScanFolder,
             ModelScanRecursive = _modelScanRecursive,
+            HfToken = _hfToken,
+            HfEndpoint = _hfEndpoint,
+            HfDownloadFolder = _hfDownloadFolder,
+            HfSubfolderPerRepo = _hfSubfolderPerRepo,
+            HfLastQuery = _hfLastQuery,
             AutoStartWithSystem = _autoStartWithSystem,
             CustomBrowserPath = _customBrowserPath,
             DialogGeometry = new Dictionary<string, DialogGeometry>(DialogGeometryDict),
@@ -5289,6 +5359,79 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         if (dirty) await SaveSettingsAsync();
     }
 
+
+    public async Task OpenHfBrowserAsync()
+    {
+        var config = GetCurrentConfig();
+        RefreshVramPlan(config);
+        var budget = new VramBudget
+        {
+            Config = config,
+            AvailableBytes = _vramFreeBytes,
+            TotalBytes = _vramTotalBytes,
+        };
+
+        var options = new HfBrowserOptions
+        {
+            Endpoint = _hfEndpoint,
+            TargetFolder = ResolveHfDownloadFolder(),
+            LastQuery = _hfLastQuery,
+            Token = _hfToken,
+            SubfolderPerRepo = _hfSubfolderPerRepo,
+        };
+
+        var vm = new HfBrowserViewModel(options, budget, line => _logService.Info(line));
+        var dialog = new HfBrowserWindow();
+        dialog.SetViewModel(vm, DialogGeometryDict);
+        await dialog.ShowDialog(MainWindow.Instance!);
+
+        bool dirty = false;
+
+        if (dialog.CapturedGeometry != null)
+        {
+            DialogGeometryDict["HfBrowser"] = dialog.CapturedGeometry;
+            dirty = true;
+        }
+
+        if (dialog.TargetFolder != _hfDownloadFolder)
+        {
+            _hfDownloadFolder = dialog.TargetFolder;
+            dirty = true;
+        }
+
+        if (dialog.LastQuery != _hfLastQuery)
+        {
+            _hfLastQuery = dialog.LastQuery;
+            dirty = true;
+        }
+
+        if (dialog.Token != _hfToken)
+        {
+            _hfToken = dialog.Token;
+            dirty = true;
+        }
+
+        if (dialog.SubfolderPerRepo != _hfSubfolderPerRepo)
+        {
+            _hfSubfolderPerRepo = dialog.SubfolderPerRepo;
+            dirty = true;
+        }
+
+        if (dialog.IsConfirmed && !string.IsNullOrEmpty(dialog.SelectedPath))
+            ModelPath = dialog.SelectedPath!;
+
+        if (dirty) await SaveSettingsAsync();
+    }
+
+    private string ResolveHfDownloadFolder()
+    {
+        if (!string.IsNullOrWhiteSpace(_hfDownloadFolder)) return _hfDownloadFolder;
+
+        var scan = ResolveInitialScanFolder();
+        if (!string.IsNullOrWhiteSpace(scan)) return scan;
+
+        return !string.IsNullOrWhiteSpace(ModelsDir) ? ModelsDir : "";
+    }
     private string ResolveInitialScanFolder()
     {
         if (!string.IsNullOrWhiteSpace(_modelScanFolder) && System.IO.Directory.Exists(_modelScanFolder))
@@ -8203,7 +8346,7 @@ public void RebuildCustomArgumentsFromToggles()
                 await SaveSettingsAsync();
             }
 
-            if (_cachedLlamaReleases.Count > 0)
+            if (_llamaUpdateCheckEnabled && _cachedLlamaReleases.Count > 0)
             {
                 var latestCachedTag = _cachedLlamaReleases[0].Tag;
                 IsLlamaUpdateAvailable = latestCachedTag != _llamaCppInstalledTag;
@@ -8247,9 +8390,11 @@ public void RebuildCustomArgumentsFromToggles()
         try
         {
             var now = DateTime.Now;
-            if (startupPass || now - _lastAppUpdateCheck >= TimeSpan.FromMinutes(_appUpdateCheckInterval))
+            if (AppUpdateService.ShouldRunCheck(_appUpdateCheckEnabled, startupPass, now,
+                    _lastAppUpdateCheck, _appUpdateCheckInterval))
                 await CheckForAppUpdateAsync(startupPass);
-            if (now - _lastLlamaUpdateCheck >= TimeSpan.FromMinutes(_llamaUpdateCheckInterval))
+            if (AppUpdateService.ShouldRunCheck(_llamaUpdateCheckEnabled, false, now,
+                    _lastLlamaUpdateCheck, _llamaUpdateCheckInterval))
                 await CheckForLlamaUpdateAsync();
             if (_experimentalReposEnabled && now - _lastExperimentalUpdateCheck >= TimeSpan.FromMinutes(_experimentalUpdateCheckInterval))
                 await CheckForExperimentalUpdatesAsync();
@@ -8261,6 +8406,7 @@ public void RebuildCustomArgumentsFromToggles()
     {
         try
         {
+            if (!_llamaUpdateCheckEnabled) return;
             if (DateTime.Now - _lastLlamaUpdateCheck < TimeSpan.FromMinutes(_llamaUpdateCheckInterval)) return;
             _lastLlamaUpdateCheck = DateTime.Now;
 
@@ -8351,6 +8497,7 @@ public void RebuildCustomArgumentsFromToggles()
     {
         try
         {
+            if (!_appUpdateCheckEnabled) return;
             var interval = TimeSpan.FromMinutes(_appUpdateCheckInterval);
             if (!force && DateTime.Now - _lastAppUpdateCheck < interval) return;
             _lastAppUpdateCheck = DateTime.Now;

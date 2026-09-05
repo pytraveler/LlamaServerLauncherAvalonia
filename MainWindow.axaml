@@ -48,6 +48,9 @@
         <StreamGeometry x:Key="PasteIcon">M467.35,190.176l-70.468-70.468c-1.876-1.875-4.419-2.929-7.071-2.929h-23.089V49c0-5.523-4.478-10-10-10h-115v-2.41 c0-20.176-16.414-36.59-36.59-36.59h-11.819c-20.176,0-36.591,16.415-36.591,36.59V39h-115c-5.522,0-10,4.477-10,10v386 c0,5.523,4.478,10,10,10h146.386v47c0,5.523,4.478,10,10,10h262.171c5.522,0,10-4.477,10-10V197.247 C470.279,194.595,469.225,192.051,467.35,190.176z M399.811,150.921l36.326,36.326h-36.326V150.921z M144.721,59h47 c5.522,0,10-4.477,10-10s-4.478-10-10-10h-15v-2.41c0-9.148,7.442-16.59,16.591-16.59h11.819c9.147,0,16.59,7.442,16.59,16.59V49 c0,5.523,4.478,10,10,10h22v20h-109V59z M198.107,116.779c-5.522,0-10,4.477-10,10V425H51.721V59h73v30c0,5.523,4.478,10,10,10 h129c5.522,0,10-4.477,10-10V59h73v57.779H198.107z M450.278,482H208.107V136.779H379.81v60.468c0,5.523,4.478,10,10,10h60.468 V482z M243.949,253.468h125.402c5.522,0,10-4.477,10-10c0-5.523-4.478-10-10-10H243.949c-5.522,0-10,4.477-10,10 C233.949,248.991,238.427,253.468,243.949,253.468z M414.437,283.478H243.949c-5.522,0-10,4.477-10,10s4.478,10,10,10h170.487c5.522,0,10-4.477,10-10 S419.959,283.478,414.437,283.478z M414.437,333.487H243.949c-5.522,0-10,4.477-10,10s4.478,10,10,10h170.487c5.522,0,10-4.477,10-10 S419.959,333.487,414.437,333.487z M414.437,383.497H243.949c-5.522,0-10,4.477-10,10s4.478,10,10,10h170.487c5.522,0,10-4.477,10-10 S419.959,383.497,414.437,383.497z M397.767,253.468h16.67c5.522,0,10-4.477,10-10c0-5.523-4.478-10-10-10h-16.67c-5.522,0-10,4.477-10,10 C387.767,248.991,392.245,253.468,397.767,253.468z</StreamGeometry>
         <StreamGeometry x:Key="LogMaximizeIcon">M256 1280h1280V512H256zM1792 160v1216q0 66-47 113t-113 47H160q-66 0-113-47T0 1376V160Q0 94 47 47T160 0h1472q66 0 113 47t47 113</StreamGeometry>
         <StreamGeometry x:Key="LogMinimizeIcon">M1792 1056v192q0 66-47 113t-113 47H160q-66 0-113-47T0 1248v-192q0-66 47-113t113-47h1472q66 0 113 47t47 113</StreamGeometry>
+        <StreamGeometry x:Key="BrowseFolderIcon">M2 19 V4 H9 L11 6 H20 V9 H7.2 L3.4 19 Z M5.2 20 L9 10 H23.5 L19.7 20 Z</StreamGeometry>
+        <StreamGeometry x:Key="PickFromListIcon">F0 M2 4.5 H15 V7.5 H2 Z M2 10.5 H15 V13.5 H2 Z M2 16.5 H11 V19.5 H2 Z M17.4 19.6 L14.2 16.4 L16 14.6 L17.4 16 L21.6 11.8 L23.4 13.6 Z</StreamGeometry>
+        <StreamGeometry x:Key="DownloadModelIcon">M10.2 2.5 H13.8 V11.4 H18 L12 18.4 L6 11.4 H10.2 Z M2.5 18.6 H5.8 V21.2 H18.2 V18.6 H21.5 V23.8 H2.5 Z</StreamGeometry>
     </Window.Resources>
 
     <Window.Styles>
@@ -348,28 +351,29 @@
                             <Border Margin="0,0,0,10" Padding="10" Background="{DynamicResource PanelBackgroundBrush}" CornerRadius="5">
                                 <StackPanel>
                                     <TextBlock Text="{Binding Localized.Paths}" FontWeight="Bold" Margin="0,0,0,10"/>
-                                    <Grid ColumnDefinitions="220,3*,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
+                                    <Grid ColumnDefinitions="220,3*,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.LlamaServerExe}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                                         <Border Grid.Row="0" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
                                                 BorderBrush="{Binding ExecutableBorderBrush}" ToolTip.Tip="{Binding ExecutableToolTip}">
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding ExecutablePathPlaceholder}" PropertyName="ExecutablePath"/>
                                         </Border>
-                                        <Button Grid.Row="0" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseExecutableClick" VerticalAlignment="Stretch" Margin="5,2,0,2"/>
+                                        <Button Grid.Row="0" Grid.Column="2" ToolTip.Tip="{Binding Localized.Browse}" Click="BrowseExecutableClick" VerticalAlignment="Stretch" Margin="5,2,0,2"><PathIcon Data="{StaticResource BrowseFolderIcon}" Width="15" Height="15"/></Button>
 
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.ModelM}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                                         <Border Grid.Row="1" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
                                                 BorderBrush="{Binding ModelBorderBrush}" ToolTip.Tip="{Binding ModelToolTip}">
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding ModelPathPlaceholder}" PropertyName="ModelPath"/>
                                         </Border>
-                                        <Button Grid.Row="1" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseModelClick" VerticalAlignment="Stretch" Margin="5,2,0,2"/>
-                                        <Button Grid.Row="1" Grid.Column="3" Content="{Binding Localized.PickModel}" Click="PickModelClick" VerticalAlignment="Stretch" Margin="5,2,0,2" ToolTip.Tip="{Binding Localized.TooltipPickModel}"/>
+                                        <Button Grid.Row="1" Grid.Column="2" ToolTip.Tip="{Binding Localized.Browse}" Click="BrowseModelClick" VerticalAlignment="Stretch" Margin="5,2,0,2"><PathIcon Data="{StaticResource BrowseFolderIcon}" Width="15" Height="15"/></Button>
+                                        <Button Grid.Row="1" Grid.Column="3" Click="PickModelClick" VerticalAlignment="Stretch" Margin="5,2,0,2" ToolTip.Tip="{Binding Localized.TooltipPickModel}"><PathIcon Data="{StaticResource PickFromListIcon}" Width="15" Height="15"/></Button>
+                                        <Button Grid.Row="1" Grid.Column="4" Click="PickHfModelClick" VerticalAlignment="Stretch" Margin="5,2,0,2" ToolTip.Tip="{Binding Localized.TooltipPickHfModel}"><PathIcon Data="{StaticResource DownloadModelIcon}" Width="15" Height="15"/></Button>
 
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding Localized.ModelsDir}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                                         <Border Grid.Row="2" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
                                                 BorderBrush="{Binding ModelsDirBorderBrush}" ToolTip.Tip="{Binding ModelsDirToolTip}">
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding ModelsDirPlaceholder}" PropertyName="ModelsDir"/>
                                         </Border>
-                                        <Button Grid.Row="2" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseModelsDirClick" VerticalAlignment="Stretch" Margin="5,2,0,2"/>
+                                        <Button Grid.Row="2" Grid.Column="2" ToolTip.Tip="{Binding Localized.Browse}" Click="BrowseModelsDirClick" VerticalAlignment="Stretch" Margin="5,2,0,2"><PathIcon Data="{StaticResource BrowseFolderIcon}" Width="15" Height="15"/></Button>
                                     </Grid>
                                     <TextBlock Text="{Binding ModelInfoBadge}" IsVisible="{Binding HasModelInfo}"
                                                FontSize="11" Opacity="0.75" TextWrapping="Wrap" Margin="0,6,0,0"/>
@@ -660,7 +664,7 @@
 
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding Localized.LogFile}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipLogFile}"/>
                                         <ctrl:HistoryTextBox Grid.Row="2" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding LogFilePathPlaceholder}" PropertyName="LogFilePath" ToolTip.Tip="{Binding Localized.TooltipLogFile}"/>
-                                        <Button Grid.Row="2" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseLogFileClick" VerticalAlignment="Stretch" Margin="3,2,0,2"/>
+                                        <Button Grid.Row="2" Grid.Column="2" ToolTip.Tip="{Binding Localized.Browse}" Click="BrowseLogFileClick" VerticalAlignment="Stretch" Margin="3,2,0,2"><PathIcon Data="{StaticResource BrowseFolderIcon}" Width="15" Height="15"/></Button>
 
                                         <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding Localized.MMProj}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding MmprojToolTip}"/>
                                         <Border Grid.Row="3" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
@@ -668,8 +672,8 @@
                                                 ToolTip.Tip="{Binding MmprojToolTip}">
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding MmprojPathPlaceholder}" PropertyName="MmprojPath"/>
                                         </Border>
-                                        <Button Grid.Row="3" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseMmprojClick" VerticalAlignment="Stretch" Margin="3,2,0,2"/>
-                                        <Button Grid.Row="3" Grid.Column="3" Content="{Binding Localized.PickProjector}" Click="PickMmprojClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="{Binding Localized.TooltipPickProjector}"/>
+                                        <Button Grid.Row="3" Grid.Column="2" ToolTip.Tip="{Binding Localized.Browse}" Click="BrowseMmprojClick" VerticalAlignment="Stretch" Margin="3,2,0,2"><PathIcon Data="{StaticResource BrowseFolderIcon}" Width="15" Height="15"/></Button>
+                                        <Button Grid.Row="3" Grid.Column="3" Click="PickMmprojClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="{Binding Localized.TooltipPickProjector}"><PathIcon Data="{StaticResource PickFromListIcon}" Width="15" Height="15"/></Button>
 
                                         <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding Localized.ParallelSlots}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipParallelSlots}"/>
                                         <ctrl:HistoryTextBox Grid.Row="4" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ParallelSlotsPlaceholder}" PropertyName="ParallelSlots" ToolTip.Tip="{Binding Localized.TooltipParallelSlots}" IsEnabled="{Binding IsParallelSlotsSupported}"/>
@@ -794,7 +798,7 @@
                                                 ToolTip.Tip="{Binding DraftModelToolTip}">
                                             <ctrl:HistoryTextBox PlaceholderText="{Binding SpecDraftModelPlaceholder}" PropertyName="SpecDraftModel"/>
                                         </Border>
-                                        <Button Grid.Row="0" Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseDraftModelClick" VerticalAlignment="Stretch" Margin="5,4,0,4"/>
+                                        <Button Grid.Row="0" Grid.Column="2" ToolTip.Tip="{Binding Localized.Browse}" Click="BrowseDraftModelClick" VerticalAlignment="Stretch" Margin="5,4,0,4"><PathIcon Data="{StaticResource BrowseFolderIcon}" Width="15" Height="15"/></Button>
 
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.SpecDraftGpuLayers}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding DraftGpuLayersToolTip}"/>
                                         <Border Grid.Row="1" Grid.Column="1" BorderThickness="2" CornerRadius="3" Margin="0,2"
@@ -1063,12 +1067,15 @@
                         <TabItem Header="{Binding Localized.UpdateCheckIntervals}">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="10">
-                                    <Grid ColumnDefinitions="140,*,Auto" RowDefinitions="Auto,Auto">
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.AppUpdateCheckInterval}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipAppUpdateCheckInterval}"/>
-                                        <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding AppUpdateCheckInterval}" Minimum="1" Maximum="180" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipAppUpdateCheckInterval}"/>
+                                    <CheckBox Content="{Binding Localized.AppUpdateCheckEnabled}" IsChecked="{Binding AppUpdateCheckEnabled}" ToolTip.Tip="{Binding Localized.TooltipAppUpdateCheckEnabled}"/>
+                                    <CheckBox Content="{Binding Localized.LlamaUpdateCheckEnabled}" IsChecked="{Binding LlamaUpdateCheckEnabled}" ToolTip.Tip="{Binding Localized.TooltipLlamaUpdateCheckEnabled}" Margin="0,2,0,10"/>
 
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding Localized.LlamaUpdateCheckInterval}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipLlamaUpdateCheckInterval}"/>
-                                        <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding LlamaUpdateCheckInterval}" Minimum="1" Maximum="180" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipLlamaUpdateCheckInterval}"/>
+                                    <Grid ColumnDefinitions="140,*,Auto" RowDefinitions="Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" IsEnabled="{Binding AppUpdateCheckEnabled}" Text="{Binding Localized.AppUpdateCheckInterval}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipAppUpdateCheckInterval}"/>
+                                        <NumericUpDown Grid.Row="0" Grid.Column="1" IsEnabled="{Binding AppUpdateCheckEnabled}" Value="{Binding AppUpdateCheckInterval}" Minimum="1" Maximum="180" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipAppUpdateCheckInterval}"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" IsEnabled="{Binding LlamaUpdateCheckEnabled}" Text="{Binding Localized.LlamaUpdateCheckInterval}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipLlamaUpdateCheckInterval}"/>
+                                        <NumericUpDown Grid.Row="1" Grid.Column="1" IsEnabled="{Binding LlamaUpdateCheckEnabled}" Value="{Binding LlamaUpdateCheckInterval}" Minimum="1" Maximum="180" Margin="0,2" ToolTip.Tip="{Binding Localized.TooltipLlamaUpdateCheckInterval}"/>
                                     </Grid>
 
                                     <TextBlock Text="{Binding Localized.UpdateIntervalWarning}" FontSize="11" Foreground="Orange" Margin="0,8,0,0" TextWrapping="Wrap" IsVisible="{Binding ShowUpdateIntervalWarning}"/>
@@ -1222,7 +1229,7 @@
                                     </ComboBox>
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBox Grid.Column="0" Text="{Binding CustomBrowserPath}" ToolTip.Tip="{Binding Localized.TooltipCustomBrowserPath}" PlaceholderText="C:\Program Files\Browser\browser.exe"/>
-                                        <Button Grid.Column="1" Content="{Binding Localized.Browse}" Click="BrowseBrowserClick" Margin="5,0,0,0"/>
+                                        <Button Grid.Column="1" ToolTip.Tip="{Binding Localized.Browse}" Click="BrowseBrowserClick" Margin="5,0,0,0"><PathIcon Data="{StaticResource BrowseFolderIcon}" Width="15" Height="15"/></Button>
                                     </Grid>
                                 </StackPanel>
                             </ScrollViewer>

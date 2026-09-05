@@ -98,6 +98,15 @@ public class AppUpdateService
         }
     }
 
+    public static bool ShouldRunCheck(bool enabled, bool startupPass, DateTime now, DateTime lastCheck,
+        int intervalMinutes)
+    {
+        if (!enabled) return false;
+        if (startupPass) return true;
+        if (intervalMinutes <= 0) return true;
+        return now - lastCheck >= TimeSpan.FromMinutes(intervalMinutes);
+    }
+
     public static AppUpdateVerdict Decide(string? remoteTag, string? localVersion, string? assetDigest,
                                           Func<string?> localBinaryHash)
     {

@@ -123,6 +123,8 @@ public class AppSettings
     public bool McpEnabled { get; set; }
     public List<McpServerEntry> McpServers { get; set; } = new();
 
+    public bool AppUpdateCheckEnabled { get; set; } = true;
+    public bool LlamaUpdateCheckEnabled { get; set; } = true;
     public DateTime LastAppUpdateCheck { get; set; }
     public DateTime LastLlamaUpdateCheck { get; set; }
     public int AppUpdateCheckIntervalMinutes { get; set; } = 15;
@@ -141,6 +143,12 @@ public class AppSettings
 
     public string ModelScanFolder { get; set; } = "";
     public bool ModelScanRecursive { get; set; }
+
+    public string HfToken { get; set; } = "";
+    public string HfEndpoint { get; set; } = "";
+    public string HfDownloadFolder { get; set; } = "";
+    public bool HfSubfolderPerRepo { get; set; }
+    public string HfLastQuery { get; set; } = "";
 
     public bool OnDemandProxyEnabled { get; set; }
     public int OnDemandProxyPort { get; set; } = 8081;

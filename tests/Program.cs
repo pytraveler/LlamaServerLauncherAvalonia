@@ -30,6 +30,8 @@ VramEstimatorTests.Run(harness);
 VramPlanTests.Run(harness);
 ServerMemoryTests.Run(harness);
 CommandImportTests.Run(harness);
+HuggingFaceTests.Run(harness);
+HfTransferTests.Run(harness);
 return harness.Report();
 
 public sealed class Harness

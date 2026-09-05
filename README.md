@@ -81,6 +81,7 @@ Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
 - **Model Selection** — Choose a specific model file (.gguf), set a models directory, or specify a HuggingFace repo (`--hf-repo`) and file (`--hf-file`)
 - **Model Picker** — Scan a folder (optionally recursive) for `.gguf` files and pick from a filterable list with metadata and file size. Every row also carries what the model would ask of the card — in green, orange or red, depending on whether it fits into the VRAM free right now — and a model split across several shards appears as one row with the size of all its parts. The last folder is remembered
 - **Projector Picker** — the MMProj field has a list of its own, showing projector files only; they are kept out of the model list, where they could not be launched anyway
+- **HuggingFace downloader** — a window that searches the Hub, lists the quants of a repository with their sizes and downloads the chosen one straight into your models folder. It takes search words, an `owner/name`, a repository link or a link to a file inside one. A split model is one row at the size of all its parts. Progress, speed and time left are shown; an interrupted download leaves a `.part` next to the target and resumes from that point instead of starting over. The finished file is put into the **Model** field. Gated and private repositories take a read token entered in the same window
 - **Network Settings** — Configure host address (default: 127.0.0.1) and port (default: 8080)
 - **API Key** — Set authentication API key for the server
 - **Offline mode** — Force cache-only operation with no network access (`--offline`)
@@ -244,6 +245,7 @@ A built-in reverse proxy that loads the right profile on demand when an API requ
 - **Auto-update** — Automatically checks for new application releases and supports one-click update with restart
 - **Release notes** — the update prompt shows the GitHub release notes rendered as Markdown
 - **Version display** — The About dialog shows the installed version (stamped from the build) and, when the periodic check has already found one, the latest available release — without making any extra GitHub API calls
+- **Update checks can be switched off** — two checkboxes on the **Updates** tab, separately for the launcher and for llama.cpp. An unchecked box stops the GitHub requests and hides the update button, including the one that used to light up from the cached release list without any network at all
 
 ### System Integration
 - **Auto-start** — Register the app to start with the operating system (Windows registry, Linux autostart .desktop, macOS LaunchAgent)

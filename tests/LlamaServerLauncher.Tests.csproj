@@ -58,6 +58,11 @@
     <Compile Include="..\Models\ProfilePathStatus.cs" />
     <Compile Include="..\Models\ProfileFavorites.cs" />
     <Compile Include="..\Models\ConfigurationDiff.cs" />
+    <Compile Include="..\Models\HfRepoRef.cs" />
+    <Compile Include="..\Models\HfRemoteFile.cs" />
+    <Compile Include="..\Models\HfDownloadPlan.cs" />
+    <Compile Include="..\Services\HuggingFaceClient.cs" />
+    <Compile Include="..\Services\HfDownloadService.cs" />
     <Compile Include="CommandLineTests.cs" />
     <Compile Include="OptimizationTests.cs" />
     <Compile Include="ProxyProtocolTests.cs" />
@@ -87,6 +92,8 @@
     <Compile Include="VramPlanTests.cs" />
     <Compile Include="ServerMemoryTests.cs" />
     <Compile Include="CommandImportTests.cs" />
+    <Compile Include="HuggingFaceTests.cs" />
+    <Compile Include="HfTransferTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,133 @@
+<Window x:Class="LlamaServerLauncher.HfBrowserWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:LlamaServerLauncher.ViewModels;assembly=LlamaServerLauncher"
+        mc:Ignorable="d"
+        x:DataType="vm:HfBrowserViewModel"
+        Title="{Binding Title}"
+        Width="1000" Height="660"
+        MinWidth="720" MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundBrush}">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="10">
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+            <TextBox Grid.Column="0" Name="QueryBox"
+                     Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}"
+                     PlaceholderText="{Binding Localized.HfSearchPlaceholder}"
+                     KeyDown="QueryKeyDown"/>
+            <Button Grid.Column="1" Content="{Binding Localized.HfGo}" Click="GoClick"
+                    MinWidth="90" Margin="8,0,0,0" IsEnabled="{Binding NotBusy}"/>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="300,*">
+            <Grid Grid.Column="0" RowDefinitions="Auto,*" Margin="0,0,8,0">
+                <TextBlock Grid.Row="0" Text="{Binding Localized.HfRepositories}"
+                           FontWeight="Bold" Opacity="0.7" Margin="2,0,0,4"/>
+                <ListBox Grid.Row="1" ItemsSource="{Binding Repos}" SelectedItem="{Binding SelectedRepo}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,2">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Id}" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <Border Background="#66FFA726" CornerRadius="3" Padding="5,0" Margin="6,0,0,0"
+                                            VerticalAlignment="Center" IsVisible="{Binding HasBadge}">
+                                        <TextBlock Text="{Binding BadgeText}" FontSize="10" FontWeight="Bold"/>
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{Binding StatsText}" FontSize="10" Opacity="0.55" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <Grid Grid.Column="1" RowDefinitions="Auto,*">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="2,0,0,4">
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" FontWeight="Bold" Opacity="0.7"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding RepoHeader}" IsVisible="{Binding HasRepo}"/>
+                    <Button Grid.Column="1" Content="{Binding Localized.HfOpenPage}" Click="OpenPageClick"
+                            IsVisible="{Binding HasRepo}" Padding="8,1" FontSize="11"/>
+                </Grid>
+                <ListBox Grid.Row="1" ItemsSource="{Binding Quants}" SelectedItem="{Binding SelectedQuant}"
+                         DoubleTapped="QuantDoubleTapped">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                <StackPanel Grid.Column="0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <Border Background="#66FFA726" CornerRadius="3" Padding="5,0" Margin="8,0,0,0"
+                                                VerticalAlignment="Center" IsVisible="{Binding IsProjector}">
+                                            <TextBlock Text="mmproj" FontSize="10" FontWeight="Bold"/>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding SubDir}" IsVisible="{Binding HasSubDir}"
+                                               FontSize="10" Opacity="0.5" Margin="0,1,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,4,0">
+                                    <TextBlock Text="{Binding SizeText}" Opacity="0.7" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding FitText}" IsVisible="{Binding FitsEasily}"
+                                               Foreground="{DynamicResource OptionOnBrush}"
+                                               FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding FitText}" IsVisible="{Binding FitsTight}"
+                                               Foreground="{DynamicResource WarningForegroundBrush}"
+                                               FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding FitText}" IsVisible="{Binding FitsNot}"
+                                               Foreground="{DynamicResource OptionOffBrush}"
+                                               FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding LocalText}" IsVisible="{Binding HasLocalState}"
+                                               FontSize="10" Opacity="0.6" HorizontalAlignment="Right"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,10,0,0">
+            <TextBlock Grid.Column="0" Text="{Binding Localized.HfFolder}"
+                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox Grid.Column="1" Text="{Binding TargetFolder}" VerticalAlignment="Center"/>
+            <Button Grid.Column="2" Content="{Binding Localized.Browse}" Click="BrowseFolderClick" Margin="8,0,0,0"/>
+            <CheckBox Grid.Column="3" Content="{Binding Localized.HfSubfolder}"
+                      IsChecked="{Binding SubfolderPerRepo}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+        </Grid>
+
+        <Expander Grid.Row="3" Header="{Binding Localized.HfToken}" Margin="0,8,0,0">
+            <StackPanel Margin="0,4,0,0">
+                <TextBox Text="{Binding Token}" PasswordChar="*"/>
+                <TextBlock Text="{Binding Localized.HfTokenHint}" TextWrapping="Wrap"
+                           FontSize="11" Opacity="0.6" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Expander>
+
+        <StackPanel Grid.Row="4" Margin="0,8,0,0" IsVisible="{Binding HasProgress}">
+            <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" Height="6"/>
+            <TextBlock Text="{Binding ProgressText}" FontSize="11" Opacity="0.75" Margin="0,4,0,0"
+                       FontFamily="Consolas,Courier New,monospace"/>
+        </StackPanel>
+
+        <Grid Grid.Row="5" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+            <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center"
+                       Opacity="0.75" TextWrapping="Wrap" Margin="0,0,10,0"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{Binding Localized.HfDownload}" Click="DownloadClick"
+                        MinWidth="100" IsEnabled="{Binding CanDownload}" IsVisible="{Binding NotDownloading}"/>
+                <Button Content="{Binding Localized.HfCancelDownload}" Click="StopClick"
+                        MinWidth="100" IsVisible="{Binding IsDownloading}"/>
+                <Button Content="{Binding Localized.HfUseAndClose}" Click="UseClick"
+                        MinWidth="120" Margin="8,0,0,0" IsEnabled="{Binding HasConfirmed}" IsDefault="True"/>
+                <Button Content="{Binding Localized.HfClose}" Click="CloseClick"
+                        MinWidth="90" Margin="8,0,0,0" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

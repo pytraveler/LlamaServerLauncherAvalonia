@@ -15,12 +15,15 @@ This section holds the minimum needed to launch: what to run it with, what to ru
 - **Model** — a specific `.gguf` file. A badge below the paths block shows what was read from the GGUF: quantization, parameter count, layers and experts, chat template and vision projector presence. The model's trained context length comes from there too and caps the **Context size** field.
 - **Models directory** — routing mode (`--models-dir`): the server picks the model by the name in the request. Fill in either **Model** or **Models directory** — the status line below the fields shows which mode is active.
 - **Pick…** — scans a folder (recursively if you want) and shows a filterable list of `.gguf` files with size and metadata. Projector files are kept out of it: they have their own **Pick...** next to the **MMProj** field on the **Options** tab, which lists projectors and nothing else. The last folder is remembered. Each row also carries what the model would ask of the card, in green, amber or red depending on whether it fits into the VRAM free right now; the figure is computed for the settings currently on the form, and the free and total memory are printed in the status line at the bottom. A split model is listed once, at the size of all of its parts together.
+- **From HF** — opens a HuggingFace browser: type words to search, or paste a repository, a link to one, or a link to a file inside one. The quants of the chosen repository are listed with their sizes, a split model as a single row at the size of all its parts. The download goes straight into the folder you name, so finishing it is a rename inside the volume rather than a copy of tens of gigabytes, and the file is put into the **Model** field when it is done. A stopped download leaves a `.part` file next to the target and the row says how much of it is already there; starting again picks up from that point instead of from zero. Gated and private repositories need a read token, entered in the same window under **Token:** and kept in the settings file in plain text.
 
 > Selecting an `mmproj-*.gguf` projector as the main model raises a warning — that file belongs in the separate **MMProj** field on the **Options** tab.
 
 Path fields keep a history: the **∨** button to the right of a field lists previously entered values, and the bin button next to it clears the field.
 
 ## HuggingFace
+
+The **From HF** button above downloads through the launcher itself. The fields below are the other road: llama.cpp fetches the model on its own, into its own cache, with no progress and no way to resume.
 
 An alternative to a local file — let llama.cpp fetch the model itself:
 

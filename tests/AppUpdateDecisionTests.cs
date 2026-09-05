@@ -1,3 +1,4 @@
+using System;
 using LlamaServerLauncher.Services;
 
 public static class AppUpdateDecisionTests
@@ -51,5 +52,31 @@ public static class AppUpdateDecisionTests
             AppUpdateService.Decide("v1.8", "dev", ReleasedHash, () => OtherHash) == AppUpdateVerdict.Rebuilt, "dev build");
         h.Check("hash that cannot be computed decides nothing",
             AppUpdateService.Decide("v1.8", "v1.8", ReleasedHash, () => null) == AppUpdateVerdict.NotNewer, "no local hash");
+
+        h.Section("AppUpdateDecision - when a check is allowed to run");
+
+        var now = new DateTime(2026, 9, 5, 20, 0, 0);
+        var justNow = now.AddMinutes(-1);
+        var longAgo = now.AddHours(-3);
+
+        h.Check("switched off, the interval does not matter",
+            !AppUpdateService.ShouldRunCheck(false, false, now, longAgo, 15), "no check");
+        h.Check("switched off, the startup pass does not sneak one in",
+            !AppUpdateService.ShouldRunCheck(false, true, now, longAgo, 15), "no check");
+        h.Check("switched off with a never-checked timestamp still stays off",
+            !AppUpdateService.ShouldRunCheck(false, true, now, DateTime.MinValue, 15), "no check");
+
+        h.Check("switched on, the startup pass runs even though we just checked",
+            AppUpdateService.ShouldRunCheck(true, true, now, justNow, 15), "check");
+        h.Check("switched on, a fresh check is not repeated",
+            !AppUpdateService.ShouldRunCheck(true, false, now, justNow, 15), "no check");
+        h.Check("switched on, a stale check is repeated",
+            AppUpdateService.ShouldRunCheck(true, false, now, longAgo, 15), "check");
+        h.Check("exactly at the interval it is due",
+            AppUpdateService.ShouldRunCheck(true, false, now, now.AddMinutes(-15), 15), "check");
+        h.Check("a second before the interval it is not",
+            !AppUpdateService.ShouldRunCheck(true, false, now, now.AddMinutes(-15).AddSeconds(1), 15), "no check");
+        h.Check("a nonsense interval does not wedge the loop shut",
+            AppUpdateService.ShouldRunCheck(true, false, now, justNow, 0), "check");
     }
 }

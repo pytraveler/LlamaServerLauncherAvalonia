@@ -2649,4 +2649,151 @@ Download here anyway?</value>
   <data name="TooltipUiScaleAutoSizeWindows" xml:space="preserve">
     <value>Windows grow and shrink together with the scale, and one opened at a larger scale opens larger, up to what the scale asks for. With this off only the content is scaled and every window keeps the size you gave it.</value>
   </data>
+  <data name="HfBrowserTitle" xml:space="preserve">
+    <value>Download a model from HuggingFace</value>
+  </data>
+  <data name="HfSearchPlaceholder" xml:space="preserve">
+    <value>owner/name, a link, or words to search for</value>
+  </data>
+  <data name="HfGo" xml:space="preserve">
+    <value>Find</value>
+  </data>
+  <data name="HfHint" xml:space="preserve">
+    <value>Paste a repository or type words to search.</value>
+  </data>
+  <data name="HfRepositories" xml:space="preserve">
+    <value>Repositories</value>
+  </data>
+  <data name="HfFiles" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="HfFolder" xml:space="preserve">
+    <value>Save to:</value>
+  </data>
+  <data name="HfSubfolder" xml:space="preserve">
+    <value>Own subfolder per repository</value>
+  </data>
+  <data name="HfDownload" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="HfCancelDownload" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="HfUseAndClose" xml:space="preserve">
+    <value>Use and close</value>
+  </data>
+  <data name="HfClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="HfOpenPage" xml:space="preserve">
+    <value>Open page</value>
+  </data>
+  <data name="HfToken" xml:space="preserve">
+    <value>Token:</value>
+  </data>
+  <data name="HfTokenHint" xml:space="preserve">
+    <value>A read token opens gated and private repositories. It is stored in plain text in the settings file.</value>
+  </data>
+  <data name="HfSearching" xml:space="preserve">
+    <value>Searching...</value>
+  </data>
+  <data name="HfLoadingFiles" xml:space="preserve">
+    <value>Reading the file list...</value>
+  </data>
+  <data name="HfNoResults" xml:space="preserve">
+    <value>Nothing found.</value>
+  </data>
+  <data name="HfNoGguf" xml:space="preserve">
+    <value>This repository has no .gguf files.</value>
+  </data>
+  <data name="HfFoundRepos" xml:space="preserve">
+    <value>{0} repositories</value>
+  </data>
+  <data name="HfFoundFiles" xml:space="preserve">
+    <value>{0} files</value>
+  </data>
+  <data name="HfPickAQuant" xml:space="preserve">
+    <value>Select a file first.</value>
+  </data>
+  <data name="HfNeedFolder" xml:space="preserve">
+    <value>Choose a folder to save into.</value>
+  </data>
+  <data name="HfConnecting" xml:space="preserve">
+    <value>Connecting...</value>
+  </data>
+  <data name="HfRestarting" xml:space="preserve">
+    <value>The server ignored the resume request, starting over</value>
+  </data>
+  <data name="HfVerifying" xml:space="preserve">
+    <value>Checking the size...</value>
+  </data>
+  <data name="HfFinalizing" xml:space="preserve">
+    <value>Finishing...</value>
+  </data>
+  <data name="HfDownloadingFrom" xml:space="preserve">
+    <value>Downloading {0}</value>
+  </data>
+  <data name="HfCancelled" xml:space="preserve">
+    <value>Stopped. The partial file was kept, the download can be picked up later.</value>
+  </data>
+  <data name="HfDone" xml:space="preserve">
+    <value>Downloaded: {0}</value>
+  </data>
+  <data name="HfPartOf" xml:space="preserve">
+    <value>file {0} of {1}</value>
+  </data>
+  <data name="HfErrorNotFound" xml:space="preserve">
+    <value>Not found: {0}</value>
+  </data>
+  <data name="HfErrorGated" xml:space="preserve">
+    <value>This repository is gated. Open its page, accept the terms, then paste your token below.</value>
+  </data>
+  <data name="HfErrorAuth" xml:space="preserve">
+    <value>The token was rejected. Check it below.</value>
+  </data>
+  <data name="HfErrorRateLimited" xml:space="preserve">
+    <value>HuggingFace is rate limiting requests. Try again in a minute.</value>
+  </data>
+  <data name="HfErrorNoSpace" xml:space="preserve">
+    <value>Not enough free space on the target drive.</value>
+  </data>
+  <data name="HfErrorVerify" xml:space="preserve">
+    <value>The downloaded file has the wrong size. It was kept so the download can be resumed.</value>
+  </data>
+  <data name="HfErrorNetwork" xml:space="preserve">
+    <value>Network error: {0}</value>
+  </data>
+  <data name="HfErrorServer" xml:space="preserve">
+    <value>HuggingFace returned HTTP {0}.</value>
+  </data>
+  <data name="HfErrorUnknown" xml:space="preserve">
+    <value>The download did not finish.</value>
+  </data>
+  <data name="HfErrorOtherHost" xml:space="preserve">
+    <value>That link points to {0}, not to HuggingFace.</value>
+  </data>
+  <data name="HfErrorNotAModel" xml:space="preserve">
+    <value>Only model repositories are supported, not {0}.</value>
+  </data>
+  <data name="HfErrorBadRef" xml:space="preserve">
+    <value>That is not a repository reference.</value>
+  </data>
+  <data name="PickHfModel" xml:space="preserve">
+    <value>From HF</value>
+  </data>
+  <data name="TooltipPickHfModel" xml:space="preserve">
+    <value>Search HuggingFace, pick a quant and download it straight into your models folder.</value>
+  </data>
+  <data name="AppUpdateCheckEnabled" xml:space="preserve">
+    <value>Check for launcher updates</value>
+  </data>
+  <data name="LlamaUpdateCheckEnabled" xml:space="preserve">
+    <value>Check for llama.cpp updates</value>
+  </data>
+  <data name="TooltipAppUpdateCheckEnabled" xml:space="preserve">
+    <value>When off, the launcher never asks GitHub about its own new versions and the update button stays hidden.</value>
+  </data>
+  <data name="TooltipLlamaUpdateCheckEnabled" xml:space="preserve">
+    <value>When off, the launcher never asks GitHub about new llama.cpp builds. Downloading a build or changing the version by hand keeps working.</value>
+  </data>
 </root>
