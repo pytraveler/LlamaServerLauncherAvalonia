@@ -116,6 +116,67 @@ public sealed class GgufTensorSummary
     }
 }
 
+public sealed class GgufTruncatedException : Exception
+{
+}
+
+internal sealed class TruncationGuardStream : Stream
+{
+    private readonly Stream _inner;
+    private readonly long _limit;
+
+    public TruncationGuardStream(Stream inner)
+    {
+        _inner = inner;
+        _limit = inner.CanSeek ? inner.Length : long.MaxValue;
+    }
+
+    public override bool CanRead => true;
+    public override bool CanSeek => _inner.CanSeek;
+    public override bool CanWrite => false;
+    public override long Length => _limit;
+
+    public override long Position
+    {
+        get => _inner.Position;
+        set => Seek(value, SeekOrigin.Begin);
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        if (count <= 0) return 0;
+        if (_inner.Position >= _limit) throw new GgufTruncatedException();
+        int read = _inner.Read(buffer, offset, count);
+        if (read <= 0) throw new GgufTruncatedException();
+        return read;
+    }
+
+    public override long Seek(long offset, SeekOrigin origin)
+    {
+        long target = origin switch
+        {
+            SeekOrigin.Begin => offset,
+            SeekOrigin.Current => _inner.Position + offset,
+            _ => _limit + offset,
+        };
+        if (target > _limit || target < 0) throw new GgufTruncatedException();
+        return _inner.Seek(target, SeekOrigin.Begin);
+    }
+
+    public override void Flush()
+    {
+    }
+
+    public override void SetLength(long value) => throw new NotSupportedException();
+
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+    }
+}
+
 public static class GgufMetadataService
 {
     private const uint Magic = 0x46554747;
@@ -123,6 +184,8 @@ public static class GgufMetadataService
     private const ulong MaxTensorCount = 500_000;
     private const ulong MaxPerLayerValues = 8192;
     private const ulong MaxElements = 1UL << 50;
+
+    private const ulong MaxStringBytes = 64UL << 20;
 
     private static readonly Regex ShardPattern =
         new(@"^(?<stem>.+)-(?<no>\d{5})-of-(?<total>\d{5})\.gguf$",
@@ -158,6 +221,26 @@ public static class GgufMetadataService
     }
 
     public static GgufModelInfo? TryReadDetailed(Stream stream) => TryReadCore(stream, includeTensors: true);
+
+    public static GgufModelInfo? TryReadPartial(Stream prefix, out bool needMoreBytes)
+    {
+        needMoreBytes = false;
+        try
+        {
+            if (prefix.CanSeek) prefix.Position = 0;
+            using var guard = new TruncationGuardStream(prefix);
+            return TryReadCore(guard, includeTensors: true);
+        }
+        catch (GgufTruncatedException)
+        {
+            needMoreBytes = true;
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     public static IReadOnlyList<string> EnumerateShards(string path)
     {
@@ -303,6 +386,10 @@ public static class GgufMetadataService
                 Tensors = tensors,
             };
         }
+        catch (GgufTruncatedException)
+        {
+            throw;
+        }
         catch
         {
             return null;
@@ -314,6 +401,10 @@ public static class GgufMetadataService
         try
         {
             return ReadTensors(r, tensorCount);
+        }
+        catch (GgufTruncatedException)
+        {
+            throw;
         }
         catch
         {
@@ -620,7 +711,7 @@ public static class GgufMetadataService
     private static string ReadGgufString(BinaryReader r)
     {
         ulong len = r.ReadUInt64();
-        if (len > int.MaxValue) throw new InvalidDataException("GGUF string too long");
+        if (len > MaxStringBytes) throw new InvalidDataException("GGUF string too long");
         byte[] bytes = r.ReadBytes((int)len);
         return Encoding.UTF8.GetString(bytes);
     }

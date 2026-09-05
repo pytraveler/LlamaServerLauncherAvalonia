@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using LlamaServerLauncher.Services;
@@ -104,6 +105,85 @@ public static class GgufMetadataTests
         RunGeometry(h);
         RunTensors(h);
         RunShards(h);
+        RunPartial(h);
+    }
+
+    private static void RunPartial(Harness h)
+    {
+        h.Section("GgufMetadataService.TryReadPartial");
+
+        var tokens = new string[200];
+        for (int i = 0; i < tokens.Length; i++) tokens[i] = "token_" + i.ToString(CultureInfo.InvariantCulture);
+
+        var full = BuildGguf(3, 4, w =>
+        {
+            WriteKvString(w, "general.architecture", "qwen3moe");
+            WriteKvStringArray(w, "tokenizer.ggml.tokens", tokens);
+            WriteKvUint32(w, "qwen3moe.block_count", 2);
+            WriteKvUint32(w, "qwen3moe.expert_count", 128);
+        }, 4, w =>
+        {
+            WriteTensor(w, "token_embd.weight", 1, 4, 8);
+            WriteTensor(w, "blk.0.attn_q.weight", 12, 256, 2);
+            WriteTensor(w, "blk.1.ffn_up_exps.weight", 12, 256, 4);
+            WriteTensor(w, "output.weight", 14, 256, 1);
+        });
+
+        var whole = ReadPartial(full, out bool wholeNeedsMore);
+        h.Check("a complete header parses and asks for nothing more",
+            whole?.Tensors != null && !wholeNeedsMore,
+            whole?.Tensors?.TensorCount.ToString(CultureInfo.InvariantCulture) ?? "null");
+        h.Check("the prefix read agrees with the file read",
+            whole?.Tensors?.TotalBytes == ReadDetailed(full)?.Tensors?.TotalBytes,
+            whole?.Tensors?.TotalBytes.ToString() ?? "null");
+
+        int silent = -1, wrong = -1;
+        for (int len = 0; len < full.Length; len++)
+        {
+            var prefix = new byte[len];
+            Array.Copy(full, prefix, len);
+            var info = ReadPartial(prefix, out bool needsMore);
+            if (!needsMore && silent < 0) silent = len;
+            if (info != null && wrong < 0) wrong = len;
+        }
+        h.Check("every short prefix asks for more bytes",
+            silent < 0, silent < 0 ? "all " + full.Length.ToString(CultureInfo.InvariantCulture) : "silent at " + silent.ToString(CultureInfo.InvariantCulture));
+        h.Check("no short prefix is mistaken for a whole header",
+            wrong < 0, wrong < 0 ? "none" : "parsed at " + wrong.ToString(CultureInfo.InvariantCulture));
+
+        var eightBytes = new byte[8];
+        Array.Copy(full, eightBytes, 8);
+        ReadPartial(eightBytes, out bool headerNeedsMore);
+        h.Check("a prefix that stops inside the counts asks for more", headerNeedsMore, "ok");
+
+        var notGguf = new byte[1 << 20];
+        notGguf[0] = 0x7F; notGguf[1] = (byte)'E'; notGguf[2] = (byte)'L'; notGguf[3] = (byte)'F';
+        var elf = ReadPartial(notGguf, out bool elfNeedsMore);
+        h.Check("something that is not GGUF is refused rather than re-fetched",
+            elf == null && !elfNeedsMore, elfNeedsMore ? "wants more" : "ok");
+
+        var oldVersion = BuildGguf(1, 1, w => WriteKvUint32(w, "llama.context_length", 4096));
+        ReadPartial(oldVersion, out bool oldNeedsMore);
+        h.Check("an unsupported version is refused rather than re-fetched", !oldNeedsMore, "ok");
+
+        bool escaped = false;
+        for (int len = 0; len < full.Length; len += 7)
+        {
+            var prefix = new byte[len];
+            Array.Copy(full, prefix, len);
+            try
+            {
+                GgufMetadataService.TryReadDetailed(new MemoryStream(prefix));
+                GgufMetadataService.TryRead(new MemoryStream(prefix));
+                GgufMetadataService.TryReadMaxContext(new MemoryStream(prefix));
+            }
+            catch
+            {
+                escaped = true;
+                break;
+            }
+        }
+        h.Check("the existing readers still swallow everything", !escaped, escaped ? "threw" : "quiet");
     }
 
     private static void RunGeometry(Harness h)
@@ -331,6 +411,9 @@ public static class GgufMetadataTests
 
     private static GgufModelInfo? ReadDetailed(byte[] bytes) =>
         GgufMetadataService.TryReadDetailed(new MemoryStream(bytes));
+
+    private static GgufModelInfo? ReadPartial(byte[] bytes, out bool needMoreBytes) =>
+        GgufMetadataService.TryReadPartial(new MemoryStream(bytes), out needMoreBytes);
 
     private static byte[] BuildGguf(uint version, ulong kvCount, Action<BinaryWriter> kvs,
         ulong tensorCount = 0, Action<BinaryWriter>? tensors = null)
