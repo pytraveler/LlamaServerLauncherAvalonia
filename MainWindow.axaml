@@ -1181,6 +1181,8 @@
                                 <StackPanel Margin="10">
                                     <CheckBox Content="{Binding Localized.ConfirmStopServer}" IsChecked="{Binding ConfirmStopServer}"
                                               ToolTip.Tip="{Binding Localized.TooltipConfirmStopServer}"/>
+                                    <CheckBox Content="{Binding Localized.SkipExitConfirmationWhenServerRunning}" IsChecked="{Binding SkipExitConfirmationWhenServerRunning}"
+                                              ToolTip.Tip="{Binding Localized.TooltipSkipExitConfirmationWhenServerRunning}"/>
                                     <CheckBox Content="{Binding Localized.AutoStartWithSystem}" IsChecked="{Binding AutoStartWithSystem}"
                                               ToolTip.Tip="{Binding Localized.TooltipAutoStartWithSystem}"/>
                                     <CheckBox Content="{Binding Localized.AutoFitHeight}" IsChecked="{Binding AutoFitHeight}"/>

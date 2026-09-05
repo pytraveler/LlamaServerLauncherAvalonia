@@ -1469,6 +1469,12 @@
   <data name="TooltipConfirmStopServer" xml:space="preserve">
     <value>Ask for confirmation before stopping a running server instance.</value>
   </data>
+  <data name="SkipExitConfirmationWhenServerRunning" xml:space="preserve">
+    <value>Skip exit confirmation when a server is running</value>
+  </data>
+  <data name="TooltipSkipExitConfirmationWhenServerRunning" xml:space="preserve">
+    <value>Automatically stop running server instances before exiting.</value>
+  </data>
   <data name="Behavior" xml:space="preserve">
     <value>Behavior</value>
   </data>

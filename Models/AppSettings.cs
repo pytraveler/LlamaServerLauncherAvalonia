@@ -88,6 +88,7 @@ public class AppSettings
     public string CustomBrowserPath { get; set; } = "";
     public bool AutoStartWithSystem { get; set; }
     public bool ConfirmStopServer { get; set; } = true;
+    public bool SkipExitConfirmationWhenServerRunning { get; set; }
     public bool AutoScrollLog { get; set; } = true;
     public bool LogEnabled { get; set; } = true;
     public bool LogVisible { get; set; } = true;

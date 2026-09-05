@@ -925,6 +925,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private bool _autoStartWithSystem;
     private string _customBrowserPath = string.Empty;
     private bool _confirmStopServer = true;
+    private bool _skipExitConfirmationWhenServerRunning;
     private bool _autoScroll = true;
     private bool _logEnabled = true;
     private bool _logVisible = true;
@@ -1742,6 +1743,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         HfRepoDraft = settings.HfRepoDraft;
         AutoRestart = settings.AutoRestart;
         ConfirmStopServer = settings.ConfirmStopServer;
+        SkipExitConfirmationWhenServerRunning = settings.SkipExitConfirmationWhenServerRunning;
         AutoStartWithSystem = _autoStartService.IsAutoStartEnabled();
         CustomBrowserPath = settings.CustomBrowserPath ?? "";
         AutoScroll = settings.AutoScrollLog;
@@ -2257,6 +2259,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             HfRepoDraft = HfRepoDraft,
             AutoRestart = AutoRestart,
             ConfirmStopServer = ConfirmStopServer,
+            SkipExitConfirmationWhenServerRunning = SkipExitConfirmationWhenServerRunning,
             AutoScrollLog = AutoScroll,
             LogEnabled = LogEnabled,
             LogVisible = LogVisible,
@@ -3964,6 +3967,12 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         get => _confirmStopServer;
         set { _confirmStopServer = value; OnPropertyChanged(); }
+    }
+
+    public bool SkipExitConfirmationWhenServerRunning
+    {
+        get => _skipExitConfirmationWhenServerRunning;
+        set { _skipExitConfirmationWhenServerRunning = value; OnPropertyChanged(); }
     }
 
     public bool AutoStartWithSystem

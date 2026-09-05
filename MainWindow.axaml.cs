@@ -1906,12 +1906,14 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
             e.Cancel = true;
             _isClosing = true;
             
-            var result = await MessageBox.ShowAsync(
-                this,
-                LocalizedStrings.Instance.ConfirmCloseMessage,
-                LocalizedStrings.Instance.ConfirmCloseTitle,
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
+            var result = _viewModel.SkipExitConfirmationWhenServerRunning
+                ? MessageBoxResult.Yes
+                : await MessageBox.ShowAsync(
+                    this,
+                    LocalizedStrings.Instance.ConfirmCloseMessage,
+                    LocalizedStrings.Instance.ConfirmCloseTitle,
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
 
             if (result == MessageBoxResult.Yes)
             {
