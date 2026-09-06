@@ -46,7 +46,7 @@ The proxy starts that profile, waits until it is ready and proxies the response,
 ## Behavior
 
 - **Start with system** — register the app with the OS autostart.
-- **Confirm server stop** — ask before stopping a running instance.
+- **Confirm server stop** — ask before stopping a running instance, including when closing the app with a server still running.
 - **Hardware monitor** — show CPU / RAM / GPU / VRAM / temperature above the instance list. Polling pauses while a model loads so it does not interfere with CUDA/HIP init.
 - **Auto-fit window height** — size the window to its content.
 - **Browser** — which browser opens the WebUI: one of the detected ones or a path you provide.

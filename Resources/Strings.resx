@@ -1467,7 +1467,7 @@
     <value>Confirm server stop</value>
   </data>
   <data name="TooltipConfirmStopServer" xml:space="preserve">
-    <value>Ask for confirmation before stopping a running server instance.</value>
+    <value>Ask for confirmation before stopping a running server instance, including when closing the app.</value>
   </data>
   <data name="Behavior" xml:space="preserve">
     <value>Behavior</value>

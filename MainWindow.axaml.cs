@@ -1911,25 +1911,43 @@ private void Window_DragEnter(object? sender, Avalonia.Input.DragEventArgs e)
         {
             e.Cancel = true;
             _isClosing = true;
-            
-            var result = await MessageBox.ShowAsync(
-                this,
-                LocalizedStrings.Instance.ConfirmCloseMessage,
-                LocalizedStrings.Instance.ConfirmCloseTitle,
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
 
-            if (result == MessageBoxResult.Yes)
+            if (_viewModel.ConfirmStopServer)
             {
-                await _viewModel.StopServerIfRunningAsync();
-                await SaveWindowPositionAsync();
+                var result = await MessageBox.ShowAsync(
+                    this,
+                    LocalizedStrings.Instance.ConfirmCloseMessage,
+                    LocalizedStrings.Instance.ConfirmCloseTitle,
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
 
-                Close();
+                if (result != MessageBoxResult.Yes)
+                {
+                    _isClosing = false;
+                    return;
+                }
             }
-            else
+
+            if (_viewModel.HasUnsavedChanges)
             {
-                _isClosing = false;
+                var unsaved = await MessageBox.ShowAsync(
+                    this,
+                    LocalizedStrings.Instance.ConfirmCloseUnsavedMessage,
+                    LocalizedStrings.Instance.ConfirmCloseUnsavedTitle,
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (unsaved != MessageBoxResult.Yes)
+                {
+                    _isClosing = false;
+                    return;
+                }
             }
+
+            await _viewModel.StopServerIfRunningAsync();
+            await SaveWindowPositionAsync();
+            _viewModel.Dispose();
+            Close();
         }
         else
         {
