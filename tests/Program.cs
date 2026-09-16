@@ -12,6 +12,7 @@ AmdGpuParserTests.Run(harness);
 ModelScanTests.Run(harness);
 EndpointSnippetsTests.Run(harness);
 BackendAssetSelectorTests.Run(harness);
+CudaRuntimeAssetTests.Run(harness);
 ServerLogFilterTests.Run(harness);
 McpConfigTests.Run(harness);
 ServerCrashAdvisorTests.Run(harness);

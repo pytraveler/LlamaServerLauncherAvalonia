@@ -8,6 +8,12 @@ release workflow refuses a tag whose version disagrees with
 screenshots and other per-release extras live in `.github/release-notes/`.
 Nothing is written by hand at tag time.
 
+## v1.9.8 - 2026-09-16
+
+- **CUDA builds of llama.cpp install again** - every attempt ended with "End of Central Directory record could not be found", and the build already on disk stayed where it was. A CUDA build needs the DLLs from the CUDA runtime, which llama.cpp ships as a second archive, and the launcher picks that archive by the version and architecture of the build being installed. The match cut the suffix at the first dot, so `cuda-13.4-x64` shrank to `cuda-13`, and then took the first asset whose name begins with `cudart-` and contains that much. While the runtime archives were Windows zips and nothing else, the first one to match was always the right one. llama.cpp now publishes Linux runtime tarballs in the same release, and they sort ahead of the Windows ones, so what came down was an Ubuntu `.tar.gz` that was then opened as a zip. The main archive had been unpacked by that point, so the failure landed on the very last step and the rollback put the previous build back: from the outside it looked as though the download had never started at all. The suffix is now kept whole, and only a Windows zip is treated as a candidate - a Linux tarball cannot be chosen however the release is laid out. Vulkan, CPU and the other builds were never affected.
+
+Thanks to @s_a_m_s_o_n_n_n for reporting the bug.
+
 ## v1.9.7 - 2026-09-06
 
 - **"Confirm server stop" now covers closing the app** - the setting governed the stop button and nothing else, so switching it off still left one dialog standing: closing the window with a server running always asked whether to exit. For anyone who keeps the launcher up all day and closes it the same way every evening, that is a question with a foregone answer, and the setting that ought to have silenced it did not reach that far. It now governs both, because closing the app with a server running is a server stop like any other. Left on - and on is the default - nothing changes. Turned off, the window closes straight away and stops whatever is running on the way out. The tooltip and the Behavior section of the help say as much.

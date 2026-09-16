@@ -196,20 +196,32 @@ public class LlamaCppDownloadService
             return null;
 
         var selName = selectedAsset.Name.ToLowerInvariant();
-        if (!selName.Contains("-cuda-"))
+        var cudaMarker = selName.IndexOf("-cuda-");
+        if (cudaMarker < 0)
             return null;
 
-        // Extract cuda version+arch suffix, e.g. "cuda-12.4-x64" from "llama-b9129-bin-win-cuda-12.4-x64.zip"
-        var cudaStart = selName.IndexOf("-cuda-") + 1; // points to 'c' in "cuda-..."
-        var rest = selName[cudaStart..];
-        var dotIdx = rest.IndexOf('.');
-        var cudaSuffix = dotIdx > 0 ? rest[..dotIdx] : rest;
+        var cudaSuffix = StripArchiveExtension(selName[(cudaMarker + "-cuda-".Length)..]);
+        if (cudaSuffix.Length == 0)
+            return null;
 
         return allAssets.FirstOrDefault(a =>
         {
             var aName = a.Name.ToLowerInvariant();
-            return aName.StartsWith("cudart-") && aName.Contains(cudaSuffix);
+            return aName.StartsWith("cudart-")
+                && aName.Contains("-win-")
+                && aName.EndsWith(".zip")
+                && StripArchiveExtension(aName).EndsWith(cudaSuffix);
         });
+    }
+
+    private static string StripArchiveExtension(string name)
+    {
+        foreach (var ext in new[] { ".tar.gz", ".tar.xz", ".zip", ".7z" })
+        {
+            if (name.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+                return name[..^ext.Length];
+        }
+        return name;
     }
 
     public async Task DownloadAndExtractAsync(ReleaseAsset asset, IProgress<double>? progress, CancellationToken ct, ReleaseAsset? cudaDllAsset = null, string? releaseTag = null)

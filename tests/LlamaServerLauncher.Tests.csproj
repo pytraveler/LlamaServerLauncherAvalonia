@@ -74,6 +74,7 @@
     <Compile Include="ModelScanTests.cs" />
     <Compile Include="EndpointSnippetsTests.cs" />
     <Compile Include="BackendAssetSelectorTests.cs" />
+    <Compile Include="CudaRuntimeAssetTests.cs" />
     <Compile Include="ServerLogFilterTests.cs" />
     <Compile Include="McpConfigTests.cs" />
     <Compile Include="ServerCrashAdvisorTests.cs" />
