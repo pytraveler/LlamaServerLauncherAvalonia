@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using LlamaServerLauncher.Models;
+using LlamaServerLauncher.Services;
 
 public static class CommandLineTests
 {
@@ -15,10 +16,13 @@ public static class CommandLineTests
         SpecAndDraft(h);
         HuggingFace(h);
         CustomArgToggles(h);
+        ClientApiKey(h);
         CustomArgAliases(h);
         LoadMode(h);
         ParseBack(h);
         Jinja(h);
+        ReasoningAndSlots(h);
+        MoeCacheForModel(h);
         RoundTrip(h);
     }
 
@@ -143,6 +147,25 @@ public static class CommandLineTests
         var moe = CommandLineBuilder.Build(new ServerConfiguration { CpuMoe = 3 });
         h.Check("emits --n-cpu-moe for CpuMoe", moe.Contains("--n-cpu-moe 3"), moe);
 
+        var moeCache = CommandLineBuilder.Build(new ServerConfiguration { CpuMoe = 3, MoeCacheMib = 4096 });
+        h.Check("emits --moe-cache-mib for MoeCacheMib", moeCache.Contains("--moe-cache-mib 4096"), moeCache);
+        var oldBuild = CommandLineBuilder.Build(new ServerConfiguration { CpuMoe = 3, MoeCacheMib = 4096 },
+            Flags("--n-cpu-moe", "-ncmoe"));
+        h.Check("a build without the moe cache does not get the flag",
+            !oldBuild.Contains("moe-cache") && oldBuild.Contains("--n-cpu-moe 3"), oldBuild);
+
+        var ffn = CommandLineBuilder.Build(new ServerConfiguration { CpuFfn = 12 });
+        h.Check("emits --n-cpu-ffn for CpuFfn", ffn.Contains("--n-cpu-ffn 12"), ffn);
+        var ffnShort = CommandLineBuilder.Build(new ServerConfiguration { CpuFfn = 12 }, Flags("-ncffn"));
+        h.Check("a build that knows only the short alias gets that one", ffnShort.Contains("-ncffn 12"), ffnShort);
+        var ffnCustom = CommandLineBuilder.Build(new ServerConfiguration { CpuFfn = 12, CustomArguments = "-ncffn 4" });
+        h.Check("a custom -ncffn wins over the field",
+            ffnCustom.Contains("ffn 4") && !ffnCustom.Contains("ffn 12"), ffnCustom);
+
+        var hostList = CommandLineBuilder.Build(new ServerConfiguration { Host = "127.0.0.1,192.168.1.5" });
+        h.Check("a host list is passed through as one value",
+            hostList.Contains("--host 127.0.0.1,192.168.1.5"), hostList);
+
         var verbose = CommandLineBuilder.Build(new ServerConfiguration { VerboseLogging = true });
         h.Check("emits -v when verbose logging is on", verbose.Split(' ').Contains("-v"), verbose);
 
@@ -215,6 +238,98 @@ public static class CommandLineTests
             !new ServerConfiguration { Jinja = false, CustomArguments = "--jinja" }.DisablesJinja(), "quiet");
     }
 
+    private static void MoeCacheForModel(Harness h)
+    {
+        h.Section("CommandLineBuilder.ForModel - the MoE cache needs experts");
+
+        var config = new ServerConfiguration { ModelPath = "m.gguf", MoeCacheMib = 4096 };
+        var dense = new GgufModelInfo { Architecture = "gemma4" };
+        var moe = new GgufModelInfo { Architecture = "qwen3moe", ExpertCount = 128 };
+
+        var forDense = CommandLineBuilder.ForModel(config, dense);
+        var denseArgs = CommandLineBuilder.Build(forDense);
+        h.Check("a dense model does not get the cache, since llama-server refuses to start with it",
+            !denseArgs.Contains("--moe-cache-mib"), denseArgs);
+        h.Check("the profile itself keeps the value",
+            config.MoeCacheMib == 4096 && !ReferenceEquals(forDense, config), config.MoeCacheMib?.ToString() ?? "null");
+
+        var moeArgs = CommandLineBuilder.Build(CommandLineBuilder.ForModel(config, moe));
+        h.Check("a MoE model gets it", moeArgs.Contains("--moe-cache-mib 4096"), moeArgs);
+
+        h.Check("an unread file is not taken for a dense one",
+            ReferenceEquals(CommandLineBuilder.ForModel(config, null), config)
+            && ReferenceEquals(CommandLineBuilder.ForModel(config, new GgufModelInfo()), config), "kept");
+        h.Check("and neither is a projector",
+            ReferenceEquals(CommandLineBuilder.ForModel(config, new GgufModelInfo { Architecture = "clip", IsProjector = true }), config),
+            "kept");
+        var noCache = new ServerConfiguration();
+        h.Check("without a cache there is nothing to take away",
+            ReferenceEquals(CommandLineBuilder.ForModel(noCache, dense), noCache), "kept");
+
+        h.Check("a model with experts is not lacking them",
+            !CommandLineBuilder.LacksExperts(moe) && CommandLineBuilder.LacksExperts(dense), "ok");
+    }
+
+    private static void ReasoningAndSlots(Harness h)
+    {
+        h.Section("Reasoning effort, reasoning preserve and context per slot");
+
+        var none = CommandLineBuilder.Build(new ServerConfiguration());
+        h.Check("nothing set passes none of the three",
+            !none.Contains("reasoning-effort") && !none.Contains("reasoning-preserve") && !none.Contains("kv-unified-per-slot"), none);
+
+        var effort = CommandLineBuilder.Build(new ServerConfiguration { ReasoningEffort = " high " });
+        h.Check("the effort level is passed trimmed", effort.Contains("--reasoning-effort high"), effort);
+
+        var blank = CommandLineBuilder.Build(new ServerConfiguration { ReasoningEffort = "   " });
+        h.Check("a blank effort level is not passed", !blank.Contains("reasoning-effort"), blank);
+
+        var spaced = CommandLineBuilder.Build(new ServerConfiguration { ReasoningEffort = "very high" });
+        h.Check("a level with a space is quoted", spaced.Contains("--reasoning-effort \"very high\""), spaced);
+
+        var typedEffort = CommandLineBuilder.Build(new ServerConfiguration { ReasoningEffort = "high", CustomArguments = "--reasoning-effort low" });
+        h.Check("a hand-typed effort level wins and is not doubled",
+            typedEffort.Split(' ').Count(t => t == "--reasoning-effort") == 1 && typedEffort.Contains("--reasoning-effort low"), typedEffort);
+
+        var preserveOn = CommandLineBuilder.Build(new ServerConfiguration { ReasoningPreserve = true });
+        h.Check("preserve on asks for it", preserveOn.Split(' ').Contains("--reasoning-preserve"), preserveOn);
+
+        var preserveOff = CommandLineBuilder.Build(new ServerConfiguration { ReasoningPreserve = false });
+        h.Check("preserve off turns it away",
+            preserveOff.Split(' ').Contains("--no-reasoning-preserve") && !preserveOff.Split(' ').Contains("--reasoning-preserve"), preserveOff);
+
+        var perSlot = CommandLineBuilder.Build(new ServerConfiguration { ParallelSlots = 2, ContextPerSlot = 16384 });
+        h.Check("the context per slot is passed next to the slots",
+            perSlot.Contains("-np 2") && perSlot.Contains("--kv-unified-per-slot 16384"), perSlot);
+
+        var oldBuild = CommandLineBuilder.Build(
+            new ServerConfiguration { ReasoningEffort = "high", ReasoningPreserve = false, ContextPerSlot = 8192 },
+            Flags("--port", "-np"));
+        h.Check("a build without the flags gets none of them",
+            !oldBuild.Contains("reasoning") && !oldBuild.Contains("kv-unified-per-slot"), oldBuild);
+
+        var read = ServerConfigurationExtensions.ParseFromCommandLine(
+            "-m a.gguf --reasoning-effort xhigh --no-reasoning-preserve --kv-unified-per-slot 32768");
+        h.Check("a pasted command lands on the three fields, not in custom args",
+            read!.ReasoningEffort == "xhigh" && read.ReasoningPreserve == false && read.ContextPerSlot == 32768
+            && string.IsNullOrWhiteSpace(read.CustomArguments),
+            $"{read.ReasoningEffort} / {read.ReasoningPreserve} / {read.ContextPerSlot} / {read.CustomArguments}");
+
+        var readOn = ServerConfigurationExtensions.ParseFromCommandLine("-m a.gguf --reasoning-preserve");
+        h.Check("--reasoning-preserve reads back as on", readOn!.ReasoningPreserve == true, readOn.ReasoningPreserve?.ToString() ?? "null");
+
+        var source = new ServerConfiguration { ModelPath = "a.gguf", ReasoningEffort = "minimal", ReasoningPreserve = true, ContextPerSlot = 4096 };
+        var back = ServerConfigurationExtensions.ParseFromCommandLine(CommandLineBuilder.Build(source));
+        h.Check("all three survive a round trip",
+            back!.ReasoningEffort == "minimal" && back.ReasoningPreserve == true && back.ContextPerSlot == 4096,
+            $"{back.ReasoningEffort} / {back.ReasoningPreserve} / {back.ContextPerSlot}");
+
+        var copy = source.Clone();
+        h.Check("a copy of the profile keeps them",
+            copy.ReasoningEffort == "minimal" && copy.ReasoningPreserve == true && copy.ContextPerSlot == 4096,
+            $"{copy.ReasoningEffort} / {copy.ReasoningPreserve} / {copy.ContextPerSlot}");
+    }
+
     private static void ParseBack(Harness h)
     {
         h.Section("ServerConfigurationExtensions.ParseFromCommandLine");
@@ -225,6 +340,13 @@ public static class CommandLineTests
         h.Check("threads parsed", known!.Threads == 8, $"threads={known.Threads}");
         h.Check("ctx-size parsed", known.ContextSize == 4096, $"ctx={known.ContextSize}");
         h.Check("n-cpu-moe parsed into CpuMoe", known.CpuMoe == 3, $"cpuMoe={known.CpuMoe}");
+
+        var offload = ServerConfigurationExtensions.ParseFromCommandLine("--moe-cache-mib 2048 -ncffn 6");
+        h.Check("moe-cache-mib parsed into MoeCacheMib", offload!.MoeCacheMib == 2048, $"moeCache={offload.MoeCacheMib}");
+        h.Check("ncffn parsed into CpuFfn", offload.CpuFfn == 6, $"cpuFfn={offload.CpuFfn}");
+        h.Check("neither is left in custom args", offload.CustomArguments == "", offload.CustomArguments);
+        h.Check("the long ffn flag is read too",
+            ServerConfigurationExtensions.ParseFromCommandLine("--n-cpu-ffn 9")!.CpuFfn == 9, "9");
 
         var plain = ServerConfigurationExtensions.ParseFromCommandLine("--unknown-flag value");
         h.Check("unknown flag kept in custom args", plain!.CustomArguments.Contains("--unknown-flag value"), plain.CustomArguments);
@@ -312,6 +434,50 @@ public static class CommandLineTests
             CustomArgumentToggleStates = new Dictionary<string, bool> { ["--my-custom"] = true }
         });
         h.Check("explicitly enabled custom flag present", toggledOn.Contains("--my-custom foo"), toggledOn);
+    }
+
+    private static void ClientApiKey(Harness h)
+    {
+        h.Section("CommandLineBuilder.ClientApiKey");
+
+        string? Key(ServerConfiguration c) => CommandLineBuilder.ClientApiKey(c);
+
+        h.Check("no key -> null", Key(new ServerConfiguration()) == null, Key(new ServerConfiguration()) ?? "null");
+        h.Check("field", Key(new ServerConfiguration { ApiKey = "sk-1" }) == "sk-1", "ok");
+        h.Check("first of a comma list", Key(new ServerConfiguration { ApiKey = "a1,b2,c3" }) == "a1", Key(new ServerConfiguration { ApiKey = "a1,b2,c3" }) ?? "null");
+        h.Check("empty entries skipped", Key(new ServerConfiguration { ApiKey = ",,a1" }) == "a1", "ok");
+
+        var custom = new ServerConfiguration { ApiKey = "field", CustomArguments = "--api-key \"from custom,second\"" };
+        h.Check("custom --api-key wins over the field", Key(custom) == "from custom", Key(custom) ?? "null");
+
+        var toggledOff = new ServerConfiguration
+        {
+            ApiKey = "field",
+            CustomArguments = "--api-key custom",
+            CustomArgumentToggleStates = new Dictionary<string, bool> { ["--api-key"] = false }
+        };
+        h.Check("disabled custom --api-key falls back to the field", Key(toggledOff) == "field", Key(toggledOff) ?? "null");
+
+        var bare = new ServerConfiguration { ApiKey = "field", CustomArguments = "--api-key --port 9000" };
+        h.Check("custom --api-key without a value hides the field, as in the command", Key(bare) == null && !CommandLineBuilder.Build(bare).Contains("field"), Key(bare) ?? "null");
+
+        var file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lsl-api-keys-" + System.Guid.NewGuid().ToString("N") + ".txt");
+        System.IO.File.WriteAllText(file, "# comment\n\nfile-key\nsecond-key\n");
+        try
+        {
+            var fromFile = new ServerConfiguration { CustomArguments = $"--api-key-file \"{file}\"" };
+            h.Check("--api-key-file first non-comment line", Key(fromFile) == "file-key", Key(fromFile) ?? "null");
+
+            var fieldAndFile = new ServerConfiguration { ApiKey = "field", CustomArguments = $"--api-key-file \"{file}\"" };
+            h.Check("field is used before the key file", Key(fieldAndFile) == "field", Key(fieldAndFile) ?? "null");
+        }
+        finally
+        {
+            System.IO.File.Delete(file);
+        }
+
+        var missing = new ServerConfiguration { CustomArguments = "--api-key-file \"Z:\\missing\\keys.txt\"" };
+        h.Check("missing key file -> null", Key(missing) == null, Key(missing) ?? "null");
     }
 
     private static void CustomArgAliases(Harness h)
@@ -412,6 +578,11 @@ public static class CommandLineTests
         var newLine = CommandLineBuilder.Build(new ServerConfiguration { Mmap = false, Mlock = true }, modern);
         h.Check("mode emitted", newLine.Contains("--load-mode mlock"), newLine);
         h.Check("deprecated spelling dropped", !newLine.Contains("--no-mmap") && !newLine.Contains("--mlock"), newLine);
+
+        var current = Flags("-m", "-lm", "--load-mode");
+        var currentLine = CommandLineBuilder.Build(new ServerConfiguration { Mmap = false, Mlock = true }, current);
+        h.Check("a build that dropped --mmap and --mlock still gets the mode from the switches",
+            currentLine.Contains("--load-mode mlock") && !currentLine.Contains("--no-mmap") && !currentLine.Contains("--mlock"), currentLine);
 
         var newDefault = CommandLineBuilder.Build(new ServerConfiguration(), modern);
         h.Check("nothing set -> nothing emitted", !newDefault.Contains("load-mode"), newDefault);

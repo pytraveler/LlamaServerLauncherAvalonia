@@ -258,8 +258,7 @@ public sealed class OnDemandProxyService : IDisposable
                 return;
             }
 
-            var bodyText = body != null ? Encoding.UTF8.GetString(body) : "";
-            var requested = ProxyProtocol.ExtractModelField(bodyText);
+            var requested = ProxyProtocol.ExtractRequestedModel(head.Headers.GetValueOrDefault("Content-Type"), body);
             var profile = ProxyProtocol.MatchProfile(requested, _host.GetProfileNames(), _host.GetFallbackProfileName());
             if (profile == null)
             {
@@ -325,13 +324,12 @@ public sealed class OnDemandProxyService : IDisposable
     {
         var key = _options?.ApiKey;
         if (string.IsNullOrWhiteSpace(key)) return true;
-        return string.Equals(head.BearerToken, key.Trim(), StringComparison.Ordinal);
+        return string.Equals(head.ApiKey, key.Trim(), StringComparison.Ordinal);
     }
 
     private async Task ProxyAsync(NetworkStream stream, ProxyRequestHead head, byte[]? body, ProxyUpstream upstream, CancellationToken ct)
     {
-        var connectHost = upstream.Host is "0.0.0.0" or "" ? "127.0.0.1" : upstream.Host;
-        var uri = $"http://{connectHost}:{upstream.Port}{head.Path}";
+        var uri = EndpointSnippets.BaseUrl(upstream.Host, upstream.Port) + head.Path;
         if (!string.IsNullOrEmpty(head.Query))
             uri += "?" + head.Query;
 
@@ -343,6 +341,8 @@ public sealed class OnDemandProxyService : IDisposable
             if (MediaTypeHeaderValue.TryParse(contentType, out var mt))
                 request.Content.Headers.ContentType = mt;
         }
+        if (!string.IsNullOrEmpty(upstream.ApiKey))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", upstream.ApiKey);
 
         HttpResponseMessage upstreamResp;
         try

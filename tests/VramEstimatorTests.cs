@@ -18,15 +18,18 @@ public static class VramEstimatorTests
         int? slidingWindow = null,
         int? keyLengthSwa = null,
         int? maxContext = null,
-        bool scalarHeads = true)
+        bool scalarHeads = true,
+        long denseFfnBytes = 0)
     {
         var blockList = new long[blocks];
         var expertList = new long[blocks];
+        var ffnList = new long[blocks];
         var kvList = new long[blocks];
         for (int i = 0; i < blocks; i++)
         {
             blockList[i] = blockBytes;
             expertList[i] = expertBytes;
+            ffnList[i] = denseFfnBytes;
             kvList[i] = kvEverywhere ? 1 : 0;
         }
 
@@ -52,10 +55,12 @@ public static class VramEstimatorTests
                 TotalBytes = blocks * blockBytes + nonRepeating,
                 RepeatingBytes = blocks * blockBytes,
                 ExpertBytes = blocks * expertBytes,
+                DenseFfnBytes = blocks * denseFfnBytes,
                 EmbeddingBytes = nonRepeating / 2,
                 OutputBytes = nonRepeating / 2,
                 BlockBytes = blockList,
                 BlockExpertBytes = expertList,
+                BlockDenseFfnBytes = ffnList,
                 BlockKvBytes = kvList,
             }
         };
@@ -231,6 +236,38 @@ public static class VramEstimatorTests
         h.Check("asking for more expert blocks than the model has is not an error",
             VramEstimator.Estimate(model, new VramRequest { CpuMoeBlocks = 99 })?.WeightBytes
                 == 4 * GB + 256 * MB - 4 * 768 * MB, "clamped");
+
+        var cached = VramEstimator.Estimate(model,
+            new VramRequest { ContextSize = 1024, CpuMoeBlocks = 2, MoeCacheBytes = 512 * MB });
+        h.Check("the moe cache takes its budget on the card",
+            cached?.MoeCacheBytes == 512 * MB && cached?.TotalBytes == moe?.TotalBytes + 512 * MB,
+            cached?.MoeCacheBytes.ToString() ?? "null");
+        h.Check("and leaves the weights where they were",
+            cached?.WeightBytes == moe?.WeightBytes && cached?.HostWeightBytes == moe?.HostWeightBytes,
+            cached?.WeightBytes.ToString() ?? "null");
+        h.Check("a budget beyond the experts on the host is cut to their size",
+            VramEstimator.Estimate(model, new VramRequest { CpuMoeBlocks = 2, MoeCacheBytes = 100 * GB })
+                ?.MoeCacheBytes == 2 * 768 * MB, "capped");
+        h.Check("with every expert on the card there is nothing to cache",
+            VramEstimator.Estimate(model, new VramRequest { MoeCacheBytes = GB })?.MoeCacheBytes == 0, "0");
+        h.Check("experts of layers left on the cpu are not cached",
+            VramEstimator.Estimate(model, new VramRequest { GpuLayers = 2, CpuMoeBlocks = 2, MoeCacheBytes = GB })
+                ?.MoeCacheBytes == 0, "0");
+        h.Check("a dense model gets no moe cache",
+            VramEstimator.Estimate(Model(expertBytes: 0), new VramRequest { CpuMoeBlocks = 4, MoeCacheBytes = GB })
+                ?.MoeCacheBytes == 0, "0");
+
+        var dense = Model(expertBytes: 0, denseFfnBytes: 640 * MB);
+        var ffn = VramEstimator.Estimate(dense, new VramRequest { ContextSize = 1024, CpuFfnBlocks = 3 });
+        h.Check("dense ffn sent to the host leaves the card",
+            ffn?.WeightBytes == 4 * GB + 256 * MB - 3 * 640 * MB, ffn?.WeightBytes.ToString() ?? "null");
+        h.Check("and lands in system memory",
+            ffn?.HostWeightBytes == 3 * 640 * MB + 256 * MB, ffn?.HostWeightBytes.ToString() ?? "null");
+        h.Check("the layers still count as offloaded",
+            ffn?.OffloadedBlocks == 4, ffn?.OffloadedBlocks.ToString() ?? "null");
+        h.Check("ffn of a layer already on the cpu is not counted twice",
+            VramEstimator.Estimate(dense, new VramRequest { GpuLayers = 2, CpuFfnBlocks = 3 })?.HostWeightBytes
+                == 2 * GB + 640 * MB + 512 * MB, "once");
 
         h.Check("a model without a tensor table cannot be measured",
             VramEstimator.Estimate(new GgufModelInfo { BlockCount = 4 }, new VramRequest()) == null, "null");
@@ -410,5 +447,22 @@ public static class VramEstimatorTests
             VramEstimator.SuggestedCpuMoeBlocks(model, request, 32 * GB) == 0, "none");
         h.Check("a model without experts has nothing to offer",
             VramEstimator.SuggestedCpuMoeBlocks(Model(expertBytes: 0), request, 3 * GB) == null, "null");
+
+        var dense = Model(expertBytes: 0, denseFfnBytes: 640 * MB);
+        int? ffn = VramEstimator.SuggestedCpuFfnBlocks(dense, request, 3 * GB);
+        h.Check("moving dense ffn to the host is offered by the layer",
+            ffn is > 0 and <= 4, ffn?.ToString() ?? "null");
+        var withFfn = VramEstimator.Estimate(dense, request with { CpuFfnBlocks = ffn ?? 0 });
+        h.Check("the offered ffn count is the one that fits",
+            VramEstimator.Judge(withFfn!.TotalBytes, 3 * GB) == VramFit.Fits, "fits");
+        var oneFfnFewer = VramEstimator.Estimate(dense, request with { CpuFfnBlocks = (ffn ?? 1) - 1 });
+        h.Check("keeping one more ffn layer on the card would not fit",
+            VramEstimator.Judge(oneFfnFewer!.TotalBytes, 3 * GB) != VramFit.Fits, "does not");
+        h.Check("a card that fits the dense model needs no ffn on the host",
+            VramEstimator.SuggestedCpuFfnBlocks(dense, request, 32 * GB) == 0, "none");
+        h.Check("a moe model is pointed at its experts instead",
+            VramEstimator.SuggestedCpuFfnBlocks(Model(denseFfnBytes: 64 * MB), request, 3 * GB) == null, "null");
+        h.Check("a model without a dense ffn table has nothing to offer",
+            VramEstimator.SuggestedCpuFfnBlocks(Model(expertBytes: 0), request, 3 * GB) == null, "null");
     }
 }

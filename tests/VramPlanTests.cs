@@ -14,6 +14,165 @@ public static class VramPlanTests
         RunWiring(h);
         RunFit(h);
         RunVerdict(h);
+        RunUnsetContext(h);
+        RunFitContext(h);
+    }
+
+    private static void RunUnsetContext(Harness h)
+    {
+        h.Section("VramPlan: an empty context, the way llama-server picks it");
+
+        var empty = new ServerConfiguration();
+        var model = VramPlan.ChooseContext(empty, 131072);
+        h.Check("an empty field takes the context the model was trained for",
+            model.Context == 131072, model.Context.ToString());
+        h.Check("and --fit may shrink it down to 4096",
+            model.FitFloor == 4096, model.FitFloor?.ToString() ?? "null");
+        h.Check("the request says the same",
+            VramPlan.RequestFrom(empty, 131072).ContextSize == 131072, VramPlan.RequestFrom(empty, 131072).ContextSize.ToString());
+
+        var old = new ContextDefaults { UnsetContext = 4096, Fit = false };
+        var oldBuild = VramPlan.ChooseContext(empty, 131072, old);
+        h.Check("a build whose help still says 4096 gets 4096, with nothing to shrink",
+            oldBuild.Context == 4096 && oldBuild.FitFloor == null, $"{oldBuild.Context}/{oldBuild.FitFloor}");
+
+        var noFit = VramPlan.ChooseContext(empty, 131072, new ContextDefaults { Fit = false });
+        h.Check("a build without --fit takes the model context and leaves it be",
+            noFit.Context == 131072 && noFit.FitFloor == null, $"{noFit.Context}/{noFit.FitFloor}");
+
+        var slots = VramPlan.ChooseContext(new ServerConfiguration { ParallelSlots = 2 }, 131072);
+        h.Check("two slots without a unified cache each get the full context, as --fit sizes them",
+            slots.Context == 2 * 131072 && slots.FitFloor == 2 * 4096, $"{slots.Context}/{slots.FitFloor}");
+
+        var unified = VramPlan.ChooseContext(new ServerConfiguration { ParallelSlots = 2, CustomArguments = "-kvu" }, 131072);
+        h.Check("a unified cache shares one context between them",
+            unified.Context == 131072 && unified.FitFloor == 4096, $"{unified.Context}/{unified.FitFloor}");
+
+        var off = VramPlan.ChooseContext(new ServerConfiguration { ParallelSlots = 2, CustomArguments = "--fit off" }, 131072);
+        h.Check("with --fit off the model context is taken once and not shrunk",
+            off.Context == 131072 && off.FitFloor == null, $"{off.Context}/{off.FitFloor}");
+
+        var offDisabled = VramPlan.ChooseContext(new ServerConfiguration
+        {
+            CustomArguments = "-fit off",
+            CustomArgumentToggleStates = new() { ["-fit"] = false },
+        }, 131072);
+        h.Check("a --fit off that is switched off in the list does not count",
+            offDisabled.FitFloor == 4096, offDisabled.FitFloor?.ToString() ?? "null");
+
+        var floor = VramPlan.ChooseContext(new ServerConfiguration { CustomArguments = "--fit-ctx 16384" }, 131072);
+        h.Check("--fit-ctx moves the floor",
+            floor.FitFloor == 16384, floor.FitFloor?.ToString() ?? "null");
+
+        var small = VramPlan.ChooseContext(empty, 2048);
+        h.Check("a model trained on less than the floor keeps what it was trained on",
+            small.Context == 2048 && small.FitFloor == 2048, $"{small.Context}/{small.FitFloor}");
+
+        var zero = VramPlan.ChooseContext(new ServerConfiguration { ContextSize = 0 }, 131072);
+        h.Check("-c 0 asks for the full context, and --fit leaves it be",
+            zero.Context == 131072 && zero.FitFloor == null, $"{zero.Context}/{zero.FitFloor}");
+
+        var zeroSlots = VramPlan.ChooseContext(new ServerConfiguration { ContextSize = 0, ParallelSlots = 3 }, 131072);
+        h.Check("with -c 0 and three separate slots every slot gets the full context",
+            zeroSlots.Context == 3 * 131072 && zeroSlots.FitFloor == null, $"{zeroSlots.Context}/{zeroSlots.FitFloor}");
+
+        var pinned = VramPlan.ChooseContext(new ServerConfiguration { ContextSize = 8192 }, 131072);
+        h.Check("a context of its own is not touched",
+            pinned.Context == 8192 && pinned.FitFloor == null, $"{pinned.Context}/{pinned.FitFloor}");
+
+        var perSlot = VramPlan.ChooseContext(new ServerConfiguration { ContextPerSlot = 8192 }, 131072);
+        h.Check("a per-slot limit sizes the pool before --fit looks at it",
+            perSlot.Context == 4 * 8192 && perSlot.FitFloor == null, $"{perSlot.Context}/{perSlot.FitFloor}");
+
+        var unknown = VramPlan.ChooseContext(empty, null);
+        h.Check("without the trained context in the file the plan falls back to 4096",
+            unknown.Context == 4096 && unknown.FitFloor == null, $"{unknown.Context}/{unknown.FitFloor}");
+    }
+
+    private static void RunFitContext(Harness h)
+    {
+        h.Section("VramPlan: shrinking the context like --fit");
+
+        var model = Model(blocks: 4, blockBytes: GB, maxContext: 131072);
+        var empty = new ServerConfiguration();
+        var request = VramPlan.RequestFrom(empty, model.MaxContext);
+        long fullNeed = VramEstimator.Estimate(model, request)!.TotalBytes;
+        long floorNeed = VramEstimator.Estimate(model, request with { ContextSize = 4096 })!.TotalBytes;
+        long margin = VramPlan.DefaultFitTargetBytes;
+        long available = (floorNeed + fullNeed) / 2 + margin;
+
+        var fitted = VramPlan.FitContext(model, request, 4096, available);
+        h.Check("a card that cannot hold the full context gets a smaller one",
+            fitted.ContextSize > 4096 && fitted.ContextSize < 131072, fitted.ContextSize.ToString());
+        h.Check("rounded down the way llama.cpp rounds it",
+            fitted.ContextSize % VramPlan.FitContextStep == 0, fitted.ContextSize.ToString());
+        long fittedNeed = VramEstimator.Estimate(model, fitted)!.TotalBytes;
+        h.Check("and it leaves the --fit target free, as llama.cpp does",
+            fittedNeed + margin <= available, $"{fittedNeed} + {margin} / {available}");
+        long overNeed = VramEstimator.Estimate(model, fitted with { ContextSize = fitted.ContextSize + 2 * VramPlan.FitContextStep })!.TotalBytes;
+        h.Check("while a little more would eat into it",
+            overNeed + margin > available, $"{overNeed} + {margin} / {available}");
+
+        var wider = VramPlan.FitContext(model, request, 4096, available, 0);
+        h.Check("a smaller --fit-target leaves room for more context",
+            wider.ContextSize > fitted.ContextSize, $"{wider.ContextSize}/{fitted.ContextSize}");
+        h.Check("the target is read from -fitt, first device first",
+            VramPlan.FitTargetBytes(new ServerConfiguration { CustomArguments = "-fitt 512,2048" }) == 512 * MB
+            && VramPlan.FitTargetBytes(new ServerConfiguration()) == margin,
+            VramPlan.FitTargetBytes(new ServerConfiguration { CustomArguments = "-fitt 512,2048" }).ToString());
+        h.Check("a card smaller than the target still shrinks to the floor",
+            VramPlan.FitContext(model, request, 4096, margin / 2).ContextSize == 4096,
+            VramPlan.FitContext(model, request, 4096, margin / 2).ContextSize.ToString());
+
+        h.Check("a card with room keeps the full context",
+            VramPlan.FitContext(model, request, 4096, fullNeed * 2).ContextSize == 131072,
+            VramPlan.FitContext(model, request, 4096, fullNeed * 2).ContextSize.ToString());
+        h.Check("a card too small even for the floor stops at the floor",
+            VramPlan.FitContext(model, request, 4096, floorNeed / 2).ContextSize == 4096,
+            VramPlan.FitContext(model, request, 4096, floorNeed / 2).ContextSize.ToString());
+        h.Check("without a floor nothing is shrunk",
+            VramPlan.FitContext(model, request, null, available).ContextSize == 131072,
+            VramPlan.FitContext(model, request, null, available).ContextSize.ToString());
+        h.Check("and without a reading from the card nothing is either",
+            VramPlan.FitContext(model, request, 4096, 0).ContextSize == 131072,
+            VramPlan.FitContext(model, request, 4096, 0).ContextSize.ToString());
+
+        var listed = VramPlan.Fit(model, new VramBudget { Config = empty, AvailableBytes = available, TotalBytes = available });
+        h.Check("the model list judges an empty field the same way, and calls it a fit, since --fit fills the card on purpose",
+            listed.Verdict == VramFit.Fits && listed.Bytes == fittedNeed, $"{listed.Verdict}/{listed.Bytes}/{fittedNeed}");
+
+        h.Check("a context shrunk by --fit that lands within the card is a fit",
+            VramPlan.FittedVerdict(60000, 131072, 4096, 97 * GB, 100 * GB, 100 * GB) == VramFit.Fits, "fits");
+        h.Check("one stuck at the floor is judged as usual",
+            VramPlan.FittedVerdict(4096, 131072, 4096, 97 * GB, 100 * GB, 100 * GB) == VramFit.Tight, "tight");
+        h.Check("and so is a context nobody shrunk",
+            VramPlan.FittedVerdict(131072, 131072, 4096, 97 * GB, 100 * GB, 100 * GB) == VramFit.Tight
+            && VramPlan.FittedVerdict(60000, 131072, null, 97 * GB, 100 * GB, 100 * GB) == VramFit.Tight, "tight");
+        h.Check("a shrunk context that still does not fit does not become a fit",
+            VramPlan.FittedVerdict(60000, 131072, 4096, 101 * GB, 100 * GB, 100 * GB) == VramFit.DoesNotFit, "no");
+
+        h.Check("a running server with an empty field is counted at the context it settled on",
+            VramPlan.RunningRequest(empty, 131072, 52224).ContextSize == 52224,
+            VramPlan.RunningRequest(empty, 131072, 52224).ContextSize.ToString());
+        h.Check("before it says, at the full one",
+            VramPlan.RunningRequest(empty, 131072, 0).ContextSize == 131072,
+            VramPlan.RunningRequest(empty, 131072, 0).ContextSize.ToString());
+        h.Check("a context of its own needs no word from the server",
+            VramPlan.RunningRequest(new ServerConfiguration { ContextSize = 8192 }, 131072, 52224).ContextSize == 8192,
+            VramPlan.RunningRequest(new ServerConfiguration { ContextSize = 8192 }, 131072, 52224).ContextSize.ToString());
+        h.Check("and neither does a per-slot limit, whose slot line shows the cap and not the pool",
+            VramPlan.RunningRequest(new ServerConfiguration { ContextPerSlot = 4096, ParallelSlots = 2 }, 131072, 4096).ContextSize == 8192,
+            VramPlan.RunningRequest(new ServerConfiguration { ContextPerSlot = 4096, ParallelSlots = 2 }, 131072, 4096).ContextSize.ToString());
+
+        var listedOld = VramPlan.Fit(model, new VramBudget
+        {
+            Config = empty,
+            AvailableBytes = fullNeed - 1,
+            TotalBytes = fullNeed - 1,
+            Context = new ContextDefaults { Fit = false },
+        });
+        h.Check("and a build without --fit is judged on the full context, which does not shrink to fit",
+            listedOld.Verdict == VramFit.DoesNotFit && listedOld.Bytes == fullNeed, $"{listedOld.Verdict}/{listedOld.Bytes}");
     }
 
     private static void RunRequest(Harness h)
@@ -34,6 +193,8 @@ public static class VramPlanTests
             empty.Parallel == 1, empty.Parallel.ToString());
         h.Check("no expert blocks are held back",
             empty.CpuMoeBlocks == 0, empty.CpuMoeBlocks.ToString());
+        h.Check("no moe cache and no ffn layers on the host",
+            empty.MoeCacheBytes == 0 && empty.CpuFfnBlocks == 0, $"{empty.MoeCacheBytes}/{empty.CpuFfnBlocks}");
 
         var missing = VramPlan.RequestFrom(null);
         h.Check("no configuration at all reads like an empty one",
@@ -45,6 +206,8 @@ public static class VramPlanTests
             ContextSize = 32768,
             GpuLayers = 20,
             CpuMoe = 6,
+            MoeCacheMib = 3072,
+            CpuFfn = 5,
             BatchSize = 4096,
             UBatchSize = 1024,
             CacheTypeK = "q8_0",
@@ -55,6 +218,10 @@ public static class VramPlanTests
         h.Check("what the form says is what the estimate is asked for",
             filled.ContextSize == 32768 && filled.GpuLayers == 20 && filled.CpuMoeBlocks == 6,
             $"{filled.ContextSize}/{filled.GpuLayers}/{filled.CpuMoeBlocks}");
+        h.Check("the moe cache is read in MiB",
+            filled.MoeCacheBytes == 3072L * 1024 * 1024, filled.MoeCacheBytes.ToString());
+        h.Check("the ffn layer count is carried over",
+            filled.CpuFfnBlocks == 5, filled.CpuFfnBlocks.ToString());
         h.Check("both cache types are carried over",
             filled.CacheTypeK == "q8_0" && filled.CacheTypeV == "q5_1",
             $"{filled.CacheTypeK}/{filled.CacheTypeV}");
@@ -91,6 +258,26 @@ public static class VramPlanTests
         var zeroSlots = VramPlan.RequestFrom(new ServerConfiguration { ParallelSlots = 0 });
         h.Check("zero slots still means one",
             zeroSlots.Parallel == 1, zeroSlots.Parallel.ToString());
+
+        var perSlotAuto = VramPlan.RequestFrom(new ServerConfiguration { ContextPerSlot = 8192 });
+        h.Check("a context per slot without -c sizes the pool for the four auto slots",
+            perSlotAuto.ContextSize == 4 * 8192, perSlotAuto.ContextSize.ToString());
+
+        var perSlotTwo = VramPlan.RequestFrom(new ServerConfiguration { ContextPerSlot = 8192, ParallelSlots = 2 });
+        h.Check("and for the slots that were asked for",
+            perSlotTwo.ContextSize == 2 * 8192, perSlotTwo.ContextSize.ToString());
+
+        var perSlotPinned = VramPlan.RequestFrom(new ServerConfiguration { ContextPerSlot = 8192, ParallelSlots = 2, ContextSize = 65536 });
+        h.Check("a context of its own only caps the slots, the pool stays as set",
+            perSlotPinned.ContextSize == 65536, perSlotPinned.ContextSize.ToString());
+
+        var noFit = new ContextDefaults { Fit = false };
+        h.Check("-c 0 is pinned too, so the per-slot limit does not size the pool",
+            VramPlan.ResolveContext(0, 262144, 8192, 2, noFit) == 262144, VramPlan.ResolveContext(0, 262144, 8192, 2, noFit).ToString());
+        h.Check("a zero per-slot limit is no limit",
+            VramPlan.ResolveContext(null, null, 0, 2) == 4096, VramPlan.ResolveContext(null, null, 0, 2).ToString());
+        h.Check("a huge per-slot limit does not wrap around",
+            VramPlan.ResolveContext(null, null, int.MaxValue, 64) == int.MaxValue, VramPlan.ResolveContext(null, null, int.MaxValue, 64).ToString());
     }
 
     private static void RunBudget(Harness h)
@@ -228,7 +415,7 @@ public static class VramPlanTests
 
         var full = VramPlan.Fit(model, new VramBudget
         {
-            Config = new ServerConfiguration(),
+            Config = new ServerConfiguration { ContextSize = 4096 },
             AvailableBytes = 0,
             TotalBytes = need * 4,
         });
@@ -282,9 +469,9 @@ public static class VramPlanTests
     }
 
     private static VramBudget Budget(long available) =>
-        new() { Config = new ServerConfiguration(), AvailableBytes = available, TotalBytes = available };
+        new() { Config = new ServerConfiguration { ContextSize = 4096 }, AvailableBytes = available, TotalBytes = available };
 
-    private static GgufModelInfo Model(int blocks, long blockBytes)
+    private static GgufModelInfo Model(int blocks, long blockBytes, int maxContext = 8192)
     {
         var blockList = new long[blocks];
         var kvList = new long[blocks];
@@ -298,7 +485,7 @@ public static class VramPlanTests
         {
             Architecture = "test",
             BlockCount = blocks,
-            MaxContext = 8192,
+            MaxContext = maxContext,
             HeadCount = 8,
             HeadCountKv = 8,
             KeyLength = 128,

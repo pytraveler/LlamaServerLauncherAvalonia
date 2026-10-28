@@ -58,9 +58,11 @@ public sealed class GgufTensorSummary
     public long OutputBytes { get; init; }
     public long RepeatingBytes { get; init; }
     public long ExpertBytes { get; init; }
+    public long DenseFfnBytes { get; init; }
     public long OtherBytes { get; init; }
     public IReadOnlyList<long> BlockBytes { get; init; } = Array.Empty<long>();
     public IReadOnlyList<long> BlockExpertBytes { get; init; } = Array.Empty<long>();
+    public IReadOnlyList<long> BlockDenseFfnBytes { get; init; } = Array.Empty<long>();
 
     public IReadOnlyList<long> BlockKvBytes { get; init; } = Array.Empty<long>();
 
@@ -83,6 +85,9 @@ public sealed class GgufTensorSummary
     public long ExpertBytesForBlock(int index) =>
         index >= 0 && index < BlockExpertBytes.Count ? BlockExpertBytes[index] : 0;
 
+    public long DenseFfnBytesForBlock(int index) =>
+        index >= 0 && index < BlockDenseFfnBytes.Count ? BlockDenseFfnBytes[index] : 0;
+
     public bool BlockHasKv(int index) =>
         index >= 0 && index < BlockKvBytes.Count && BlockKvBytes[index] > 0;
 
@@ -98,9 +103,11 @@ public sealed class GgufTensorSummary
             OutputBytes = a.OutputBytes + b.OutputBytes,
             RepeatingBytes = a.RepeatingBytes + b.RepeatingBytes,
             ExpertBytes = a.ExpertBytes + b.ExpertBytes,
+            DenseFfnBytes = a.DenseFfnBytes + b.DenseFfnBytes,
             OtherBytes = a.OtherBytes + b.OtherBytes,
             BlockBytes = AddPerIndex(a.BlockBytes, b.BlockBytes),
             BlockExpertBytes = AddPerIndex(a.BlockExpertBytes, b.BlockExpertBytes),
+            BlockDenseFfnBytes = AddPerIndex(a.BlockDenseFfnBytes, b.BlockDenseFfnBytes),
             BlockKvBytes = AddPerIndex(a.BlockKvBytes, b.BlockKvBytes),
         };
     }
@@ -450,9 +457,10 @@ public static class GgufMetadataService
     {
         private readonly List<long> _blocks = new();
         private readonly List<long> _blockExperts = new();
+        private readonly List<long> _blockDenseFfn = new();
         private readonly List<long> _blockKv = new();
         private int _count;
-        private long _total, _embedding, _output, _repeating, _expert, _other;
+        private long _total, _embedding, _output, _repeating, _expert, _denseFfn, _other;
 
         public void Add(string name, long bytes)
         {
@@ -470,6 +478,12 @@ public static class GgufMetadataService
                     _expert += bytes;
                     Grow(_blockExperts, block);
                     _blockExperts[block] += bytes;
+                }
+                if (IsDenseFfn(role))
+                {
+                    _denseFfn += bytes;
+                    Grow(_blockDenseFfn, block);
+                    _blockDenseFfn[block] += bytes;
                 }
                 if (IsKvProjection(role))
                 {
@@ -499,9 +513,11 @@ public static class GgufMetadataService
             OutputBytes = _output,
             RepeatingBytes = _repeating,
             ExpertBytes = _expert,
+            DenseFfnBytes = _denseFfn,
             OtherBytes = _other,
             BlockBytes = _blocks.ToArray(),
             BlockExpertBytes = _blockExperts.ToArray(),
+            BlockDenseFfnBytes = _blockDenseFfn.ToArray(),
             BlockKvBytes = _blockKv.ToArray(),
         };
 
@@ -510,6 +526,11 @@ public static class GgufMetadataService
             while (list.Count <= index) list.Add(0);
         }
     }
+
+    private static bool IsDenseFfn(string role) =>
+        role.StartsWith("ffn_up.", StringComparison.Ordinal)
+        || role.StartsWith("ffn_down.", StringComparison.Ordinal)
+        || role.StartsWith("ffn_gate.", StringComparison.Ordinal);
 
     private static bool IsKvProjection(string role) =>
         role.StartsWith("attn_k", StringComparison.Ordinal)

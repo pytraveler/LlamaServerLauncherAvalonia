@@ -773,6 +773,12 @@ public partial class MainWindow : Window
             _viewModel.CacheTypeK = string.Empty;
     }
 
+    private void ClearReasoningEffortClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel != null)
+            _viewModel.ReasoningEffort = string.Empty;
+    }
+
     private void ClearCacheTypeVClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (_viewModel != null)
@@ -824,6 +830,11 @@ public partial class MainWindow : Window
     private void ApplyVramCpuMoeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel?.ApplyVramCpuMoe();
+    }
+
+    private void ApplyVramCpuFfnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel?.ApplyVramCpuFfn();
     }
 
     private void CustomArgumentToggleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
@@ -1290,7 +1301,7 @@ public partial class MainWindow : Window
         if (GetInstanceFromMenuItem(sender) is ServerInstance instance)
         {
             var cfg = instance.Configuration;
-            await CopyToClipboardWithToastAsync(Models.EndpointSnippets.ChatCurl(cfg.Host, cfg.Port, cfg.ApiKey, cfg.Alias, cfg.ModelPath));
+            await CopyToClipboardWithToastAsync(Models.EndpointSnippets.ChatCurl(cfg.Host, cfg.Port, instance.ApiKey, cfg.Alias, cfg.ModelPath));
         }
     }
 

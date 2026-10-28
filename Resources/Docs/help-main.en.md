@@ -33,7 +33,7 @@ An alternative to a local file — let llama.cpp fetch the model itself:
 
 ## Network settings
 
-- **Host** — `127.0.0.1` by default (this machine only). Use `0.0.0.0` to expose the server on your LAN.
+- **Host** - `127.0.0.1` by default (this machine only). Use `0.0.0.0` to expose the server on your LAN. Since llama.cpp v0.5.0 the field takes several addresses separated by commas, for example `127.0.0.1,192.168.1.10`, as well as a UNIX socket path ending in `.sock`. The launcher itself talks to the server - health checks, the browser button, the copied URLs - through the first address in the list that is not a socket. With nothing but sockets in the field the launcher has nothing to connect to: the server starts, but the status stays at loading, and slots, the browser button and the on-demand proxy do not work. A note under the field says so; add a TCP address after a comma, for example `127.0.0.1,llama.sock`, to have it all working.
 - **Port** — `8080` by default. Every simultaneously running instance needs its own port.
 
 Invalid values are flagged with a message right below the field.

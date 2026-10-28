@@ -97,6 +97,7 @@ Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
 - Cache type K (`-ctk`, `--cache-type-k`)
 - Cache type V (`-ctv`, `--cache-type-v`)
 - Parallel slots (`-np`, `--parallel`)
+- Context per slot (`--kv-unified-per-slot`)
 - Timeout (`-to`, `--timeout`)
 - Seed (`-s`, `--seed`)
 
@@ -118,6 +119,8 @@ Built with [Avalonia UI](https://avaloniaui.net/) and .NET 8.
 - Frequency penalty (`--frequency-penalty`)
 - Reasoning mode (`-rea`, `--reasoning`)
 - Reasoning budget (`--reasoning-budget`)
+- Reasoning effort (`--reasoning-effort`)
+- Preserve reasoning (`--reasoning-preserve`, `--no-reasoning-preserve`)
 
 ### Speculative Decoding
 - Speculative decoding type (`--spec-type`)
@@ -197,11 +200,11 @@ Attach Model Context Protocol servers to a profile so the launched model can cal
 
 ### On-Demand Model Proxy (OpenAI-compatible)
 A built-in reverse proxy that loads the right profile on demand when an API request arrives — point a client like Cherry Studio at it and the matching model is loaded automatically, served, and unloaded when idle.
-- **OpenAI-style endpoints** — `/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, `/v1/rerank`, `/infill`, plus `/v1/models` (advertises your profiles as models) and `/health`
+- **API endpoints** - `/v1/chat/completions`, `/v1/completions`, `/v1/responses`, `/v1/embeddings`, `/v1/rerank`, `/infill`, the Anthropic `/v1/messages`, speech recognition `/v1/audio/transcriptions` and speech synthesis `/tts`, plus `/v1/models` (advertises your profiles as models) and `/health`; the legacy paths without `/v1` and the token counting routes go through as well
 - **Profile = model** — send the profile name in the request's `model` field; the proxy starts that profile, waits until it is healthy, then proxies the request and streams the response back (SSE supported)
 - **One model in VRAM** — starting a profile evicts any other running one, so only a single model stays loaded
 - **Idle auto-unload** — stops the server after a configurable idle timeout (set to `0` to disable)
-- **LAN-accessible** — listens on all interfaces; optional Bearer API key for access control
+- **LAN-accessible** - listens on all interfaces; optional API key for access control, sent as `Authorization: Bearer` or `X-Api-Key`
 - Routing-mode profiles (`--models-dir`) are excluded from the advertised model list
 
 ### ComfyUI Integration

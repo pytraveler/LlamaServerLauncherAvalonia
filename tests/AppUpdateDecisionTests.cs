@@ -23,6 +23,11 @@ public static class AppUpdateDecisionTests
         h.Check("digest case ignored",
             AppUpdateService.Decide("v1.7", "v1.7", ReleasedHash.ToUpperInvariant(), () => ReleasedHash) == AppUpdateVerdict.NotNewer,
             "upper vs lower hex");
+        h.Check("a two-digit patch is compared as a number",
+            AppUpdateService.Decide("v1.9.10", "v1.9.9", null, () => null) == AppUpdateVerdict.Newer, "v1.9.10 over v1.9.9");
+        h.Check("and the other way round it is older",
+            AppUpdateService.Decide("v1.9.9", "v1.9.10", ReleasedHash, () => OtherHash) == AppUpdateVerdict.NotNewer,
+            "v1.9.9 under v1.9.10");
 
         h.Section("AppUpdateDecision - no digest (release list read off github.com pages)");
         h.Check("newer still offered without a digest",

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LlamaServerLauncher.Services;
 
 namespace LlamaServerLauncher.Models;
 
@@ -16,22 +17,8 @@ public static class CommandLineBuilder
         var processedProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var normalizedCustomArgs = CommandLineParser.NormalizeSpecialCharacters(config.CustomArguments);
-        Dictionary<string, string?> allCustomArgValues = new(StringComparer.OrdinalIgnoreCase);
-
-        if (!string.IsNullOrEmpty(normalizedCustomArgs))
-        {
-            var parsed = CommandLineParser.ParseArguments(normalizedCustomArgs);
-            allCustomArgValues = CommandLineParser.GetArgumentValues(parsed);
-        }
-
-        var disabledCustomArgs = config.CustomArgumentToggleStates?
-            .Where(kvp => !kvp.Value)
-            .Select(kvp => kvp.Key)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        Dictionary<string, string?> customArgValues = allCustomArgValues
-            .Where(kvp => !disabledCustomArgs.Contains(kvp.Key))
-            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
+        var disabledCustomArgs = DisabledCustomArgs(config);
+        var customArgValues = ActiveCustomArgValues(normalizedCustomArgs, disabledCustomArgs);
 
         bool IsOverriddenByAlias(string flag)
         {
@@ -208,6 +195,8 @@ public static class CommandLineBuilder
         AddIfNotOverridden(args, "-t", config.Threads?.ToString());
         AddIfNotOverridden(args, "-ngl", config.GpuLayers?.ToString());
         AddIfNotOverridden(args, "--n-cpu-moe", config.CpuMoe?.ToString());
+        AddIfNotOverridden(args, "--moe-cache-mib", config.MoeCacheMib?.ToString());
+        AddIfNotOverridden(args, "--n-cpu-ffn", config.CpuFfn?.ToString());
         AddIfNotOverridden(args, "--temp", config.Temperature?.ToString(CultureInfo.InvariantCulture));
         AddIfNotOverridden(args, "-n", config.MaxTokens?.ToString());
         AddIfNotOverridden(args, "-b", config.BatchSize?.ToString());
@@ -246,15 +235,19 @@ public static class CommandLineBuilder
         AddIfNotOverridden(args, "--repeat-penalty", config.RepeatPenalty?.ToString(CultureInfo.InvariantCulture));
 
         AddIfNotOverridden(args, "-np", config.ParallelSlots?.ToString());
+        AddIfNotOverridden(args, "--kv-unified-per-slot", config.ContextPerSlot?.ToString());
         AddIfNotOverridden(args, "-to", config.Timeout?.ToString());
         AddIfNotOverridden(args, "-s", config.Seed?.ToString());
         AddIfNotOverridden(args, "--presence-penalty", config.PresencePenalty?.ToString(CultureInfo.InvariantCulture));
         AddIfNotOverridden(args, "--frequency-penalty", config.FrequencyPenalty?.ToString(CultureInfo.InvariantCulture));
         AddIfNotOverridden(args, "--reasoning-budget", config.ReasoningBudget?.ToString());
+        AddIfNotOverridden(args, "--reasoning-effort",
+            string.IsNullOrWhiteSpace(config.ReasoningEffort) ? null : QuoteIfNeeded(config.ReasoningEffort.Trim()));
 
         AddBoolFlag(args, "--jinja", config.Jinja, "--no-jinja");
 
         AddBoolOnOff(args, "-rea", config.Reasoning);
+        AddBoolFlag(args, "--reasoning-preserve", config.ReasoningPreserve, "--no-reasoning-preserve");
 
         AddBoolFlag(args, "-cb", config.ContBatching, "--no-cont-batching");
         AddBoolFlag(args, "--cache-prompt", config.CachePrompt, "--no-cache-prompt");
@@ -388,6 +381,64 @@ public static class CommandLineBuilder
         AddRemainingCustomArgs(args, normalizedCustomArgs, customArgValues, disabledCustomArgs);
 
         return string.Join(" ", args);
+    }
+
+    public static Dictionary<string, string?> ActiveCustomArguments(ServerConfiguration config) =>
+        ActiveCustomArgValues(CommandLineParser.NormalizeSpecialCharacters(config.CustomArguments), DisabledCustomArgs(config));
+
+    public static bool LacksExperts(GgufModelInfo? model) =>
+        model != null && !string.IsNullOrEmpty(model.Architecture) && !model.IsProjector
+        && model.ExpertCount is not > 0;
+
+    public static ServerConfiguration ForModel(ServerConfiguration config, GgufModelInfo? model)
+    {
+        if (config.MoeCacheMib is null || !LacksExperts(model)) return config;
+        var copy = config.Clone();
+        copy.MoeCacheMib = null;
+        return copy;
+    }
+
+    public static string? ClientApiKey(ServerConfiguration config)
+    {
+        var custom = ActiveCustomArguments(config);
+
+        if (custom.TryGetValue("--api-key", out var inline))
+            return FirstApiKey(inline);
+
+        return FirstApiKey(config.ApiKey)
+            ?? (custom.TryGetValue("--api-key-file", out var file) ? FirstApiKeyFromFile(file) : null);
+    }
+
+    private static string? FirstApiKey(string? keys) =>
+        keys?.Split(',').FirstOrDefault(k => k.Length > 0);
+
+    private static string? FirstApiKeyFromFile(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        try
+        {
+            return File.ReadLines(path).FirstOrDefault(l => l.Length > 0 && l[0] != '#');
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static HashSet<string> DisabledCustomArgs(ServerConfiguration config) =>
+        config.CustomArgumentToggleStates?
+            .Where(kvp => !kvp.Value)
+            .Select(kvp => kvp.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    private static Dictionary<string, string?> ActiveCustomArgValues(string normalizedCustomArgs, HashSet<string> disabled)
+    {
+        if (string.IsNullOrEmpty(normalizedCustomArgs))
+            return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+        return CommandLineParser.GetArgumentValues(CommandLineParser.ParseArguments(normalizedCustomArgs))
+            .Where(kvp => !disabled.Contains(kvp.Key))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
     }
 
     private static string? GetPropertyNameForFlag(string flag)

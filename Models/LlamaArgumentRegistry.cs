@@ -376,6 +376,26 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
+                PrimaryFlag = "-lm",
+                Aliases = new() { "-lm", "--load-mode" },
+                DescriptionEn = "Model loading mode: auto (mmap unless a device does not support it), none, mmap, mlock (keep the model in RAM), mmap+mlock or dio (DirectIO if available). When set here, the mmap and mlock switches are not passed",
+                DescriptionRu = "Режим загрузки модели: auto (mmap, если устройство его поддерживает), none, mmap, mlock (держать модель в RAM без выгрузки), mmap+mlock или dio (DirectIO, если доступен). Если задан здесь, переключатели mmap и mlock не передаются",
+                DefaultValue = "auto",
+                AllowedValues = new() { "auto", "none", "mmap", "mlock", "mmap+mlock", "dio" },
+                Category = "common"
+            },
+            new()
+            {
+                PrimaryFlag = "-lzm",
+                Aliases = new() { "-lzm", "--lazy-mode" },
+                DescriptionEn = "On-demand reading of some large tensors, such as per-layer embeddings: on reads their rows from disk when needed (requires mmap), auto does so only for tensors over 4 GiB, off keeps them resident",
+                DescriptionRu = "Чтение некоторых крупных тензоров с диска по требованию, например per-layer embeddings: on читает их строки при обращении (нужен mmap), auto делает так только для тензоров больше 4 ГиБ, off держит их в памяти",
+                DefaultValue = "auto",
+                AllowedValues = new() { "on", "auto", "off" },
+                Category = "common"
+            },
+            new()
+            {
                 PrimaryFlag = "--numa",
                 Aliases = new() { "--numa" },
                 DescriptionEn = "Attempt optimizations that help on some NUMA systems (distribute, isolate, numactl)",
@@ -421,6 +441,23 @@ public static class LlamaArgumentRegistry
                 Aliases = new() { "-ncmoe", "--n-cpu-moe" },
                 DescriptionEn = "Keep the MoE weights of the first N layers in the CPU",
                 DescriptionRu = "Хранить веса MoE первых N слоёв в CPU",
+                Category = "common"
+            },
+            new()
+            {
+                PrimaryFlag = "--moe-cache-mib",
+                Aliases = new() { "--moe-cache-mib" },
+                DescriptionEn = "GPU cache size in MiB for the MoE experts kept in the CPU; with multiple GPUs it is split like the layers (--tensor-split)",
+                DescriptionRu = "Размер кэша на GPU в МиБ для экспертов MoE, оставленных на CPU; на нескольких GPU делится как слои (--tensor-split)",
+                DefaultValue = "0",
+                Category = "common"
+            },
+            new()
+            {
+                PrimaryFlag = "-ncffn",
+                Aliases = new() { "-ncffn", "--n-cpu-ffn" },
+                DescriptionEn = "Keep the dense FFN weights of the first N layers in the CPU (dense models; for MoE experts use --n-cpu-moe)",
+                DescriptionRu = "Хранить веса плотного FFN первых N слоёв в CPU (плотные модели; для экспертов MoE - --n-cpu-moe)",
                 Category = "common"
             },
             new()
@@ -599,24 +636,6 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
-                PrimaryFlag = "-hfv",
-                Aliases = new() { "-hfv", "-hfrv", "--hf-repo-v" },
-                DescriptionEn = "Hugging Face model repository for the vocoder model",
-                DescriptionRu = "Репозиторий моделей Hugging Face для вокодера",
-                DefaultValue = "unused",
-                Category = "common"
-            },
-            new()
-            {
-                PrimaryFlag = "-hffv",
-                Aliases = new() { "-hffv", "--hf-file-v" },
-                DescriptionEn = "Hugging Face model file for the vocoder model",
-                DescriptionRu = "Файл модели Hugging Face для вокодера",
-                DefaultValue = "unused",
-                Category = "common"
-            },
-            new()
-            {
                 PrimaryFlag = "-hft",
                 Aliases = new() { "-hft", "--hf-token" },
                 DescriptionEn = "Hugging Face access token",
@@ -648,6 +667,15 @@ public static class LlamaArgumentRegistry
                 DescriptionRu = "Цветной лог ('on', 'off' или 'auto')",
                 DefaultValue = "auto",
                 AllowedValues = new() { "on", "off", "auto" },
+                Category = "common"
+            },
+            new()
+            {
+                PrimaryFlag = "--log-jsonl",
+                Aliases = new() { "--log-jsonl", "--no-log-jsonl" },
+                DescriptionEn = "Log as JSONL (one JSON object per line) to stdout; also turns off colored logging. The launcher reads the plain text log, so its speed and memory readouts may stop working",
+                DescriptionRu = "Писать лог в stdout в формате JSONL (один JSON-объект на строку); заодно отключает цветной вывод. Лаунчер читает обычный текстовый лог, поэтому показатели скорости и памяти могут перестать работать",
+                DefaultValue = "disabled",
                 Category = "common"
             },
             new()
@@ -825,8 +853,8 @@ public static class LlamaArgumentRegistry
             {
                 PrimaryFlag = "--repeat-last-n",
                 Aliases = new() { "--repeat-last-n" },
-                DescriptionEn = "Last n tokens to consider for penalize (0 = disabled, -1 = ctx_size)",
-                DescriptionRu = "Последние n токенов для штрафования (0 = отключено, -1 = ctx_size)",
+                DescriptionEn = "Last n tokens to consider for penalize (0 = disabled)",
+                DescriptionRu = "Последние n токенов для штрафования (0 = отключено)",
                 DefaultValue = "64",
                 Category = "sampling"
             },
@@ -888,9 +916,9 @@ public static class LlamaArgumentRegistry
             {
                 PrimaryFlag = "--dry-penalty-last-n",
                 Aliases = new() { "--dry-penalty-last-n" },
-                DescriptionEn = "DRY penalty for the last n tokens (0 = disable, -1 = context size)",
-                DescriptionRu = "DRY-штраф за последние n токенов (0 = выкл, -1 = размер контекста)",
-                DefaultValue = "-1",
+                DescriptionEn = "DRY penalty for the last n tokens (0 = disable)",
+                DescriptionRu = "DRY-штраф за последние n токенов (0 = выкл)",
+                DefaultValue = "64",
                 Category = "sampling"
             },
             new()
@@ -1100,6 +1128,35 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
+                PrimaryFlag = "--spec-draft-cpu-strict-batch",
+                Aliases = new() { "--spec-draft-cpu-strict-batch", "--cpu-strict-batch-draft" },
+                DescriptionEn = "Use strict CPU placement for the draft model during batch processing",
+                DescriptionRu = "Строгое размещение CPU для черновой модели при пакетной обработке",
+                DefaultValue = "same as --spec-draft-cpu-strict",
+                AllowedValues = new() { "0", "1" },
+                Category = "speculative"
+            },
+            new()
+            {
+                PrimaryFlag = "--spec-draft-prio-batch",
+                Aliases = new() { "--spec-draft-prio-batch", "--prio-batch-draft" },
+                DescriptionEn = "Draft model process/thread priority for batch processing: 0-normal, 1-medium, 2-high, 3-realtime",
+                DescriptionRu = "Приоритет процесса/потока черновой модели для пакетной обработки: 0-normal, 1-medium, 2-high, 3-realtime",
+                DefaultValue = "0",
+                Category = "speculative"
+            },
+            new()
+            {
+                PrimaryFlag = "--spec-draft-poll-batch",
+                Aliases = new() { "--spec-draft-poll-batch", "--poll-batch-draft" },
+                DescriptionEn = "Use polling to wait for draft model work during batch processing",
+                DescriptionRu = "Использовать опрос для ожидания работы черновой модели при пакетной обработке",
+                DefaultValue = "same as --spec-draft-poll",
+                AllowedValues = new() { "0", "1" },
+                Category = "speculative"
+            },
+            new()
+            {
                 PrimaryFlag = "--spec-draft-override-tensor",
                 Aliases = new() { "--spec-draft-override-tensor", "-otd", "--override-tensor-draft" },
                 DescriptionEn = "Override tensor buffer type for draft model",
@@ -1156,6 +1213,41 @@ public static class LlamaArgumentRegistry
                 DescriptionEn = "Minimum speculative decoding probability (greedy)",
                 DescriptionRu = "Минимальная вероятность спекулятивного декодирования (жадное)",
                 DefaultValue = "0.00",
+                Category = "speculative"
+            },
+            new()
+            {
+                PrimaryFlag = "--spec-draft-n-ubatch",
+                Aliases = new() { "--spec-draft-n-ubatch" },
+                DescriptionEn = "Physical maximum batch size of the draft context; a smaller value spares VRAM (0 = same as --ubatch-size)",
+                DescriptionRu = "Физический максимальный размер пакета контекста черновой модели; меньшее значение экономит VRAM (0 = как --ubatch-size)",
+                DefaultValue = "0",
+                Category = "speculative"
+            },
+            new()
+            {
+                PrimaryFlag = "--spec-draft-sampling",
+                Aliases = new() { "--spec-draft-sampling" },
+                DescriptionEn = "How the draft is sampled: greedy takes its argmax, probabilistic samples it and the target model verifies it by rejection sampling",
+                DescriptionRu = "Как выбираются черновые токены: greedy берёт самый вероятный, probabilistic сэмплирует, а целевая модель проверяет их через rejection sampling",
+                DefaultValue = "greedy",
+                AllowedValues = new() { "greedy", "probabilistic" },
+                Category = "speculative"
+            },
+            new()
+            {
+                PrimaryFlag = "--spec-synth-len",
+                Aliases = new() { "--spec-synth-len" },
+                DescriptionEn = "Target mean synthetic acceptance length, including the target token (benchmarking only)",
+                DescriptionRu = "Целевая средняя длина синтетического принятия, включая целевой токен (только для бенчмарков)",
+                Category = "speculative"
+            },
+            new()
+            {
+                PrimaryFlag = "--spec-synth-rates",
+                Aliases = new() { "--spec-synth-rates" },
+                DescriptionEn = "Comma-separated unconditional per-position synthetic acceptance probabilities (benchmarking only)",
+                DescriptionRu = "Безусловные вероятности синтетического принятия по позициям через запятую (только для бенчмарков)",
                 Category = "speculative"
             },
             new()
@@ -1349,7 +1441,7 @@ public static class LlamaArgumentRegistry
                 Aliases = new() { "-cms", "--checkpoint-min-step" },
                 DescriptionEn = "Minimum spacing between context checkpoints in tokens (0 = no minimum)",
                 DescriptionRu = "Минимальный интервал между контрольными точками контекста в токенах (0 = без минимума)",
-                DefaultValue = "256",
+                DefaultValue = "8192",
                 Category = "server"
             },
             new()
@@ -1443,6 +1535,15 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
+                PrimaryFlag = "--kv-unified-per-slot",
+                Aliases = new() { "--kv-unified-per-slot" },
+                DescriptionEn = "Context limit per parallel slot; without -c the shared KV cache is sized to slots x N",
+                DescriptionRu = "Предел контекста на один параллельный слот; без -c общий KV-кэш выделяется на слоты x N",
+                DefaultValue = "unset",
+                Category = "server"
+            },
+            new()
+            {
                 PrimaryFlag = "-cb",
                 Aliases = new() { "-cb", "--cont-batching", "-nocb", "--no-cont-batching" },
                 DescriptionEn = "Whether to enable continuous batching (a.k.a dynamic batching)",
@@ -1486,6 +1587,24 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
+                PrimaryFlag = "-mmdev",
+                Aliases = new() { "-mmdev", "--mmproj-device" },
+                DescriptionEn = "Device for the multimodal projector (none = do not offload); follows --device by default. See --list-devices",
+                DescriptionRu = "Устройство для мультимодального проектора (none = не выгружать на GPU); по умолчанию как --device. Список устройств: --list-devices",
+                DefaultValue = "same as --device",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--mtmd-batch-max-tokens",
+                Aliases = new() { "--mtmd-batch-max-tokens" },
+                DescriptionEn = "Maximum number of image tokens per batch when encoding images",
+                DescriptionRu = "Максимум токенов изображения в одном пакете при кодировании изображений",
+                DefaultValue = "1024",
+                Category = "server"
+            },
+            new()
+            {
                 PrimaryFlag = "--image-min-tokens",
                 Aliases = new() { "--image-min-tokens" },
                 DescriptionEn = "Minimum number of tokens each image can take (vision models with dynamic resolution)",
@@ -1500,6 +1619,32 @@ public static class LlamaArgumentRegistry
                 DescriptionEn = "Maximum number of tokens each image can take (vision models with dynamic resolution)",
                 DescriptionRu = "Максимальное количество токенов на изображение (визуальные модели с динамическим разрешением)",
                 DefaultValue = "read from model",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--video-fps",
+                Aliases = new() { "--video-fps" },
+                DescriptionEn = "Target frame rate for video input",
+                DescriptionRu = "Целевая частота кадров для входного видео",
+                DefaultValue = "4.0",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--video-timestamp-interval",
+                Aliases = new() { "--video-timestamp-interval" },
+                DescriptionEn = "Interval in milliseconds between text timestamps in video input",
+                DescriptionRu = "Интервал в миллисекундах между текстовыми метками времени во входном видео",
+                DefaultValue = "5000",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--video-ffmpeg-dir",
+                Aliases = new() { "--video-ffmpeg-dir" },
+                DescriptionEn = "Directory with ffmpeg and ffprobe for video input; searched in PATH by default",
+                DescriptionRu = "Папка с ffmpeg и ffprobe для входного видео; по умолчанию они ищутся в PATH",
                 Category = "server"
             },
             new()
@@ -1531,8 +1676,8 @@ public static class LlamaArgumentRegistry
             {
                 PrimaryFlag = "--host",
                 Aliases = new() { "--host" },
-                DescriptionEn = "IP address to listen, or UNIX socket if address ends with .sock",
-                DescriptionRu = "IP-адрес для прослушивания или UNIX-сокет (если адрес заканчивается на .sock)",
+                DescriptionEn = "IP addresses to listen on, comma-separated, or UNIX socket paths ending in .sock",
+                DescriptionRu = "IP-адреса для прослушивания через запятую или пути UNIX-сокетов, оканчивающиеся на .sock",
                 DefaultValue = "127.0.0.1",
                 Category = "server"
             },
@@ -1542,7 +1687,6 @@ public static class LlamaArgumentRegistry
                 Aliases = new() { "--port" },
                 DescriptionEn = "Port to listen",
                 DescriptionRu = "Порт для прослушивания",
-                DefaultValue = "8080",
                 Category = "server"
             },
             new()
@@ -1560,6 +1704,42 @@ public static class LlamaArgumentRegistry
                 Aliases = new() { "--path" },
                 DescriptionEn = "Path to serve static files from",
                 DescriptionRu = "Путь для раздачи статических файлов",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--cors-origins",
+                Aliases = new() { "--cors-origins" },
+                DescriptionEn = "Comma-separated list of allowed CORS origins; localhost reflects the Origin header only when it is localhost",
+                DescriptionRu = "Разрешённые источники CORS через запятую; значение localhost возвращает заголовок Origin, только если это localhost",
+                DefaultValue = "*",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--cors-methods",
+                Aliases = new() { "--cors-methods" },
+                DescriptionEn = "Comma-separated list of allowed CORS methods",
+                DescriptionRu = "Разрешённые методы CORS через запятую",
+                DefaultValue = "GET,POST,DELETE,OPTIONS",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--cors-headers",
+                Aliases = new() { "--cors-headers" },
+                DescriptionEn = "Comma-separated list of allowed CORS headers",
+                DescriptionRu = "Разрешённые заголовки CORS через запятую",
+                DefaultValue = "*",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--cors-credentials",
+                Aliases = new() { "--cors-credentials", "--no-cors-credentials" },
+                DescriptionEn = "Allow credentials for CORS. With --cors-origins left at *, the Origin header is echoed back and credentials are always allowed",
+                DescriptionRu = "Разрешить учётные данные для CORS. Если --cors-origins оставлен *, заголовок Origin возвращается как есть и учётные данные разрешены всегда",
+                DefaultValue = "enabled",
                 Category = "server"
             },
             new()
@@ -1642,6 +1822,23 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
+                PrimaryFlag = "--connect",
+                Aliases = new() { "--connect" },
+                DescriptionEn = "Experimental: open a peer-to-peer tunnel to the server through llama-connect, so it can be reached from outside the local network. Anyone with the share code can use the server",
+                DescriptionRu = "Экспериментально: открыть p2p-туннель к серверу через llama-connect, чтобы до него можно было достучаться извне локальной сети. Пользоваться сервером сможет любой, у кого есть код",
+                DefaultValue = "disabled",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--connect-code",
+                Aliases = new() { "--connect-code" },
+                DescriptionEn = "40-character code for --connect; a new one is generated for each run by default",
+                DescriptionRu = "Код из 40 символов для --connect; по умолчанию при каждом запуске создаётся новый",
+                Category = "server"
+            },
+            new()
+            {
                 PrimaryFlag = "--webui",
                 Aliases = new() { "--webui", "--no-webui", "--ui", "--no-ui" },
                 DescriptionEn = "Whether to enable the Web UI",
@@ -1716,6 +1913,15 @@ public static class LlamaArgumentRegistry
                 DescriptionEn = "Server read/write timeout in seconds",
                 DescriptionRu = "Таймаут чтения/записи сервера в секундах",
                 DefaultValue = "3600",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--sse-ping-interval",
+                Aliases = new() { "--sse-ping-interval" },
+                DescriptionEn = "SSE ping interval in seconds (-1 = disabled)",
+                DescriptionRu = "Интервал SSE-пингов в секундах (-1 = выкл)",
+                DefaultValue = "30",
                 Category = "server"
             },
             new()
@@ -1819,6 +2025,15 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
+                PrimaryFlag = "--models-memory-margin",
+                Aliases = new() { "--models-memory-margin" },
+                DescriptionEn = "Router mode: MiB of device memory to keep free on each device; least recently used models are unloaded until a new one fits (0 = disabled)",
+                DescriptionRu = "Режим роутера: сколько МиБ памяти держать свободными на каждом устройстве; давно не использованные модели выгружаются, пока новая не поместится (0 = выкл)",
+                DefaultValue = "0",
+                Category = "server"
+            },
+            new()
+            {
                 PrimaryFlag = "--models-autoload",
                 Aliases = new() { "--models-autoload", "--no-models-autoload" },
                 DescriptionEn = "Whether to automatically load models for router server",
@@ -1856,6 +2071,16 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
+                PrimaryFlag = "--reasoning-effort",
+                Aliases = new() { "--reasoning-effort" },
+                DescriptionEn = "Reasoning effort level for the chat template: default keeps the template default, or a level such as minimal, low, medium, high, xhigh or max",
+                DescriptionRu = "Уровень рассуждений для шаблона чата: default оставляет умолчание шаблона, иначе уровень вроде minimal, low, medium, high, xhigh или max",
+                DefaultValue = "default",
+                AllowedValues = new() { "default", "minimal", "low", "medium", "high", "xhigh", "max" },
+                Category = "server"
+            },
+            new()
+            {
                 PrimaryFlag = "--reasoning-budget",
                 Aliases = new() { "--reasoning-budget" },
                 DescriptionEn = "Token budget for thinking: -1 = unrestricted, 0 = immediate end, N>0 = token budget",
@@ -1870,6 +2095,15 @@ public static class LlamaArgumentRegistry
                 DescriptionEn = "Message injected before the end-of-thinking tag when budget is exhausted",
                 DescriptionRu = "Сообщение, вставляемое перед закрывающим тегом мышления при исчерпании бюджета",
                 DefaultValue = "none",
+                Category = "server"
+            },
+            new()
+            {
+                PrimaryFlag = "--reasoning-preserve",
+                Aliases = new() { "--reasoning-preserve", "--no-reasoning-preserve" },
+                DescriptionEn = "Keep the reasoning trace in the whole chat history, not only in the last assistant message; used by templates that support it",
+                DescriptionRu = "Сохранять рассуждения во всей истории чата, а не только в последнем ответе ассистента; учитывается шаблонами, которые это поддерживают",
+                DefaultValue = "enabled",
                 Category = "server"
             },
             new()
@@ -1935,19 +2169,11 @@ public static class LlamaArgumentRegistry
             },
             new()
             {
-                PrimaryFlag = "-mv",
-                Aliases = new() { "-mv", "--model-vocoder" },
-                DescriptionEn = "Vocoder model for audio generation",
-                DescriptionRu = "Модель вокодера для генерации звука",
-                DefaultValue = "unused",
-                Category = "server"
-            },
-            new()
-            {
-                PrimaryFlag = "--tts-use-guide-tokens",
-                Aliases = new() { "--tts-use-guide-tokens" },
-                DescriptionEn = "Use guide tokens to improve TTS word recall",
-                DescriptionRu = "Использовать направляющие токены для улучшения воспроизведения слов TTS",
+                PrimaryFlag = "--log-prompts-dir",
+                Aliases = new() { "--log-prompts-dir" },
+                DescriptionEn = "Directory to log prompts to, created if missing; for debugging only",
+                DescriptionRu = "Папка для записи промптов, создаётся при необходимости; только для отладки",
+                DefaultValue = "disabled",
                 Category = "server"
             },
             new()

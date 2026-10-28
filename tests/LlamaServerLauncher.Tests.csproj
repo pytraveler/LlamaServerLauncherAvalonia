@@ -63,6 +63,11 @@
     <Compile Include="..\Models\HfDownloadPlan.cs" />
     <Compile Include="..\Services\HuggingFaceClient.cs" />
     <Compile Include="..\Services\HfDownloadService.cs" />
+    <Compile Include="..\Services\LlamaHelpParserService.cs" />
+    <Compile Include="..\Models\HelpArgumentInfo.cs" />
+    <Compile Include="..\Models\LlamaArgumentDefinition.cs" />
+    <Compile Include="..\Models\LlamaArgumentRegistry.cs" />
+    <Compile Include="LocalizedStringsStub.cs" />
     <Compile Include="CommandLineTests.cs" />
     <Compile Include="OptimizationTests.cs" />
     <Compile Include="ProxyProtocolTests.cs" />
@@ -95,6 +100,7 @@
     <Compile Include="CommandImportTests.cs" />
     <Compile Include="HuggingFaceTests.cs" />
     <Compile Include="HfTransferTests.cs" />
+    <Compile Include="HelpParserTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>

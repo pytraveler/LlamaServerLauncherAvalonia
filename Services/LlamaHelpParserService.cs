@@ -15,7 +15,7 @@ public static class LlamaHelpParserService
         RegexOptions.Compiled);
 
     private static readonly Regex AllFlagsPattern = new(
-        @"(-[a-zA-Z][a-zA-Z]*\b)|(--[\w][\w-]*)",
+        @"(-[a-zA-Z][a-zA-Z]*\b)|(--[\w](?:[\w-]|\.(?=\w))*)",
         RegexOptions.Compiled);
 
     private const int HelpTimeoutSeconds = 10;
@@ -177,10 +177,6 @@ public static class LlamaHelpParserService
         }
     }
 
-    /// <summary>
-    /// Extracts the valid enum-like values for a flag from help text.
-    /// Looks for patterns like: --flag [val1|val2|val3] or --flag &lt;val1|val2|val3&gt;
-    /// </summary>
     public static List<string> ParseFlagValues(string helpText, string flag)
     {
         var values = new List<string>();
@@ -209,7 +205,7 @@ public static class LlamaHelpParserService
     }
 
     private static readonly Regex DescriptionFlagRegex = new(
-        @"(-[a-zA-Z][a-zA-Z0-9]*\b)|(--[\w][\w-]*)",
+        @"(?<![\w-])--?[a-zA-Z](?:[\w-]|\.(?=\w))*",
         RegexOptions.Compiled);
 
     public static List<HelpArgumentInfo> ParseArgumentDescriptions(string helpText)
@@ -313,10 +309,14 @@ public static class LlamaHelpParserService
             result.Add(current);
         }
 
+        result.RemoveAll(IsRemovedArgument);
         EnrichFromRegistry(result);
 
         return result;
     }
+
+    private static bool IsRemovedArgument(HelpArgumentInfo arg) =>
+        arg.Description.StartsWith("the argument has been removed", StringComparison.OrdinalIgnoreCase);
 
     private static string ParseCategoryFromSection(string sectionLine)
     {
@@ -371,6 +371,11 @@ public static class LlamaHelpParserService
                 int j = i;
                 while (j < line.Length && (line[j] == ' ' || line[j] == '\t'))
                     j++;
+                if (i > 0 && line[i - 1] == ',')
+                {
+                    i = j - 1;
+                    continue;
+                }
                 return j;
             }
         }
@@ -411,26 +416,37 @@ public static class LlamaHelpParserService
         arg.DefaultValue = CleanDefaultValue(def);
     }
 
+    private static readonly string[] DefaultValueAsides = { ", ", "; ", " - " };
+
+    private static readonly HashSet<string> NonValueDefaults = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "enabled", "disabled", "on", "off", "true", "false", "yes", "no", "auto", "none", "unset", "unused", "\"\"",
+    };
+
     private static string? CleanDefaultValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
 
-        // Normalize whitespace: collapse newlines/tabs/multiple spaces into single space
-        value = value.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ');
-        while (value.Contains("  "))
-            value = value.Replace("  ", " ");
-        value = value.Trim();
+        value = Regex.Replace(value, @"\s+", " ").Trim();
+        foreach (var aside in DefaultValueAsides)
+        {
+            int cut = value.IndexOf(aside, StringComparison.Ordinal);
+            if (cut > 0) value = value[..cut].TrimEnd();
+        }
 
-        var lower = value.ToLowerInvariant();
-        // Skip boolean-like defaults that are not meaningful argument values
-        if (lower is "enabled" or "disabled" or "on" or "off" or "true" or "false" or "yes" or "no" or "auto" or "none")
-            return null;
-
-        // Quote multi-word values
-        if (value.Contains(' '))
-            return $"\"{value}\"";
-
+        if (value.Contains(' ') || NonValueDefaults.Contains(value)) return null;
+        if (Regex.IsMatch(value, @"^--?[A-Za-z]")) return null;
         return value;
+    }
+
+    private static readonly Regex ContextDefaultRegex = new(
+        @"--ctx-size\b[^\n]*?\(default:\s*(?<value>\d+)", RegexOptions.Compiled);
+
+    public static int? ParseContextDefault(string? helpText)
+    {
+        if (string.IsNullOrEmpty(helpText)) return null;
+        var match = ContextDefaultRegex.Match(helpText);
+        return match.Success && int.TryParse(match.Groups["value"].Value, out int value) ? value : null;
     }
 
     private static (string? defaultValue, string? envVar) ExtractMeta(string description)
@@ -449,12 +465,6 @@ public static class LlamaHelpParserService
         return (def, env);
     }
 
-    /// <summary>
-    /// Extracts valid cache type values (for -ctk / -ctv / --cache-type-k / --cache-type-v)
-    /// from help text. Handles:
-    ///   - "allowed values: f32, f16, bf16, q8_0, ..." (may span multiple lines)
-    ///   - [f32|f16|q8_0|...] or &lt;f32|f16|...&gt; bracket/angle patterns
-    /// </summary>
     public static List<string> ParseCacheTypeValues(string helpText)
     {
         var values = new List<string>();
@@ -550,11 +560,6 @@ public static class LlamaHelpParserService
         return values;
     }
 
-    /// <summary>
-    /// Extracts valid --spec-type values from help text, handling both 
-    /// "without draft model" and "with draft model" categories.
-    /// Also adds "draft-simple" if -md flag is present in help.
-    /// </summary>
     public static List<string> ParseSpecTypeValues(string helpText)
     {
         var values = new List<string>();

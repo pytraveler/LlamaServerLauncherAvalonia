@@ -324,7 +324,7 @@
     <value>Не влезет: нужно {0:F1} ГБ, свободно {1:F1} из {2:F1} ГБ</value>
   </data>
   <data name="VramFitTooltip" xml:space="preserve">
-    <value>Грубая оценка по метаданным GGUF: веса выгруженных блоков, KV-кэш под текущий контекст и собственные буферы llama.cpp. Про mmproj, вторую видеокарту и tensor split она не знает, так что это отправная точка, а не обещание.</value>
+    <value>Грубая оценка по метаданным GGUF: веса выгруженных блоков, KV-кэш под текущий контекст и собственные буферы llama.cpp. Если поле контекста пустое, план делает то же, что llama-server: берёт контекст модели и, как --fit, уменьшает его, пока в VRAM не останется 1 ГиБ свободным (--fit-target), но не ниже 4096. Про mmproj, вторую видеокарту и tensor split она не знает, так что это отправная точка, а не обещание.</value>
   </data>
   <data name="VramPartWeights" xml:space="preserve">
     <value>веса {0:F1} ГБ</value>
@@ -349,6 +349,15 @@
   </data>
   <data name="VramPartProjector" xml:space="preserve">
     <value>проектор {0:F1} ГБ</value>
+  </data>
+  <data name="VramPartMoeCache" xml:space="preserve">
+    <value>кэш MoE {0:F1} ГБ</value>
+  </data>
+  <data name="VramPartContext" xml:space="preserve">
+    <value>контекст {0}</value>
+  </data>
+  <data name="VramPartContextFit" xml:space="preserve">
+    <value>контекст {0} из {1} (--fit)</value>
   </data>
   <data name="VramAfterRestart" xml:space="preserve">
     <value>(после перезапуска)</value>
@@ -386,6 +395,15 @@
   <data name="VramPickCpuMoeTooltip" xml:space="preserve">
     <value>Оставить столько блоков экспертов MoE на CPU, чтобы всё остальное влезло в свободную VRAM</value>
   </data>
+  <data name="VramPickCpuFfn" xml:space="preserve">
+    <value>Уместить в VRAM: {0} слоёв FFN на CPU</value>
+  </data>
+  <data name="VramPickCpuFfnNone" xml:space="preserve">
+    <value>FFN влезает в VRAM</value>
+  </data>
+  <data name="VramPickCpuFfnTooltip" xml:space="preserve">
+    <value>Оставить на CPU веса плотного FFN стольких первых слоёв, чтобы всё остальное влезло в свободную VRAM</value>
+  </data>
   <data name="Threads" xml:space="preserve">
     <value>Потоки:</value>
   </data>
@@ -394,6 +412,12 @@
   </data>
   <data name="CpuMoe" xml:space="preserve">
     <value>Слои MoE на CPU:</value>
+  </data>
+  <data name="MoeCacheMib" xml:space="preserve">
+    <value>Кэш MoE, МиБ:</value>
+  </data>
+  <data name="CpuFfn" xml:space="preserve">
+    <value>Слои FFN на CPU:</value>
   </data>
   <data name="GenerationParameters" xml:space="preserve">
     <value>Параметры генерации</value>
@@ -582,7 +606,7 @@
     <value>TCP-порт сервера. По умолчанию: 8080</value>
   </data>
   <data name="TooltipContextSize" xml:space="preserve">
-    <value>Размер контекста промпта в токенах (-c). Большие значения требуют больше RAM/VRAM. По умолчанию: 0</value>
+    <value>Размер контекста промпта в токенах (-c). Большие значения требуют больше RAM/VRAM. Если поле пустое, llama-server берёт контекст, на котором обучена модель, а --fit уменьшает его, пока всё не влезет в VRAM, но не ниже 4096 (--fit-ctx); при нескольких слотах без общего KV-кэша столько получает каждый слот. 0 - полный контекст модели, --fit его не уменьшает. Старые сборки без --fit берут 4096.</value>
   </data>
   <data name="TooltipThreads" xml:space="preserve">
     <value>Количество потоков CPU для генерации (-t). Больше потоков = быстрее, но с убывающей отдачей.</value>
@@ -592,6 +616,12 @@
   </data>
   <data name="TooltipCpuMoe" xml:space="preserve">
     <value>Сколько слоёв держать экспертами MoE на CPU (--n-cpu-moe). Ключевой параметр для больших MoE-моделей, не влезающих в VRAM целиком.</value>
+  </data>
+  <data name="TooltipMoeCacheMib" xml:space="preserve">
+    <value>Кэш на GPU в МиБ для экспертов MoE, оставленных на CPU (--moe-cache-mib). Работает поверх слоёв MoE на CPU: используемые эксперты копируются в VRAM, и генерация идёт быстрее. План VRAM учитывает кэш, но не больше, чем экспертов реально лежит на CPU. На нескольких GPU делится так же, как слои. Только для MoE-моделей: с плотной моделью llama-server не запустится, поэтому у GGUF без экспертов поле неактивно и флаг в команду не попадает. Нужна llama.cpp v0.7.0 (b11669) или новее; старым сборкам флаг не передаётся.</value>
+  </data>
+  <data name="TooltipCpuFfn" xml:space="preserve">
+    <value>Сколько первых слоёв держать с весами плотного FFN на CPU (--n-cpu-ffn). Аналог слоёв MoE на CPU для плотных моделей: внимание и KV-кэш этих слоёв остаются на GPU. Для весов экспертов MoE-моделей есть слои MoE на CPU. Нужна llama.cpp v0.4.0 (b10809) или новее; старым сборкам флаг не передаётся.</value>
   </data>
   <data name="TooltipTemperature" xml:space="preserve">
     <value>Управляет случайностью вывода (-temp). Выше = креативнее, ниже = точнее. По умолчанию: 0.8</value>
@@ -840,7 +870,10 @@
     <value>По умолчанию: 8080</value>
   </data>
   <data name="PlaceholderContextSize" xml:space="preserve">
-    <value>По умолчанию: 512</value>
+    <value>из модели / токены</value>
+  </data>
+  <data name="PlaceholderContextSizeFixed" xml:space="preserve">
+    <value>По умолчанию: {0}</value>
   </data>
   <data name="PlaceholderThreads" xml:space="preserve">
     <value>напр. 8</value>
@@ -849,6 +882,15 @@
     <value>По умолчанию: 0 (только CPU)</value>
   </data>
   <data name="PlaceholderCpuMoe" xml:space="preserve">
+    <value>выкл / N слоёв</value>
+  </data>
+  <data name="PlaceholderMoeCacheMib" xml:space="preserve">
+    <value>выкл / МиБ</value>
+  </data>
+  <data name="PlaceholderMoeCacheDense" xml:space="preserve">
+    <value>только для MoE</value>
+  </data>
+  <data name="PlaceholderCpuFfn" xml:space="preserve">
     <value>выкл / N слоёв</value>
   </data>
   <data name="PlaceholderTemperature" xml:space="preserve">
@@ -894,10 +936,16 @@
     <value>Порт должен быть числом от 1 до 65535</value>
   </data>
   <data name="HostValidationWarning" xml:space="preserve">
-    <value>Недопустимый хост: введите IP-адрес или имя хоста</value>
+    <value>Недопустимый хост: введите IP-адрес или имя хоста, несколько - через запятую, или путь .sock</value>
+  </data>
+  <data name="HostSocketOnlyWarning" xml:space="preserve">
+    <value>Только путь .sock: лаунчер подключается к серверу по TCP, поэтому не увидит, что модель загрузилась. Статус останется на загрузке, а слоты, кнопка браузера и прокси по запросу работать не будут. Добавьте TCP-адрес через запятую, например 127.0.0.1,llama.sock</value>
   </data>
   <data name="ParallelSlots" xml:space="preserve">
     <value>Параллельные слоты</value>
+  </data>
+  <data name="ContextPerSlot" xml:space="preserve">
+    <value>Контекст на слот</value>
   </data>
   <data name="ContBatching" xml:space="preserve">
     <value>Непрер. батчинг</value>
@@ -920,6 +968,12 @@
   <data name="ReasoningBudget" xml:space="preserve">
     <value>Бюджет Reasoning</value>
   </data>
+  <data name="ReasoningEffort" xml:space="preserve">
+    <value>Уровень Reasoning</value>
+  </data>
+  <data name="ReasoningPreserve" xml:space="preserve">
+    <value>Сохр. Reasoning</value>
+  </data>
   <data name="Seed" xml:space="preserve">
     <value>Seed</value>
   </data>
@@ -934,6 +988,9 @@
   </data>
   <data name="TooltipParallelSlots" xml:space="preserve">
     <value>Количество параллельных слотов запросов (-np, --parallel). По умолчанию: авто (-1)</value>
+  </data>
+  <data name="TooltipContextPerSlot" xml:space="preserve">
+    <value>Предел контекста для одного параллельного слота, в токенах (--kv-unified-per-slot). Если размер контекста не задан, llama-server выделяет KV-кэш на слоты x это значение (4 слота, когда параллельные слоты в режиме авто), и план VRAM считает так же. Если контекст задан, флаг только ограничивает каждый слот, а KV-кэш остаётся заданного размера. Нужна llama.cpp v0.4.0 (b10809) или новее; старым сборкам флаг не передаётся.</value>
   </data>
   <data name="TooltipContBatching" xml:space="preserve">
     <value>Включить непрерывный батчинг (-cb). По умолчанию: включено</value>
@@ -956,6 +1013,12 @@
   <data name="TooltipReasoningBudget" xml:space="preserve">
     <value>Бюджет токенов для размышлений (--reasoning-budget). -1=безлимит, 0=остановка</value>
   </data>
+  <data name="TooltipReasoningEffort" xml:space="preserve">
+    <value>Уровень рассуждений, который получает шаблон чата (--reasoning-effort): minimal, low, medium, high, xhigh или max; default оставляет выбор шаблона. Учитывают его только шаблоны, которые читают уровень, например gpt-oss. Другой уровень, известный шаблону, можно вписать вручную. Клиент всё равно может запросить свой уровень полем reasoning_effort в запросе.</value>
+  </data>
+  <data name="TooltipReasoningPreserve" xml:space="preserve">
+    <value>Оставлять в истории чата рассуждения всех прошлых ответов ассистента, а не только последнего (--reasoning-preserve / --no-reasoning-preserve). С v0.4.0 llama.cpp включает это по умолчанию, а учитывают только шаблоны, которые это поддерживают, например GLM. Выкл экономит контекст в длинных чатах. Авто оставляет умолчание сборки.</value>
+  </data>
   <data name="TooltipSeed" xml:space="preserve">
     <value>Seed ГСЧ для воспроизводимости вывода (-s, --seed). -1=случайный</value>
   </data>
@@ -971,11 +1034,17 @@
   <data name="PlaceholderParallelSlots" xml:space="preserve">
     <value>По умолчанию: авто (-1)</value>
   </data>
+  <data name="PlaceholderContextPerSlot" xml:space="preserve">
+    <value>не задан / токены</value>
+  </data>
   <data name="PlaceholderTimeout" xml:space="preserve">
     <value>По умолчанию: 600</value>
   </data>
   <data name="PlaceholderReasoningBudget" xml:space="preserve">
     <value>-1 (безлимит)</value>
+  </data>
+  <data name="PlaceholderReasoningEffort" xml:space="preserve">
+    <value>по шаблону</value>
   </data>
   <data name="PlaceholderSeed" xml:space="preserve">
     <value>-1 (случайный)</value>

@@ -105,6 +105,7 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
     public int StatsVersion => _statsVersion;
     public int? ProcessId => _service.ProcessId;
     public string BaseUrl => _service.BaseUrl;
+    public string? ApiKey => _service.ApiKey;
     public bool WasStoppedIntentionally => _service.WasStoppedIntentionally;
     public bool IsSingleModelMode => _service.IsSingleModelMode;
 
@@ -488,7 +489,8 @@ public class ServerInstance : INotifyPropertyChanged, IDisposable
             try
             {
                 var info = GgufMetadataService.TryReadDetailed(config.ModelPath);
-                var estimate = VramEstimator.Estimate(info, VramPlan.RequestFrom(config, info?.MaxContext));
+                var estimate = VramEstimator.Estimate(info,
+                    VramPlan.RunningRequest(config, info?.MaxContext, report.ContextSize));
                 _logService.Info(VramComparison.Describe(ProfileName, report, estimate));
             }
             catch (Exception ex)

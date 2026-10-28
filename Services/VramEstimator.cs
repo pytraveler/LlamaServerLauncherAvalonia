@@ -24,6 +24,8 @@ public sealed record VramRequest
     public int Parallel { get; init; } = 1;
 
     public int CpuMoeBlocks { get; init; }
+    public long MoeCacheBytes { get; init; }
+    public int CpuFfnBlocks { get; init; }
 
     public long MmprojBytes { get; init; }
 }
@@ -35,6 +37,7 @@ public sealed record VramEstimate
     public long ComputeBytes { get; init; }
     public long OverheadBytes { get; init; }
     public long ProjectorBytes { get; init; }
+    public long MoeCacheBytes { get; init; }
     public long HostWeightBytes { get; init; }
     public long HostKvBytes { get; init; }
     public int OffloadedBlocks { get; init; }
@@ -44,7 +47,7 @@ public sealed record VramEstimate
 
     public bool Approximate { get; init; }
 
-    public long TotalBytes => WeightBytes + KvBytes + ComputeBytes + OverheadBytes + ProjectorBytes;
+    public long TotalBytes => WeightBytes + KvBytes + ComputeBytes + OverheadBytes + ProjectorBytes + MoeCacheBytes;
     public long HostBytes => HostWeightBytes + HostKvBytes;
 }
 
@@ -72,16 +75,19 @@ public static class VramEstimator
         int firstGpuBlock = blocks - offloaded;
         bool full = requested > blocks;
         int cpuMoe = Math.Clamp(request.CpuMoeBlocks, 0, blocks);
+        int cpuFfn = Math.Clamp(request.CpuFfnBlocks, 0, blocks);
 
-        long weights = 0, hostWeights = 0;
+        long weights = 0, hostWeights = 0, cacheableExperts = 0;
         for (int i = 0; i < blocks; i++)
         {
             long block = tensors.BytesForBlock(i);
             long expertsOnHost = i < cpuMoe ? tensors.ExpertBytesForBlock(i) : 0;
+            long ffnOnHost = i < cpuFfn ? tensors.DenseFfnBytesForBlock(i) : 0;
             if (i >= firstGpuBlock)
             {
-                weights += block - expertsOnHost;
-                hostWeights += expertsOnHost;
+                weights += block - expertsOnHost - ffnOnHost;
+                hostWeights += expertsOnHost + ffnOnHost;
+                cacheableExperts += expertsOnHost;
             }
             else
             {
@@ -137,6 +143,7 @@ public static class VramEstimator
 
         long compute = offloaded > 0 ? ComputeBytes(info, request, full) : 0;
         long overhead = offloaded > 0 ? BackendOverheadBytes : 0;
+        long moeCache = Math.Min(Math.Max(0, request.MoeCacheBytes), cacheableExperts);
 
         return new VramEstimate
         {
@@ -145,6 +152,7 @@ public static class VramEstimator
             ComputeBytes = compute,
             OverheadBytes = overhead,
             ProjectorBytes = Math.Max(0, request.MmprojBytes),
+            MoeCacheBytes = moeCache,
             HostWeightBytes = hostWeights,
             HostKvBytes = kvHost,
             OffloadedBlocks = offloaded,
@@ -203,6 +211,17 @@ public static class VramEstimator
 
         for (int blocks = 0; blocks <= tensors.BlockCount; blocks++)
             if (Fits(info, request with { CpuMoeBlocks = blocks }, availableBytes))
+                return blocks;
+        return null;
+    }
+
+    public static int? SuggestedCpuFfnBlocks(GgufModelInfo? info, VramRequest request, long availableBytes)
+    {
+        if (info?.Tensors is not GgufTensorSummary tensors || availableBytes <= 0) return null;
+        if (tensors.ExpertBytes > 0 || tensors.DenseFfnBytes <= 0) return null;
+
+        for (int blocks = 0; blocks <= tensors.BlockCount; blocks++)
+            if (Fits(info, request with { CpuFfnBlocks = blocks }, availableBytes))
                 return blocks;
         return null;
     }

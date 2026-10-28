@@ -327,6 +327,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     public List<string> CacheTypeOptions => _cacheTypeOptions;
 
+    public List<string> ReasoningEffortOptions { get; } = new() { "default", "minimal", "low", "medium", "high", "xhigh", "max" };
+
     public List<string> DockerImageOptions { get; } = new()
     {
         "ghcr.io/ggml-org/llama.cpp:server",
@@ -842,8 +844,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(ExecutablePathPlaceholder));
         OnPropertyChanged(nameof(LlamaButtonText));
         OnPropertyChanged(nameof(ParallelSlotsPlaceholder));
+        OnPropertyChanged(nameof(ContextPerSlotPlaceholder));
         OnPropertyChanged(nameof(TimeoutPlaceholder));
         OnPropertyChanged(nameof(ReasoningBudgetPlaceholder));
+        OnPropertyChanged(nameof(ReasoningEffortPlaceholder));
         OnPropertyChanged(nameof(SeedPlaceholder));
         OnPropertyChanged(nameof(PresencePenaltyPlaceholder));
         OnPropertyChanged(nameof(FrequencyPenaltyPlaceholder));
@@ -857,6 +861,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(ThreadsPlaceholder));
         OnPropertyChanged(nameof(GpuLayersPlaceholder));
         OnPropertyChanged(nameof(CpuMoePlaceholder));
+        OnPropertyChanged(nameof(MoeCacheMibPlaceholder));
+        OnPropertyChanged(nameof(CpuFfnPlaceholder));
         OnPropertyChanged(nameof(TemperaturePlaceholder));
         OnPropertyChanged(nameof(MaxTokensPlaceholder));
         OnPropertyChanged(nameof(BatchSizePlaceholder));
@@ -918,6 +924,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private string _threads = string.Empty;
     private string _gpuLayers = string.Empty;
     private string _cpuMoe = string.Empty;
+    private string _moeCacheMib = string.Empty;
+    private string _cpuFfn = string.Empty;
     private string _temperature = string.Empty;
     private string _maxTokens = string.Empty;
     private string _batchSize = string.Empty;
@@ -942,6 +950,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private string _alias = string.Empty;
     private string _customArguments = string.Empty;
     private string _parallelSlots = string.Empty;
+    private string _contextPerSlot = string.Empty;
     private bool? _contBatching;
     private string _timeout = string.Empty;
     private bool? _cachePrompt;
@@ -949,6 +958,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private bool? _mmap;
     private bool? _reasoning;
     private string _reasoningBudget = string.Empty;
+    private string _reasoningEffort = string.Empty;
+    private bool? _reasoningPreserve;
     private bool? _jinja;
     private string _seed = string.Empty;
     private string _presencePenalty = string.Empty;
@@ -1483,8 +1494,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
             var declaredHost = string.IsNullOrWhiteSpace(config.Host) ? "127.0.0.1" : config.Host;
             var port = config.Port;
-            var connectHost = declaredHost is "0.0.0.0" or "" ? "127.0.0.1" : declaredHost;
-            var baseUrl = $"http://{connectHost}:{port}";
+            var baseUrl = EndpointSnippets.BaseUrl(declaredHost, port);
 
             var alreadyRunning = RunningInstances.Any(i => i.ProfileName == profileName && i.IsRunning);
             if (!alreadyRunning)
@@ -1510,7 +1520,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             }
 
             _lastProxiedProfile = profileName;
-            return new ProxyUpstream(declaredHost, port);
+            return new ProxyUpstream(declaredHost, port, CommandLineBuilder.ClientApiKey(config));
         }
         catch (OperationCanceledException)
         {
@@ -1752,6 +1762,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         Threads = settings.Threads;
         GpuLayers = settings.GpuLayers;
         CpuMoe = settings.CpuMoe;
+        MoeCacheMib = settings.MoeCacheMib;
+        CpuFfn = settings.CpuFfn;
         Temperature = settings.Temperature;
         MaxTokens = settings.MaxTokens;
         BatchSize = settings.BatchSize;
@@ -1775,6 +1787,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         Alias = settings.Alias;
         CustomArguments = settings.CustomArguments;
         ParallelSlots = settings.ParallelSlots;
+        ContextPerSlot = settings.ContextPerSlot;
         ContBatching = settings.ContBatching;
         Timeout = settings.Timeout;
         CachePrompt = settings.CachePrompt;
@@ -1782,6 +1795,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         Mmap = settings.Mmap;
         Reasoning = settings.Reasoning;
         ReasoningBudget = settings.ReasoningBudget;
+        ReasoningEffort = settings.ReasoningEffort;
+        ReasoningPreserve = settings.ReasoningPreserve;
         Jinja = settings.Jinja;
         Seed = settings.Seed;
         PresencePenalty = settings.PresencePenalty;
@@ -2274,6 +2289,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             Threads = Threads,
             GpuLayers = GpuLayers,
             CpuMoe = CpuMoe,
+            MoeCacheMib = MoeCacheMib,
+            CpuFfn = CpuFfn,
             Temperature = Temperature,
             MaxTokens = MaxTokens,
             BatchSize = BatchSize,
@@ -2297,6 +2314,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             Alias = Alias,
             CustomArguments = string.Join(" ", CustomArgumentItems.Select(x => x.OriginalArg)),
             ParallelSlots = ParallelSlots,
+            ContextPerSlot = ContextPerSlot,
             ContBatching = ContBatching,
             Timeout = Timeout,
             CachePrompt = CachePrompt,
@@ -2304,6 +2322,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             Mmap = Mmap,
             Reasoning = Reasoning,
             ReasoningBudget = ReasoningBudget,
+            ReasoningEffort = ReasoningEffort,
+            ReasoningPreserve = ReasoningPreserve,
             Jinja = Jinja,
             Seed = Seed,
             PresencePenalty = PresencePenalty,
@@ -2503,6 +2523,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(IsHostValid));
             OnPropertyChanged(nameof(HostValidationMessage));
+            OnPropertyChanged(nameof(HasHostValidationMessage));
             UpdateCurrentCommand();
             UpdateCommandStates();
         }
@@ -2513,12 +2534,17 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         get
         {
             if (string.IsNullOrWhiteSpace(_host)) return true; // empty -> default 127.0.0.1
-            return IsValidHost(_host.Trim());
+            var hosts = EndpointSnippets.SplitHosts(_host);
+            return hosts.Count > 0 && hosts.All(h => EndpointSnippets.IsUnixSocket(h) || IsValidHost(h));
         }
     }
 
     public string HostValidationMessage =>
-        IsHostValid ? string.Empty : LocalizedStrings.Instance.HostValidationWarning;
+        !IsHostValid ? LocalizedStrings.Instance.HostValidationWarning
+        : EndpointSnippets.IsSocketOnly(_host) ? LocalizedStrings.Instance.HostSocketOnlyWarning
+        : string.Empty;
+
+    public bool HasHostValidationMessage => HostValidationMessage.Length > 0;
 
     private static bool IsValidHost(string host)
     {
@@ -2666,8 +2692,12 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(ModelWarning));
         OnPropertyChanged(nameof(HasSuggestedGpuLayers));
         OnPropertyChanged(nameof(SuggestedGpuLayersText));
-        RefreshVramPlan();
+        OnPropertyChanged(nameof(IsMoeCacheEnabled));
+        OnPropertyChanged(nameof(MoeCacheMibPlaceholder));
+        UpdateCurrentCommand();
     }
+
+    public bool IsMoeCacheEnabled => !CommandLineBuilder.LacksExperts(_modelInfo);
 
     public bool HasModelInfo => ModelInfoBadge.Length > 0;
 
@@ -2724,8 +2754,13 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private int? _vramMaxGpuLayers;
     private int? _vramMaxContext;
     private int? _vramCpuMoeBlocks;
+    private int? _vramCpuFfnBlocks;
     private ServerMemoryReport? _vramMeasured;
     private long? _vramMeasuredDelta;
+    private int? _vramUnsetContext;
+    private int _vramContext;
+    private int _vramFullContext;
+    private ContextDefaults _contextDefaults = ContextDefaults.Current;
 
     private static readonly Avalonia.Media.IBrush _dangerBrush =
         new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(224, 85, 97));
@@ -2741,28 +2776,45 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         _vramMaxGpuLayers = null;
         _vramMaxContext = null;
         _vramCpuMoeBlocks = null;
+        _vramCpuFfnBlocks = null;
         _vramMeasured = null;
         _vramMeasuredDelta = null;
+        _vramUnsetContext = null;
 
         var info = _modelInfo;
         if (info?.Tensors is GgufTensorSummary tensors)
         {
-            var request = VramPlan.RequestFrom(config ?? GetCurrentConfig(), info.MaxContext, _mmprojBytes);
+            var current = config ?? GetCurrentConfig();
+            var request = VramPlan.RequestFrom(current, info.MaxContext, _mmprojBytes, _contextDefaults);
             _vramEstimate = VramEstimator.Estimate(info, request);
+            int? fitFloor = null;
 
             if (_vramEstimate != null)
             {
                 _vramAvailableBytes = VramPlan.Available(_vramFreeBytes,
                     FindVramReclaim(info, request), _vramTotalBytes);
-                _vramFit = VramPlan.Verdict(_vramEstimate.TotalBytes, _vramAvailableBytes, _vramTotalBytes);
+
+                _vramFullContext = request.ContextSize;
+                fitFloor = VramPlan.ChooseContext(current, info.MaxContext, _contextDefaults).FitFloor;
+                request = VramPlan.FitContext(info, request, fitFloor, _vramAvailableBytes, VramPlan.FitTargetBytes(current));
+                _vramContext = request.ContextSize;
+                if (current.ContextSize is null) _vramUnsetContext = request.ContextSize;
+                _vramEstimate = VramEstimator.Estimate(info, request) ?? _vramEstimate;
+
+                _vramFit = VramPlan.FittedVerdict(request.ContextSize, _vramFullContext, fitFloor,
+                    _vramEstimate.TotalBytes, _vramAvailableBytes, _vramTotalBytes);
             }
 
             if (_vramEstimate != null && _vramAvailableBytes > 0)
             {
-                int layers = VramEstimator.MaxGpuLayers(info, request, _vramAvailableBytes);
+                var hints = fitFloor is int floor && floor < request.ContextSize
+                    ? request with { ContextSize = floor }
+                    : request;
+                int layers = VramEstimator.MaxGpuLayers(info, hints, _vramAvailableBytes);
                 _vramMaxGpuLayers = layers < 0 ? tensors.BlockCount : layers;
-                _vramMaxContext = VramEstimator.MaxContext(info, request, _vramAvailableBytes);
-                _vramCpuMoeBlocks = VramEstimator.SuggestedCpuMoeBlocks(info, request, _vramAvailableBytes);
+                _vramMaxContext = fitFloor == null ? VramEstimator.MaxContext(info, request, _vramAvailableBytes) : null;
+                _vramCpuMoeBlocks = VramEstimator.SuggestedCpuMoeBlocks(info, hints, _vramAvailableBytes);
+                _vramCpuFfnBlocks = VramEstimator.SuggestedCpuFfnBlocks(info, hints, _vramAvailableBytes);
             }
         }
 
@@ -2781,18 +2833,20 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
             long projector = string.Equals(instance.Configuration.MmprojPath, _mmprojPath,
                 StringComparison.OrdinalIgnoreCase) ? _mmprojBytes : 0;
-            var running = VramPlan.RequestFrom(instance.Configuration, info.MaxContext, projector);
+            var running = VramPlan.RequestFrom(instance.Configuration, info.MaxContext, projector, _contextDefaults);
             var report = instance.MemoryReport;
+            var actual = VramPlan.RunningRequest(instance.Configuration, info.MaxContext, report.ContextSize,
+                projector, _contextDefaults);
 
             if (report.HasAny)
             {
                 _vramMeasured = report;
-                if (running == request && _vramEstimate is VramEstimate estimate)
+                if (running == request && VramEstimator.Estimate(info, actual) is VramEstimate estimate)
                     _vramMeasuredDelta = estimate.TotalBytes - report.TotalBytes;
                 return report.TotalBytes;
             }
 
-            return VramEstimator.Estimate(info, running)?.TotalBytes ?? 0;
+            return VramEstimator.Estimate(info, actual)?.TotalBytes ?? 0;
         }
 
         return 0;
@@ -2851,6 +2905,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(VramContextHintText));
         OnPropertyChanged(nameof(HasVramCpuMoeHint));
         OnPropertyChanged(nameof(VramCpuMoeHintText));
+        OnPropertyChanged(nameof(HasVramCpuFfnHint));
+        OnPropertyChanged(nameof(VramCpuFfnHintText));
     }
 
     public bool HasVramPlan => _vramEstimate != null;
@@ -2910,11 +2966,19 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             if (estimate.ProjectorBytes > 0)
                 parts.Insert(4, string.Format(CultureInfo.InvariantCulture,
                     LocalizedStrings.Instance.VramPartProjector, VramPlan.Gigabytes(estimate.ProjectorBytes)));
+            if (estimate.MoeCacheBytes > 0)
+                parts.Insert(parts.Count - 1, string.Format(CultureInfo.InvariantCulture,
+                    LocalizedStrings.Instance.VramPartMoeCache, VramPlan.Gigabytes(estimate.MoeCacheBytes)));
             if (estimate.HostBytes > 0)
                 parts.Add(string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartHost,
                     VramPlan.Gigabytes(estimate.HostBytes)));
             if (estimate.Approximate)
                 parts.Add(LocalizedStrings.Instance.VramPartApprox);
+            if (_vramUnsetContext is int context)
+                parts.Insert(2, context < _vramFullContext
+                    ? string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartContextFit,
+                        context, _vramFullContext)
+                    : string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPartContext, context));
             return string.Join(" | ", parts);
         }
     }
@@ -2946,10 +3010,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         if (_vramMaxGpuLayers is int n) GpuLayers = n.ToString(CultureInfo.InvariantCulture);
     }
 
-    private int CurrentContextSize =>
-        VramPlan.ResolveContext(ParseNullableInt(ContextSize), _modelTrainMaxContext);
-
-    public bool HasVramContextHint => _vramMaxContext is int c && c != CurrentContextSize;
+    public bool HasVramContextHint => _vramMaxContext is int c && c != _vramContext;
 
     public string VramContextHintText =>
         _vramMaxContext is int c
@@ -2977,6 +3038,22 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             CpuMoe = m > 0 ? m.ToString(CultureInfo.InvariantCulture) : string.Empty;
     }
 
+    public bool HasVramCpuFfnHint =>
+        _vramCpuFfnBlocks is int f && f != (ParseNullableInt(CpuFfn) ?? 0);
+
+    public string VramCpuFfnHintText => _vramCpuFfnBlocks switch
+    {
+        null => string.Empty,
+        0 => LocalizedStrings.Instance.VramPickCpuFfnNone,
+        int f => string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.VramPickCpuFfn, f)
+    };
+
+    public void ApplyVramCpuFfn()
+    {
+        if (_vramCpuFfnBlocks is int f)
+            CpuFfn = f > 0 ? f.ToString(CultureInfo.InvariantCulture) : string.Empty;
+    }
+
     public string Threads
     {
         get => _threads;
@@ -3000,6 +3077,18 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         get => _cpuMoe;
         set { _cpuMoe = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string MoeCacheMib
+    {
+        get => _moeCacheMib;
+        set { _moeCacheMib = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string CpuFfn
+    {
+        get => _cpuFfn;
+        set { _cpuFfn = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
     }
 
     public string Temperature
@@ -3311,6 +3400,12 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         set { _parallelSlots = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
     }
 
+    public string ContextPerSlot
+    {
+        get => _contextPerSlot;
+        set { _contextPerSlot = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
     public bool? ContBatching
     {
         get => _contBatching;
@@ -3351,6 +3446,18 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     {
         get => _reasoningBudget;
         set { _reasoningBudget = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public string ReasoningEffort
+    {
+        get => _reasoningEffort;
+        set { _reasoningEffort = value ?? string.Empty; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
+    }
+
+    public bool? ReasoningPreserve
+    {
+        get => _reasoningPreserve;
+        set { _reasoningPreserve = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasUnsavedChanges)); UpdateCurrentCommand(); }
     }
 
     public bool? Jinja
@@ -4320,10 +4427,17 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public string ModelsDirPlaceholder => LocalizedStrings.Instance.PlaceholderModelsDir;
     public string HostPlaceholder => LocalizedStrings.Instance.PlaceholderHost;
     public string PortPlaceholder => LocalizedStrings.Instance.PlaceholderPort;
-    public string ContextSizePlaceholder => LocalizedStrings.Instance.PlaceholderContextSize;
+    public string ContextSizePlaceholder => _contextDefaults.UnsetContext > 0
+        ? string.Format(CultureInfo.InvariantCulture, LocalizedStrings.Instance.PlaceholderContextSizeFixed,
+            _contextDefaults.UnsetContext)
+        : LocalizedStrings.Instance.PlaceholderContextSize;
     public string ThreadsPlaceholder => LocalizedStrings.Instance.PlaceholderThreads;
     public string GpuLayersPlaceholder => LocalizedStrings.Instance.PlaceholderGpuLayers;
     public string CpuMoePlaceholder => LocalizedStrings.Instance.PlaceholderCpuMoe;
+    public string MoeCacheMibPlaceholder => IsMoeCacheEnabled
+        ? LocalizedStrings.Instance.PlaceholderMoeCacheMib
+        : LocalizedStrings.Instance.PlaceholderMoeCacheDense;
+    public string CpuFfnPlaceholder => LocalizedStrings.Instance.PlaceholderCpuFfn;
     public string TemperaturePlaceholder => LocalizedStrings.Instance.PlaceholderTemperature;
     public string MaxTokensPlaceholder => LocalizedStrings.Instance.PlaceholderMaxTokens;
     public string BatchSizePlaceholder => LocalizedStrings.Instance.PlaceholderBatchSize;
@@ -4345,6 +4459,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     }
 
     public bool IsParallelSlotsSupported => IsPropertySupported("--parallel", "-np");
+    public bool IsContextPerSlotSupported => IsPropertySupported("--kv-unified-per-slot");
     public bool IsContBatchingSupported => IsPropertySupported("--cont-batching", "-cb");
     public bool IsTimeoutSupported => IsPropertySupported("--timeout", "-to");
     public bool IsCachePromptSupported => IsPropertySupported("--cache-prompt");
@@ -4352,11 +4467,13 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public bool IsMmprojOffloadSupported =>
         IsPropertySupported("--mmproj-offload", "--no-mmproj-offload")
         && !string.IsNullOrWhiteSpace(MmprojPath);
-    public bool IsMlockSupported => IsPropertySupported("--mlock");
-    public bool IsMmapSupported => IsPropertySupported("--mmap");
+    public bool IsMlockSupported => IsPropertySupported("--mlock", "--load-mode", "-lm");
+    public bool IsMmapSupported => IsPropertySupported("--mmap", "--load-mode", "-lm");
     public bool IsReasoningSupported => IsPropertySupported("--reasoning", "-rea");
     public bool IsJinjaSupported => IsPropertySupported("--jinja");
     public bool IsReasoningBudgetSupported => IsPropertySupported("--reasoning-budget");
+    public bool IsReasoningEffortSupported => IsPropertySupported("--reasoning-effort");
+    public bool IsReasoningPreserveSupported => IsPropertySupported("--reasoning-preserve", "--no-reasoning-preserve");
     public bool IsSeedSupported => IsPropertySupported("--seed", "-s");
     public bool IsPresencePenaltySupported => IsPropertySupported("--presence-penalty");
     public bool IsFrequencyPenaltySupported => IsPropertySupported("--frequency-penalty");
@@ -4377,8 +4494,10 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public bool IsHelpAvailable => _supportedFlags != null;
 
     public string ParallelSlotsPlaceholder => LocalizedStrings.Instance.PlaceholderParallelSlots;
+    public string ContextPerSlotPlaceholder => LocalizedStrings.Instance.PlaceholderContextPerSlot;
     public string TimeoutPlaceholder => LocalizedStrings.Instance.PlaceholderTimeout;
     public string ReasoningBudgetPlaceholder => LocalizedStrings.Instance.PlaceholderReasoningBudget;
+    public string ReasoningEffortPlaceholder => LocalizedStrings.Instance.PlaceholderReasoningEffort;
     public string SeedPlaceholder => LocalizedStrings.Instance.PlaceholderSeed;
     public string PresencePenaltyPlaceholder => LocalizedStrings.Instance.PlaceholderPresencePenalty;
     public string FrequencyPenaltyPlaceholder => LocalizedStrings.Instance.PlaceholderFrequencyPenalty;
@@ -4534,7 +4653,14 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
 
     private void UpdateFeatureSupportProperties()
     {
+        _contextDefaults = new ContextDefaults
+        {
+            UnsetContext = LlamaHelpParserService.ParseContextDefault(_lastHelpText) ?? 0,
+            Fit = IsPropertySupported("--fit", "-fit"),
+        };
+        OnPropertyChanged(nameof(ContextSizePlaceholder));
         OnPropertyChanged(nameof(IsParallelSlotsSupported));
+        OnPropertyChanged(nameof(IsContextPerSlotSupported));
         OnPropertyChanged(nameof(IsContBatchingSupported));
         OnPropertyChanged(nameof(IsTimeoutSupported));
         OnPropertyChanged(nameof(IsCachePromptSupported));
@@ -4545,6 +4671,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         OnPropertyChanged(nameof(IsReasoningSupported));
         OnPropertyChanged(nameof(IsJinjaSupported));
         OnPropertyChanged(nameof(IsReasoningBudgetSupported));
+        OnPropertyChanged(nameof(IsReasoningEffortSupported));
+        OnPropertyChanged(nameof(IsReasoningPreserveSupported));
         OnPropertyChanged(nameof(IsSeedSupported));
         OnPropertyChanged(nameof(IsPresencePenaltySupported));
         OnPropertyChanged(nameof(IsFrequencyPenaltySupported));
@@ -4995,6 +5123,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
                 a.Threads == b.Threads &&
                 a.GpuLayers == b.GpuLayers &&
                 a.CpuMoe == b.CpuMoe &&
+                a.MoeCacheMib == b.MoeCacheMib &&
+                a.CpuFfn == b.CpuFfn &&
                 a.Temperature == b.Temperature &&
                 a.MaxTokens == b.MaxTokens &&
                 a.BatchSize == b.BatchSize &&
@@ -5017,6 +5147,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             a.VerboseLogging == b.VerboseLogging &&
             a.Alias == b.Alias &&
             a.ParallelSlots == b.ParallelSlots &&
+            a.ContextPerSlot == b.ContextPerSlot &&
             a.ContBatching == b.ContBatching &&
             a.Timeout == b.Timeout &&
             a.CachePrompt == b.CachePrompt &&
@@ -5024,6 +5155,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             a.Mmap == b.Mmap &&
             a.Reasoning == b.Reasoning &&
             a.ReasoningBudget == b.ReasoningBudget &&
+            a.ReasoningEffort == b.ReasoningEffort &&
+            a.ReasoningPreserve == b.ReasoningPreserve &&
             a.Jinja == b.Jinja &&
             a.Seed == b.Seed &&
             a.PresencePenalty == b.PresencePenalty &&
@@ -5255,10 +5388,17 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     private void UpdateCurrentCommand()
     {
         var config = GetCurrentConfig();
-        CurrentCommand = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+        CurrentCommand = FullCommand(config);
         OnPropertyChanged(nameof(ShowMcpJinjaWarning));
         RefreshVramPlan(config);
     }
+
+    private string FullCommand(ServerConfiguration config) =>
+        CommandLineBuilder.BuildFullCommand(CommandLineBuilder.ForModel(config, ModelInfoFor(config)),
+            _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+
+    private GgufModelInfo? ModelInfoFor(ServerConfiguration config) =>
+        string.Equals(config.ModelPath, _modelPath, StringComparison.OrdinalIgnoreCase) ? _modelInfo : null;
 
     private async Task BrowseModelAsync()
     {
@@ -5333,6 +5473,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             Config = config,
             AvailableBytes = _vramFreeBytes,
             TotalBytes = _vramTotalBytes,
+            Context = _contextDefaults,
         };
         var vm = new ModelPickerViewModel(initialFolder, _modelScanRecursive, budget);
         var dialog = new ModelPickerWindow();
@@ -5371,6 +5512,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             Config = config,
             AvailableBytes = _vramFreeBytes,
             TotalBytes = _vramTotalBytes,
+            Context = _contextDefaults,
         };
 
         var options = new HfBrowserOptions
@@ -5527,7 +5669,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
         var knownFlags = new HashSet<string>(ServerConfiguration.KnownArguments.Keys, StringComparer.OrdinalIgnoreCase);
         var excludedFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "-h", "--help", "--version", "--license", "--usage"
+            "-h", "--help", "--version", "--license", "--usage",
+            "--cache-list", "--completion-bash", "--list-devices"
         };
 
         var filtered = allArgs
@@ -5591,14 +5734,15 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
     public async Task OpenBenchmarkLaunchDialog()
     {
         var baseConfig = GetCurrentConfig();
-        var initialArgs = CommandLineBuilder.Build(baseConfig, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+        var initialArgs = CommandLineBuilder.Build(CommandLineBuilder.ForModel(baseConfig, ModelInfoFor(baseConfig)),
+            _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
         int seedValue = baseConfig.Seed ?? 42;
         bool metricsSupported = _supportedFlags == null || _supportedFlags.Count == 0 || _supportedFlags.Contains("--metrics");
 
         string BuildPreview(string finalArgs)
         {
             var cfg = BuildBenchmarkConfig(baseConfig, finalArgs);
-            return CommandLineBuilder.BuildFullCommand(cfg, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+            return FullCommand(cfg);
         }
 
         BenchmarkLaunchResult? result = null;
@@ -5677,7 +5821,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             RecordCurrentValuesToHistory();
             await RefreshSupportedFlagsAsync();
 
-            var fullCommand = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+            var fullCommand = FullCommand(config);
 
             var options = new LlamaServerLauncher.Services.Benchmarking.BenchmarkRunOptions
             {
@@ -5800,6 +5944,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             Threads = ParseNullableInt(Threads),
             GpuLayers = ParseNullableInt(GpuLayers),
             CpuMoe = ParseNullableInt(CpuMoe),
+            MoeCacheMib = ParseNullableInt(MoeCacheMib),
+            CpuFfn = ParseNullableInt(CpuFfn),
             Temperature = ParseNullableDouble(Temperature),
             MaxTokens = ParseNullableInt(MaxTokens),
             BatchSize = ParseNullableInt(BatchSize),
@@ -5824,6 +5970,7 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             CustomArguments = string.Join(" ", CustomArgumentItems.Select(x => x.OriginalArg)),
             CustomArgumentToggleStates = GetToggleStates(),
             ParallelSlots = ParseNullableInt(ParallelSlots),
+            ContextPerSlot = ParseNullableInt(ContextPerSlot),
             ContBatching = ContBatching,
             Timeout = ParseNullableInt(Timeout),
             CachePrompt = CachePrompt,
@@ -5831,6 +5978,8 @@ public class MainViewModel : INotifyPropertyChanged, IOnDemandProxyHost
             Mmap = Mmap,
             Reasoning = Reasoning,
             ReasoningBudget = ParseNullableInt(ReasoningBudget),
+            ReasoningEffort = ReasoningEffort.Trim(),
+            ReasoningPreserve = ReasoningPreserve,
             Jinja = Jinja,
             Seed = ParseNullableInt(Seed),
             PresencePenalty = ParseNullableDouble(PresencePenalty),
@@ -5877,6 +6026,8 @@ private void LoadConfigToUI(ServerConfiguration config)
         Threads = string.Empty;
         GpuLayers = string.Empty;
         CpuMoe = string.Empty;
+        MoeCacheMib = string.Empty;
+        CpuFfn = string.Empty;
         Temperature = string.Empty;
         MaxTokens = string.Empty;
         BatchSize = string.Empty;
@@ -5899,6 +6050,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         VerboseLogging = null;
         Alias = string.Empty;
         ParallelSlots = string.Empty;
+        ContextPerSlot = string.Empty;
         ContBatching = null;
         Timeout = string.Empty;
         CachePrompt = null;
@@ -5906,6 +6058,8 @@ private void LoadConfigToUI(ServerConfiguration config)
         Mmap = null;
         Reasoning = null;
         ReasoningBudget = string.Empty;
+        ReasoningEffort = string.Empty;
+        ReasoningPreserve = null;
         Jinja = null;
         Seed = string.Empty;
         PresencePenalty = string.Empty;
@@ -5938,6 +6092,8 @@ private void LoadConfigToUI(ServerConfiguration config)
         Threads = config.Threads?.ToString() ?? string.Empty;
         GpuLayers = config.GpuLayers?.ToString() ?? string.Empty;
         CpuMoe = config.CpuMoe?.ToString() ?? string.Empty;
+        MoeCacheMib = config.MoeCacheMib?.ToString() ?? string.Empty;
+        CpuFfn = config.CpuFfn?.ToString() ?? string.Empty;
         Temperature = config.Temperature?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
         MaxTokens = config.MaxTokens?.ToString() ?? string.Empty;
         BatchSize = config.BatchSize?.ToString() ?? string.Empty;
@@ -5960,6 +6116,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         VerboseLogging = config.VerboseLogging;
         Alias = config.Alias ?? string.Empty;
         ParallelSlots = config.ParallelSlots?.ToString() ?? string.Empty;
+        ContextPerSlot = config.ContextPerSlot?.ToString() ?? string.Empty;
         ContBatching = config.ContBatching;
         Timeout = config.Timeout?.ToString() ?? string.Empty;
         CachePrompt = config.CachePrompt;
@@ -5967,6 +6124,8 @@ private void LoadConfigToUI(ServerConfiguration config)
         Mmap = config.Mmap;
         Reasoning = config.Reasoning;
         ReasoningBudget = config.ReasoningBudget?.ToString() ?? string.Empty;
+        ReasoningEffort = config.ReasoningEffort ?? string.Empty;
+        ReasoningPreserve = config.ReasoningPreserve;
         Jinja = config.Jinja;
         Seed = config.Seed?.ToString() ?? string.Empty;
         PresencePenalty = config.PresencePenalty?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
@@ -6038,6 +6197,8 @@ private void LoadConfigToUI(ServerConfiguration config)
         Threads = string.Empty;
         GpuLayers = string.Empty;
         CpuMoe = string.Empty;
+        MoeCacheMib = string.Empty;
+        CpuFfn = string.Empty;
         Temperature = string.Empty;
         MaxTokens = string.Empty;
         BatchSize = string.Empty;
@@ -6060,6 +6221,7 @@ private void LoadConfigToUI(ServerConfiguration config)
         VerboseLogging = null;
         Alias = string.Empty;
         ParallelSlots = string.Empty;
+        ContextPerSlot = string.Empty;
         ContBatching = null;
         Timeout = string.Empty;
         CachePrompt = null;
@@ -6067,6 +6229,8 @@ private void LoadConfigToUI(ServerConfiguration config)
         Mmap = null;
         Reasoning = null;
         ReasoningBudget = string.Empty;
+        ReasoningEffort = string.Empty;
+        ReasoningPreserve = null;
         Jinja = null;
         Seed = string.Empty;
         PresencePenalty = string.Empty;
@@ -6625,6 +6789,7 @@ public void RebuildCustomArgumentsFromToggles()
         AddRecentValue(nameof(LogFilePath), LogFilePath);
         AddRecentValue(nameof(MmprojPath), MmprojPath);
         AddRecentValue(nameof(ParallelSlots), ParallelSlots);
+        AddRecentValue(nameof(ContextPerSlot), ContextPerSlot);
         AddRecentValue(nameof(Timeout), Timeout);
         AddRecentValue(nameof(ReasoningBudget), ReasoningBudget);
         AddRecentValue(nameof(SpecDraftModel), SpecDraftModel);
@@ -7086,7 +7251,7 @@ public void RebuildCustomArgumentsFromToggles()
             var targetHost = string.IsNullOrWhiteSpace(config.Host) ? "127.0.0.1" : config.Host;
             var targetPort = config.Port;
             var collision = RunningInstances.FirstOrDefault(i => i.IsRunning
-                && i.Configuration.Host == targetHost
+                && EndpointSnippets.HostsOverlap(i.Configuration.Host, targetHost)
                 && i.Configuration.Port == targetPort);
             if (collision != null)
             {
@@ -7927,21 +8092,21 @@ public void RebuildCustomArgumentsFromToggles()
 
             if (filePath.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
             {
-                var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+                var command = FullCommand(config);
                 var batContent = $"@echo off\n{command}\npause";
                 await System.IO.File.WriteAllTextAsync(filePath, batContent);
                 _logService.Info($"Profile exported to BAT '{filePath}'");
             }
             else if (filePath.EndsWith(".command", StringComparison.OrdinalIgnoreCase))
             {
-                var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+                var command = FullCommand(config);
                 var commandContent = $"#!/bin/bash\n{command}\necho 'Press Enter to exit...'\nread";
                 await System.IO.File.WriteAllTextAsync(filePath, commandContent);
                 _logService.Info($"Profile exported to MacOS command script '{filePath}'");
             }
             else if (filePath.EndsWith(".sh", StringComparison.OrdinalIgnoreCase))
             {
-                var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+                var command = FullCommand(config);
                 var shContent = $"#!/bin/bash\n{command}\necho 'Press Enter to exit...'\nread";
                 await System.IO.File.WriteAllTextAsync(filePath, shContent);
                 _logService.Info($"Profile exported to Linux shell script '{filePath}'");
@@ -8059,6 +8224,8 @@ public void RebuildCustomArgumentsFromToggles()
         Threads = string.Empty;
         GpuLayers = string.Empty;
         CpuMoe = string.Empty;
+        MoeCacheMib = string.Empty;
+        CpuFfn = string.Empty;
         Temperature = string.Empty;
         MaxTokens = string.Empty;
         BatchSize = string.Empty;
@@ -8074,6 +8241,7 @@ public void RebuildCustomArgumentsFromToggles()
         VerboseLogging = null;
         Alias = string.Empty;
         ParallelSlots = string.Empty;
+        ContextPerSlot = string.Empty;
         ContBatching = null;
         Timeout = string.Empty;
         CachePrompt = null;
@@ -8081,6 +8249,8 @@ public void RebuildCustomArgumentsFromToggles()
         Mmap = null;
         Reasoning = null;
         ReasoningBudget = string.Empty;
+        ReasoningEffort = string.Empty;
+        ReasoningPreserve = null;
         Jinja = null;
         Seed = string.Empty;
         PresencePenalty = string.Empty;
@@ -8240,7 +8410,7 @@ public void RebuildCustomArgumentsFromToggles()
 
             config.McpConfigPath = _mcpConfigService.Materialize(config, CurrentProfileNameForMcp()) ?? string.Empty;
 
-            var command = CommandLineBuilder.BuildFullCommand(config, _supportedFlags, _validSpecTypeValues, _validCacheTypeValues);
+            var command = FullCommand(config);
             var batContent = $"@echo off\n{command}\npause";
             await System.IO.File.WriteAllTextAsync(filePath, batContent);
         }

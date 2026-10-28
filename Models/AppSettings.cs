@@ -38,6 +38,8 @@ public class AppSettings
     public string Threads { get; set; } = "";
     public string GpuLayers { get; set; } = "";
     public string CpuMoe { get; set; } = "";
+    public string MoeCacheMib { get; set; } = "";
+    public string CpuFfn { get; set; } = "";
     public string Temperature { get; set; } = "";
     public string MaxTokens { get; set; } = "";
     public string BatchSize { get; set; } = "";
@@ -61,6 +63,7 @@ public class AppSettings
     public string Alias { get; set; } = "";
     public string CustomArguments { get; set; } = "";
     public string ParallelSlots { get; set; } = "";
+    public string ContextPerSlot { get; set; } = "";
     public bool? ContBatching { get; set; }
     public string Timeout { get; set; } = "";
     public bool? CachePrompt { get; set; }
@@ -68,6 +71,8 @@ public class AppSettings
     public bool? Mmap { get; set; }
     public bool? Reasoning { get; set; }
     public string ReasoningBudget { get; set; } = "";
+    public string ReasoningEffort { get; set; } = "";
+    public bool? ReasoningPreserve { get; set; }
     public bool? Jinja { get; set; }
     public string Seed { get; set; } = "";
     public string PresencePenalty { get; set; } = "";

@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace LlamaServerLauncher.ViewModels;
 
-public readonly record struct ProxyUpstream(string Host, int Port);
+public readonly record struct ProxyUpstream(string Host, int Port, string? ApiKey = null);
 
 public interface IOnDemandProxyHost
 {

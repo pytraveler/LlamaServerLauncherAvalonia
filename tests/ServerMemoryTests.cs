@@ -28,6 +28,34 @@ public static class ServerMemoryTests
         RunAccumulator(h);
         RunComparison(h);
         RunProjector(h);
+        RunContext(h);
+    }
+
+    private static void RunContext(Harness h)
+    {
+        h.Section("ServerMemoryParser: the context llama.cpp settled on");
+
+        const string unified = "0.13.360.676 I srv    load_model: initializing, n_slots = 4, n_ctx_slot = 123904, kv_unified = 'true'";
+        const string separate = "srv    load_model: initializing, n_slots = 3, n_ctx_slot = 36864, kv_unified = 'false'";
+        h.Check("with a unified cache every slot sees the whole pool, so the slot context is the pool",
+            ServerMemoryParser.TryParseContext(unified) == 123904, ServerMemoryParser.TryParseContext(unified)?.ToString() ?? "null");
+        h.Check("with separate caches the pool is the slots put together",
+            ServerMemoryParser.TryParseContext(separate) == 3 * 36864, ServerMemoryParser.TryParseContext(separate)?.ToString() ?? "null");
+        h.Check("what a single slot reports later is not the pool",
+            ServerMemoryParser.TryParseContext("slot   load_model: id  0 | task -1 | new slot, n_ctx = 36864") == null, "null");
+        h.Check("and neither is the context line verbose logging adds",
+            ServerMemoryParser.TryParseContext("llama_context: n_ctx                 = 110592") == null, "null");
+
+        var acc = new ServerMemoryAccumulator();
+        h.Check("the slot line is taken in",
+            acc.Add(unified), "true");
+        h.Check("and the report carries the context even without any memory lines",
+            acc.Snapshot().ContextSize == 123904 && !acc.Snapshot().HasAny,
+            $"{acc.Snapshot().ContextSize}/{acc.Snapshot().HasAny}");
+
+        acc.Reset();
+        h.Check("a new load forgets it",
+            acc.Snapshot().ContextSize == 0, acc.Snapshot().ContextSize.ToString());
     }
 
     private static void RunProjector(Harness h)

@@ -45,6 +45,7 @@ public sealed record ServerMemoryReport
     public bool ProjectorOnHost { get; init; }
     public int OffloadedLayers { get; init; }
     public int TotalLayers { get; init; }
+    public int ContextSize { get; init; }
     public ServerMemorySource Source { get; init; }
 
     public long TotalBytes => WeightBytes + CacheBytes + ComputeBytes + UnaccountedBytes
@@ -82,6 +83,10 @@ public static class ServerMemoryParser
     private static readonly Regex LayersRegex = new(
         @"offloaded\s+(?<gpu>\d+)\s*/\s*(?<all>\d+)\s+layers\s+to\s+GPU",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex SlotsRegex = new(
+        @"initializing, n_slots = (?<slots>\d+), n_ctx_slot = (?<context>\d+), kv_unified = '(?<unified>true|false)'",
+        RegexOptions.Compiled);
 
     private static readonly Regex HostRowRegex = new(
         @"-\s+(?<device>\S+)[^|]*\|\s*\d+\s*=\s*(?<model>\d+)\s*\+\s*(?<cache>\d+)\s*\+\s*(?<compute>\d+)",
@@ -150,6 +155,21 @@ public static class ServerMemoryParser
         return (gpu, all);
     }
 
+    public static int? TryParseContext(string? line)
+    {
+        if (string.IsNullOrEmpty(line) || line.IndexOf("n_ctx_slot", StringComparison.Ordinal) < 0) return null;
+
+        var match = SlotsRegex.Match(line);
+        if (!match.Success
+            || !int.TryParse(match.Groups["slots"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int slots)
+            || !int.TryParse(match.Groups["context"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int context)
+            || slots <= 0 || context <= 0)
+            return null;
+
+        long pool = match.Groups["unified"].Value == "true" ? context : (long)context * slots;
+        return (int)Math.Min(int.MaxValue, pool);
+    }
+
     public static long TryParseProjector(string? line)
     {
         if (string.IsNullOrEmpty(line)) return 0;
@@ -216,11 +236,18 @@ public sealed class ServerMemoryAccumulator
     private long _weights, _cache, _compute;
     private long _hostWeights, _hostCache, _hostCompute;
     private int _offloadedLayers, _totalLayers;
+    private int _context;
     private long _projector;
     private bool _projectorOnHost;
 
     public bool Add(string? line)
     {
+        if (ServerMemoryParser.TryParseContext(line) is int context)
+        {
+            lock (_lock) _context = context;
+            return true;
+        }
+
         if (ServerMemoryParser.IsBreakdownHeader(line))
         {
             lock (_lock) _rows.Clear();
@@ -293,6 +320,7 @@ public sealed class ServerMemoryAccumulator
         {
             ClearMeasurements();
             _offloadedLayers = _totalLayers = 0;
+            _context = 0;
             _projector = 0;
             _projectorOnHost = false;
         }
@@ -341,6 +369,7 @@ public sealed class ServerMemoryAccumulator
             DeviceCount = devices,
             OffloadedLayers = _offloadedLayers,
             TotalLayers = _totalLayers,
+            ContextSize = _context,
             ProjectorBytes = _projector,
             ProjectorOnHost = _projectorOnHost,
             Source = ServerMemorySource.Breakdown,
@@ -363,6 +392,7 @@ public sealed class ServerMemoryAccumulator
             DeviceCount = _bufferDevices.Count,
             OffloadedLayers = _offloadedLayers,
             TotalLayers = _totalLayers,
+            ContextSize = _context,
             ProjectorBytes = _projector,
             ProjectorOnHost = _projectorOnHost,
             Source = any ? ServerMemorySource.Buffers : ServerMemorySource.None,

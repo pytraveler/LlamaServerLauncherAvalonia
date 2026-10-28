@@ -33,6 +33,12 @@ public class ServerConfiguration
     [JsonPropertyName("cpuMoe")]
     public int? CpuMoe { get; set; }
 
+    [JsonPropertyName("moeCacheMib")]
+    public int? MoeCacheMib { get; set; }
+
+    [JsonPropertyName("cpuFfn")]
+    public int? CpuFfn { get; set; }
+
     [JsonPropertyName("temperature")]
     public double? Temperature { get; set; }
 
@@ -105,6 +111,9 @@ public class ServerConfiguration
     [JsonPropertyName("parallelSlots")]
     public int? ParallelSlots { get; set; }
 
+    [JsonPropertyName("contextPerSlot")]
+    public int? ContextPerSlot { get; set; }
+
     [JsonPropertyName("contBatching")]
     public bool? ContBatching { get; set; }
 
@@ -125,6 +134,12 @@ public class ServerConfiguration
 
     [JsonPropertyName("reasoningBudget")]
     public int? ReasoningBudget { get; set; }
+
+    [JsonPropertyName("reasoningEffort")]
+    public string ReasoningEffort { get; set; } = string.Empty;
+
+    [JsonPropertyName("reasoningPreserve")]
+    public bool? ReasoningPreserve { get; set; }
 
     [JsonPropertyName("jinja")]
     public bool? Jinja { get; set; }
@@ -211,6 +226,8 @@ public class ServerConfiguration
             Threads = Threads,
             GpuLayers = GpuLayers,
             CpuMoe = CpuMoe,
+            MoeCacheMib = MoeCacheMib,
+            CpuFfn = CpuFfn,
             Temperature = Temperature,
             MaxTokens = MaxTokens,
             BatchSize = BatchSize,
@@ -235,6 +252,7 @@ public class ServerConfiguration
             CustomArguments = CustomArguments,
             CustomArgumentToggleStates = new Dictionary<string, bool>(CustomArgumentToggleStates),
             ParallelSlots = ParallelSlots,
+            ContextPerSlot = ContextPerSlot,
             ContBatching = ContBatching,
             Timeout = Timeout,
             CachePrompt = CachePrompt,
@@ -242,6 +260,8 @@ public class ServerConfiguration
             Mmap = Mmap,
             Reasoning = Reasoning,
             ReasoningBudget = ReasoningBudget,
+            ReasoningEffort = ReasoningEffort,
+            ReasoningPreserve = ReasoningPreserve,
             Jinja = Jinja,
             Seed = Seed,
             PresencePenalty = PresencePenalty,
@@ -300,6 +320,9 @@ public class ServerConfiguration
         ["--n-gpu-layers"] = new("GpuLayers", ArgType.Int),
         ["-ncmoe"] = new("CpuMoe", ArgType.Int),
         ["--n-cpu-moe"] = new("CpuMoe", ArgType.Int),
+        ["--moe-cache-mib"] = new("MoeCacheMib", ArgType.Int),
+        ["-ncffn"] = new("CpuFfn", ArgType.Int),
+        ["--n-cpu-ffn"] = new("CpuFfn", ArgType.Int),
         ["--temp"] = new("Temperature", ArgType.Double),
         ["--temperature"] = new("Temperature", ArgType.Double),
         ["-n"] = new("MaxTokens", ArgType.Int),
@@ -339,6 +362,7 @@ public class ServerConfiguration
 
         ["-np"] = new("ParallelSlots", ArgType.Int),
         ["--parallel"] = new("ParallelSlots", ArgType.Int),
+        ["--kv-unified-per-slot"] = new("ContextPerSlot", ArgType.Int),
 
         ["-cb"] = new("ContBatching", ArgType.BoolFlag),
         ["--cont-batching"] = new("ContBatching", ArgType.BoolFlag),
@@ -360,6 +384,9 @@ public class ServerConfiguration
         ["--reasoning"] = new("Reasoning", ArgType.BoolOnOff),
 
         ["--reasoning-budget"] = new("ReasoningBudget", ArgType.Int),
+        ["--reasoning-effort"] = new("ReasoningEffort", ArgType.String),
+        ["--reasoning-preserve"] = new("ReasoningPreserve", ArgType.BoolFlag),
+        ["--no-reasoning-preserve"] = new("ReasoningPreserve", ArgType.BoolFlagInverted),
         ["--jinja"] = new("Jinja", ArgType.BoolFlag),
         ["--no-jinja"] = new("Jinja", ArgType.BoolFlagInverted),
 

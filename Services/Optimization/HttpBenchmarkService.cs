@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -63,7 +64,8 @@ public sealed class HttpBenchmarkService
         string prompt,
         int nPredict,
         int timeoutSeconds,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? apiKey = null)
     {
         var url = baseUrl.TrimEnd('/') + "/completion";
         var payload = new
@@ -79,8 +81,13 @@ public sealed class HttpBenchmarkService
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var resp = await _http.PostAsync(url, content, linked.Token);
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json"),
+        };
+        if (!string.IsNullOrEmpty(apiKey))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        using var resp = await _http.SendAsync(request, linked.Token);
         resp.EnsureSuccessStatusCode();
 
         var body = await resp.Content.ReadAsStringAsync(linked.Token);

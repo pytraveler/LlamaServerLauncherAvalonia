@@ -43,6 +43,8 @@ An OpenAI-compatible reverse proxy: the client asks for the model it wants and t
 
 The proxy starts that profile, waits until it is ready and proxies the response, streaming included. Starting a profile stops any other running one, so only one model ever sits in VRAM. After the **idle timeout** the server stops by itself (`0` disables auto-unload). Profiles in routing mode (`--models-dir`) are not listed as models.
 
+Besides chat and completions the proxy forwards the Responses API that Codex talks to, the Anthropic `/v1/messages` (the key may come in `X-Api-Key` as well as in `Authorization`), embeddings and rerank, speech recognition `/v1/audio/transcriptions` and speech synthesis `/tts`. Those last two send a form rather than JSON, and the profile name goes into its `model` field. The WebSocket `/v1/realtime` does not go through the proxy.
+
 ## Behavior
 
 - **Start with system** — register the app with the OS autostart.

@@ -33,6 +33,7 @@ ServerMemoryTests.Run(harness);
 CommandImportTests.Run(harness);
 HuggingFaceTests.Run(harness);
 HfTransferTests.Run(harness);
+HelpParserTests.Run(harness);
 return harness.Report();
 
 public sealed class Harness

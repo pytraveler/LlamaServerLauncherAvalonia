@@ -20,6 +20,9 @@ public sealed class ProxyRequestHead
         Headers.TryGetValue("Authorization", out var v) && v.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
             ? v.Substring(7).Trim()
             : null;
+
+    public string? ApiKey =>
+        BearerToken ?? (Headers.TryGetValue("X-Api-Key", out var v) && !string.IsNullOrWhiteSpace(v) ? v.Trim() : null);
 }
 
 public static class ProxyProtocol
@@ -32,8 +35,14 @@ public static class ProxyProtocol
 
     private static readonly HashSet<string> ProxiedApiPaths = new(StringComparer.Ordinal)
     {
-        "/v1/chat/completions", "/v1/completions", "/v1/embeddings",
-        "/v1/rerank", "/rerank", "/completion", "/completions", "/infill", "/v1/messages",
+        "/v1/chat/completions", "/chat/completions", "/v1/completions", "/completion", "/completions",
+        "/v1/responses", "/responses", "/v1/messages", "/infill",
+        "/v1/embeddings", "/embeddings", "/embedding",
+        "/v1/rerank", "/rerank", "/v1/reranking", "/reranking",
+        "/v1/audio/transcriptions", "/audio/transcriptions", "/tts", "/v1/systemone",
+        "/tokenize", "/detokenize", "/apply-template",
+        "/v1/chat/completions/input_tokens", "/chat/completions/input_tokens",
+        "/v1/responses/input_tokens", "/responses/input_tokens", "/v1/messages/count_tokens",
     };
 
     public static ProxyRequestHead? ParseRequestHead(string head)
@@ -93,6 +102,69 @@ public static class ProxyProtocol
         {
             return null;
         }
+    }
+
+    public static string? ExtractRequestedModel(string? contentType, byte[]? body)
+    {
+        if (body is not { Length: > 0 }) return null;
+        var boundary = MultipartBoundary(contentType);
+        return boundary == null
+            ? ExtractModelField(Encoding.UTF8.GetString(body))
+            : ExtractMultipartField(body, boundary, "model");
+    }
+
+    private static string? MultipartBoundary(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType)) return null;
+        var parts = contentType.Split(';');
+        if (!parts[0].Trim().Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase)) return null;
+        foreach (var p in parts.Skip(1))
+        {
+            var kv = p.Trim();
+            if (!kv.StartsWith("boundary=", StringComparison.OrdinalIgnoreCase)) continue;
+            var b = kv.Substring(9).Trim().Trim('"');
+            return b.Length == 0 ? null : b;
+        }
+        return null;
+    }
+
+    private static string? ExtractMultipartField(byte[] body, string boundary, string field)
+    {
+        var data = body.AsSpan();
+        var delimiter = Encoding.ASCII.GetBytes("--" + boundary);
+        var pos = data.IndexOf(delimiter);
+        while (pos >= 0)
+        {
+            var part = data.Slice(pos + delimiter.Length);
+            var headerEnd = part.IndexOf("\r\n\r\n"u8);
+            if (part.StartsWith("--"u8) || headerEnd < 0) return null;
+            var content = part.Slice(headerEnd + 4);
+            var next = content.IndexOf(delimiter);
+            if (next < 0) return null;
+            if (FormFieldName(Encoding.UTF8.GetString(part.Slice(0, headerEnd))) == field)
+            {
+                var value = Encoding.UTF8.GetString(content.Slice(0, next)).Trim();
+                return value.Length == 0 ? null : value;
+            }
+            pos += delimiter.Length + headerEnd + 4 + next;
+        }
+        return null;
+    }
+
+    private static string? FormFieldName(string partHeaders)
+    {
+        foreach (var line in partHeaders.Split("\r\n"))
+        {
+            var c = line.IndexOf(':');
+            if (c <= 0 || !line.Substring(0, c).Trim().Equals("Content-Disposition", StringComparison.OrdinalIgnoreCase)) continue;
+            foreach (var p in line.Substring(c + 1).Split(';'))
+            {
+                var kv = p.Trim();
+                if (kv.StartsWith("name=", StringComparison.OrdinalIgnoreCase))
+                    return kv.Substring(5).Trim('"');
+            }
+        }
+        return null;
     }
 
     public static string BuildModelsListJson(IEnumerable<string> profileNames)

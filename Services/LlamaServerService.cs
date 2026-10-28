@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -100,8 +101,19 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         }
     }
     public string BaseUrl => _currentConfig != null
-        ? $"http://{(_currentConfig.Host is "0.0.0.0" or "::" ? "127.0.0.1" : _currentConfig.Host)}:{_currentConfig.Port}"
+        ? EndpointSnippets.BaseUrl(_currentConfig.Host, _currentConfig.Port)
         : "http://127.0.0.1:8080";
+
+    public string? ApiKey => _currentConfig != null ? CommandLineBuilder.ClientApiKey(_currentConfig) : null;
+
+    private HttpClient CreateServerClient()
+    {
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        var key = ApiKey;
+        if (!string.IsNullOrEmpty(key))
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        return client;
+    }
 
     public event EventHandler<string>? OutputReceived;
     public event EventHandler<bool>? ServerStateChanged;
@@ -180,11 +192,6 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         return null;
     }
 
-    /// <summary>
-    /// Checks whether the given file path points to an executable file.
-    /// On Windows: any existing file is considered potentially executable (Process.Start validates further).
-    /// On Linux/macOS: checks for execute permission bits.
-    /// </summary>
     private static bool IsExecutableFile(string filePath)
     {
         if (OperatingSystem.IsWindows())
@@ -242,10 +249,18 @@ public class LlamaServerService : ILlamaServerService, IDisposable
         _resolvedExecutablePath = resolvedExecutable;
         IsSingleModelMode = !string.IsNullOrEmpty(config.ModelPath) || !string.IsNullOrEmpty(config.HfRepo) || !string.IsNullOrEmpty(config.HfFile);
 
+        var launchConfig = config;
+        if (config.MoeCacheMib is not null && !string.IsNullOrEmpty(config.ModelPath))
+        {
+            launchConfig = CommandLineBuilder.ForModel(config, GgufMetadataService.TryRead(config.ModelPath));
+            if (!ReferenceEquals(launchConfig, config))
+                _logService.Warning($"'{Path.GetFileName(config.ModelPath)}' has no MoE experts, so --moe-cache-mib {config.MoeCacheMib} is left out: llama-server refuses to start with it.");
+        }
+
         var startInfo = new ProcessStartInfo
         {
             FileName = resolvedExecutable,
-            Arguments = CommandLineBuilder.Build(config, supportedFlags, validSpecTypeValues, validCacheTypeValues),
+            Arguments = CommandLineBuilder.Build(launchConfig, supportedFlags, validSpecTypeValues, validCacheTypeValues),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -490,7 +505,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            using var client = CreateServerClient();
 
             var modelsResponse = await client.GetAsync($"{BaseUrl}/v1/models");
             if (!modelsResponse.IsSuccessStatusCode)
@@ -543,7 +558,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            using var client = CreateServerClient();
 
             var unloadContent = new StringContent(
                 $"{{\"model\":\"{modelId}\"}}",
@@ -598,7 +613,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            using var client = CreateServerClient();
             var response = await client.GetAsync($"{BaseUrl}/v1/models");
             if (response.IsSuccessStatusCode)
             {
@@ -621,7 +636,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            using var client = CreateServerClient();
             var response = await client.GetAsync($"{BaseUrl}/tools");
 
             if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
@@ -674,7 +689,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
 
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            using var client = CreateServerClient();
             var response = await client.GetAsync($"{BaseUrl}/slots");
             if (response.IsSuccessStatusCode)
             {
@@ -740,9 +755,6 @@ public class LlamaServerService : ILlamaServerService, IDisposable
             }
         }
 
-        // На macOS процесс может быть wrapper-скриптом (например, shell-скрипт из Homebrew),
-        // который форкает реальный сервер и сразу завершается. В этом случае .NET Process
-        // отслеживает PID скрипта, а реальный llama-server продолжает работать.
         if (OperatingSystem.IsMacOS() && string.IsNullOrEmpty(_dockerContainerName) && lifetime < 5.0)
         {
             _logService.Warning($"Process exited after {lifetime:F1}s on macOS. Possible wrapper script. Checking port {_currentConfig?.Port}...");
@@ -795,7 +807,7 @@ public class LlamaServerService : ILlamaServerService, IDisposable
     private async Task<bool> IsPortListeningAsync()
     {
         if (_currentConfig == null) return false;
-        var host = _currentConfig.Host is "0.0.0.0" or "::" ? "127.0.0.1" : _currentConfig.Host;
+        var host = EndpointSnippets.ConnectHost(_currentConfig.Host);
         try
         {
             using var client = new TcpClient();

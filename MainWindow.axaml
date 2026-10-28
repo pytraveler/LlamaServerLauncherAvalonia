@@ -420,7 +420,7 @@
                                         <TextBlock Text="{Binding Localized.Port}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipPort}"/>
                                         <ctrl:HistoryTextBox Width="120" Margin="0,0,0,0" PlaceholderText="{Binding PortPlaceholder}" PropertyName="Port" ToolTip.Tip="{Binding Localized.TooltipPort}"/>
                                     </StackPanel>
-                                    <TextBlock Text="{Binding HostValidationMessage}" Foreground="{DynamicResource WarningForegroundBrush}" FontSize="11" Margin="0,2,0,0" IsVisible="{Binding !IsHostValid}"/>
+                                    <TextBlock Text="{Binding HostValidationMessage}" Foreground="{DynamicResource WarningForegroundBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" IsVisible="{Binding HasHostValidationMessage}"/>
                                     <TextBlock Text="{Binding PortValidationMessage}" Foreground="{DynamicResource WarningForegroundBrush}" FontSize="11" Margin="0,2,0,0" IsVisible="{Binding !IsPortValid}"/>
                                 </StackPanel>
                             </Border>
@@ -539,6 +539,23 @@
                                                     HorizontalAlignment="Left" Cursor="Hand" FontSize="11"
                                                     Foreground="{DynamicResource AccentForegroundBrush}"/>
                                         </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,5,10,0">
+                                            <TextBlock Text="{Binding Localized.MoeCacheMib}" ToolTip.Tip="{Binding Localized.TooltipMoeCacheMib}"/>
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
+                                                <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding MoeCacheMibPlaceholder}" PropertyName="MoeCacheMib" ToolTip.Tip="{Binding Localized.TooltipMoeCacheMib}" ToolTip.ShowOnDisabled="True" IsEnabled="{Binding IsMoeCacheEnabled}"/>
+                                            </Grid>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,5,0,0">
+                                            <TextBlock Text="{Binding Localized.CpuFfn}" ToolTip.Tip="{Binding Localized.TooltipCpuFfn}"/>
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
+                                                <ctrl:HistoryTextBox Grid.Column="0" HorizontalAlignment="Stretch" PlaceholderText="{Binding CpuFfnPlaceholder}" PropertyName="CpuFfn" ToolTip.Tip="{Binding Localized.TooltipCpuFfn}"/>
+                                            </Grid>
+                                            <Button Content="{Binding VramCpuFfnHintText}" IsVisible="{Binding HasVramCpuFfnHint}"
+                                                    Click="ApplyVramCpuFfnClick" ToolTip.Tip="{Binding Localized.VramPickCpuFfnTooltip}"
+                                                    Background="Transparent" BorderThickness="0" Padding="0" Margin="0,3,0,0"
+                                                    HorizontalAlignment="Left" Cursor="Hand" FontSize="11"
+                                                    Foreground="{DynamicResource AccentForegroundBrush}"/>
+                                        </StackPanel>
                                     </Grid>
                                     <StackPanel IsVisible="{Binding HasVramPlan}" Margin="0,10,0,0"
                                                 ToolTip.Tip="{Binding VramPlanToolTip}">
@@ -651,11 +668,12 @@
                                         <ctrl:TriStateSelector Label="{Binding Localized.Mmap}" Value="{Binding Mmap, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipMmap}" IsEnabled="{Binding IsMmapSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.ContextShift}" Value="{Binding ContextShift, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipContextShift}" IsEnabled="{Binding IsContextShiftSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.Reasoning}" Value="{Binding Reasoning, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipReasoning}" IsEnabled="{Binding IsReasoningSupported}"/>
+                                        <ctrl:TriStateSelector Label="{Binding Localized.ReasoningPreserve}" Value="{Binding ReasoningPreserve, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipReasoningPreserve}" IsEnabled="{Binding IsReasoningPreserveSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.Jinja}" Value="{Binding Jinja, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipJinja}" IsEnabled="{Binding IsJinjaSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.VerboseLogging}" Value="{Binding VerboseLogging, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipVerboseLogging}" IsEnabled="{Binding IsVerboseLoggingSupported}"/>
                                         <ctrl:TriStateSelector Label="{Binding Localized.MmprojOffload}" Value="{Binding MmprojOffload, Mode=TwoWay}" Margin="5" ToolTip.Tip="{Binding Localized.TooltipMmprojOffload}" IsEnabled="{Binding IsMmprojOffloadSupported}"/>
                                     </WrapPanel>
-                                    <Grid ColumnDefinitions="150,*,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,5,0,0">
+                                    <Grid ColumnDefinitions="150,*,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,5,0,0">
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Localized.ApiKey}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipApiKey}"/>
                                         <ctrl:HistoryTextBox Grid.Row="0" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ApiKeyPlaceholder}" PropertyName="ApiKey" ToolTip.Tip="{Binding Localized.TooltipApiKey}"/>
                                         
@@ -678,11 +696,26 @@
                                         <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding Localized.ParallelSlots}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipParallelSlots}"/>
                                         <ctrl:HistoryTextBox Grid.Row="4" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ParallelSlotsPlaceholder}" PropertyName="ParallelSlots" ToolTip.Tip="{Binding Localized.TooltipParallelSlots}" IsEnabled="{Binding IsParallelSlotsSupported}"/>
 
-                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding Localized.Timeout}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipTimeout}"/>
-                                        <ctrl:HistoryTextBox Grid.Row="5" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding TimeoutPlaceholder}" PropertyName="Timeout" ToolTip.Tip="{Binding Localized.TooltipTimeout}" IsEnabled="{Binding IsTimeoutSupported}"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding Localized.ContextPerSlot}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipContextPerSlot}"/>
+                                        <ctrl:HistoryTextBox Grid.Row="5" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ContextPerSlotPlaceholder}" PropertyName="ContextPerSlot" ToolTip.Tip="{Binding Localized.TooltipContextPerSlot}" IsEnabled="{Binding IsContextPerSlotSupported}"/>
 
-                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding Localized.ReasoningBudget}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipReasoningBudget}"/>
-                                        <ctrl:HistoryTextBox Grid.Row="6" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ReasoningBudgetPlaceholder}" PropertyName="ReasoningBudget" ToolTip.Tip="{Binding Localized.TooltipReasoningBudget}" IsEnabled="{Binding IsReasoningBudgetSupported}"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding Localized.Timeout}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipTimeout}"/>
+                                        <ctrl:HistoryTextBox Grid.Row="6" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding TimeoutPlaceholder}" PropertyName="Timeout" ToolTip.Tip="{Binding Localized.TooltipTimeout}" IsEnabled="{Binding IsTimeoutSupported}"/>
+
+                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding Localized.ReasoningBudget}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipReasoningBudget}"/>
+                                        <ctrl:HistoryTextBox Grid.Row="7" Grid.Column="1" Margin="0,2" PlaceholderText="{Binding ReasoningBudgetPlaceholder}" PropertyName="ReasoningBudget" ToolTip.Tip="{Binding Localized.TooltipReasoningBudget}" IsEnabled="{Binding IsReasoningBudgetSupported}"/>
+
+                                        <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding Localized.ReasoningEffort}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding Localized.TooltipReasoningEffort}"/>
+                                        <ComboBox Grid.Row="8" Grid.Column="1" Margin="0,2" HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding ReasoningEffortOptions}"
+                                                  Text="{Binding ReasoningEffort, Mode=TwoWay}"
+                                                  IsEditable="True"
+                                                  PlaceholderText="{Binding ReasoningEffortPlaceholder}"
+                                                  ToolTip.Tip="{Binding Localized.TooltipReasoningEffort}"
+                                                  IsEnabled="{Binding IsReasoningEffortSupported}"/>
+                                        <Button Grid.Row="8" Grid.Column="2" Click="ClearReasoningEffortClick" VerticalAlignment="Stretch" Margin="3,2,0,2" ToolTip.Tip="{Binding Localized.Clear}">
+                                            <PathIcon Data="{StaticResource BackspaceIcon}" Width="16" Height="16"/>
+                                        </Button>
                                     </Grid>
                                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                         <StackPanel Orientation="Horizontal" Margin="0,0,30,0">

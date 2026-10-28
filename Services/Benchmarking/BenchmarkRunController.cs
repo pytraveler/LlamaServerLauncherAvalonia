@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -104,7 +105,10 @@ public sealed class BenchmarkRunController : IDisposable
     {
         try
         {
-            using var resp = await _metricsClient.GetAsync($"{instance.BaseUrl}/metrics");
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{instance.BaseUrl}/metrics");
+            if (!string.IsNullOrEmpty(instance.ApiKey))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", instance.ApiKey);
+            using var resp = await _metricsClient.SendAsync(request);
             if (resp.IsSuccessStatusCode)
                 _lastMetricsText = await resp.Content.ReadAsStringAsync();
         }
@@ -151,7 +155,7 @@ public sealed class BenchmarkRunController : IDisposable
         {
             if (!instance.IsRunning)
                 break;
-            var r = await _http.MeasureAsync(instance.BaseUrl, prompt, options.StdNPredict, 600, _workloadCts.Token);
+            var r = await _http.MeasureAsync(instance.BaseUrl, prompt, options.StdNPredict, 600, _workloadCts.Token, instance.ApiKey);
             if (reps > 1 && i == 0)
                 continue;
             gen += r.TgTs;
@@ -186,7 +190,7 @@ public sealed class BenchmarkRunController : IDisposable
             KeepContext = options.PromptKeepContext,
             MaxTokens = options.PromptMaxTokens,
             TimeoutSeconds = options.PromptTimeoutSeconds,
-            ApiKey = options.Config?.ApiKey,
+            ApiKey = instance.ApiKey,
             PreferredModel = PreferredModelName(options.Config),
         };
 

@@ -16,6 +16,48 @@ public static class EndpointSnippetsTests
         h.Check("already bracketed kept", EndpointSnippets.NormalizeHost("[fe80::1]") == "[fe80::1]", EndpointSnippets.NormalizeHost("[fe80::1]"));
         h.Check("trims", EndpointSnippets.NormalizeHost("  10.0.0.1  ") == "10.0.0.1", EndpointSnippets.NormalizeHost("  10.0.0.1  "));
 
+        h.Section("EndpointSnippets: host lists");
+        h.Check("the first address of a list is used",
+            EndpointSnippets.NormalizeHost("192.168.1.5, 127.0.0.1") == "192.168.1.5",
+            EndpointSnippets.NormalizeHost("192.168.1.5, 127.0.0.1"));
+        h.Check("a wildcard in a list still means loopback",
+            EndpointSnippets.NormalizeHost("0.0.0.0,::") == "127.0.0.1", EndpointSnippets.NormalizeHost("0.0.0.0,::"));
+        h.Check(":: in a list is reached over ipv6, since it binds ipv6 only there",
+            EndpointSnippets.NormalizeHost("::,192.168.1.5") == "[::1]", EndpointSnippets.NormalizeHost("::,192.168.1.5"));
+        h.Check("unix sockets are skipped for http",
+            EndpointSnippets.NormalizeHost("/tmp/llama.sock,10.0.0.2") == "10.0.0.2",
+            EndpointSnippets.NormalizeHost("/tmp/llama.sock,10.0.0.2"));
+        h.Check("a socket alone is a host the launcher cannot reach",
+            EndpointSnippets.IsSocketOnly("/tmp/llama.sock") && EndpointSnippets.IsSocketOnly(" a.sock , b.sock "),
+            "socket only");
+        h.Check("a socket next to an address is not",
+            !EndpointSnippets.IsSocketOnly("/tmp/llama.sock,127.0.0.1"), "has tcp");
+        h.Check("and neither is an empty field, which means loopback",
+            !EndpointSnippets.IsSocketOnly("") && !EndpointSnippets.IsSocketOnly(null) && !EndpointSnippets.IsSocketOnly(" , "),
+            "default");
+        h.Check("a socket alone falls back to loopback",
+            EndpointSnippets.NormalizeHost("/tmp/llama.sock") == "127.0.0.1", EndpointSnippets.NormalizeHost("/tmp/llama.sock"));
+        h.Check("empty items are ignored",
+            EndpointSnippets.SplitHosts(" ,127.0.0.1,, ").Count == 1, EndpointSnippets.SplitHosts(" ,127.0.0.1,, ").Count.ToString());
+        h.Check("base url of a list",
+            EndpointSnippets.BaseUrl("127.0.0.1,192.168.1.5", 8080) == "http://127.0.0.1:8080",
+            EndpointSnippets.BaseUrl("127.0.0.1,192.168.1.5", 8080));
+        h.Check("ipv6 base url is bracketed",
+            EndpointSnippets.BaseUrl("::1", 8080) == "http://[::1]:8080", EndpointSnippets.BaseUrl("::1", 8080));
+        h.Check("socket connect host has no brackets",
+            EndpointSnippets.ConnectHost("::1") == "::1" && EndpointSnippets.ConnectHost("0.0.0.0") == "127.0.0.1",
+            EndpointSnippets.ConnectHost("::1"));
+
+        h.Section("EndpointSnippets.HostsOverlap");
+        h.Check("same host overlaps", EndpointSnippets.HostsOverlap("127.0.0.1", "127.0.0.1"), "yes");
+        h.Check("different hosts do not", !EndpointSnippets.HostsOverlap("127.0.0.1", "192.168.1.5"), "no");
+        h.Check("a shared address in two lists overlaps",
+            EndpointSnippets.HostsOverlap("127.0.0.1,192.168.1.5", "10.0.0.1, 192.168.1.5"), "yes");
+        h.Check("an empty host is the default one",
+            EndpointSnippets.HostsOverlap("", "127.0.0.1") && EndpointSnippets.HostsOverlap(null, " "), "yes");
+        h.Check("brackets and case do not matter",
+            EndpointSnippets.HostsOverlap("[FE80::1]", "fe80::1"), "yes");
+
         h.Section("EndpointSnippets.BaseUrl / OpenAiBaseUrl");
         h.Check("base url", EndpointSnippets.BaseUrl("127.0.0.1", 8080) == "http://127.0.0.1:8080", EndpointSnippets.BaseUrl("127.0.0.1", 8080));
         h.Check("base url normalizes 0.0.0.0", EndpointSnippets.BaseUrl("0.0.0.0", 9000) == "http://127.0.0.1:9000", EndpointSnippets.BaseUrl("0.0.0.0", 9000));

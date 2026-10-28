@@ -300,6 +300,31 @@ public static class GgufMetadataTests
         h.Check("the router and the shared expert are not offloadable experts",
             sh?.ExpertBytes == 64 && sh?.BytesForBlock(0) == 192,
             $"{sh?.ExpertBytes}/{sh?.BytesForBlock(0)}");
+        h.Check("nor are they dense ffn",
+            sh?.DenseFfnBytes == 0, sh?.DenseFfnBytes.ToString() ?? "null");
+
+        var dense = BuildGguf(3, 2, w =>
+        {
+            WriteKvString(w, "general.architecture", "llama");
+            WriteKvUint32(w, "llama.block_count", 2);
+        }, 5, w =>
+        {
+            WriteTensor(w, "blk.0.attn_q.weight", 1, 8, 4);
+            WriteTensor(w, "blk.0.ffn_gate.weight", 1, 8, 4);
+            WriteTensor(w, "blk.0.ffn_up.weight", 1, 8, 4);
+            WriteTensor(w, "blk.0.ffn_norm.weight", 0, 8);
+            WriteTensor(w, "blk.1.ffn_down.weight", 1, 8, 8);
+        });
+        var de = ReadDetailed(dense)?.Tensors;
+        h.Check("dense ffn weights are summed the way --n-cpu-ffn matches them",
+            de?.DenseFfnBytes == 256 && de?.ExpertBytes == 0,
+            $"{de?.DenseFfnBytes}/{de?.ExpertBytes}");
+        h.Check("the ffn norm stays with the block",
+            de?.DenseFfnBytesForBlock(0) == 128 && de?.BytesForBlock(0) == 224,
+            $"{de?.DenseFfnBytesForBlock(0)}/{de?.BytesForBlock(0)}");
+        h.Check("each block keeps its own ffn",
+            de?.DenseFfnBytesForBlock(1) == 128 && de?.DenseFfnBytesForBlock(2) == 0,
+            $"{de?.DenseFfnBytesForBlock(1)}/{de?.DenseFfnBytesForBlock(2)}");
 
         var hybrid = BuildGguf(3, 2, w =>
         {
@@ -331,6 +356,7 @@ public static class GgufMetadataTests
             {
                 TensorCount = 2, TotalBytes = 100, RepeatingBytes = 100,
                 BlockBytes = new long[] { 60, 40 }, BlockExpertBytes = new long[] { 0, 40 },
+                DenseFfnBytes = 15, BlockDenseFfnBytes = new long[] { 15 },
                 BlockKvBytes = new long[] { 20, 0 }
             },
             new GgufTensorSummary
@@ -346,6 +372,9 @@ public static class GgufMetadataTests
             $"{merged?.BytesForBlock(1)}/{merged?.BytesForBlock(2)}");
         h.Check("attention blocks from every part are seen",
             merged?.KvBlockCount == 2, merged?.KvBlockCount.ToString() ?? "null");
+        h.Check("dense ffn of every part is kept",
+            merged?.DenseFfnBytes == 15 && merged?.DenseFfnBytesForBlock(0) == 15,
+            $"{merged?.DenseFfnBytes}/{merged?.DenseFfnBytesForBlock(0)}");
         h.Check("merging with nothing keeps what there is",
             GgufTensorSummary.Merge(null, merged) == merged && GgufTensorSummary.Merge(merged, null) == merged,
             "unchanged");
